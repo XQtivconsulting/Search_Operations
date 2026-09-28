@@ -1,5 +1,6 @@
 import { Identity, digest } from "./identity";
 import { Workspace } from "./workspace";
+import { sendInvitationEmail } from './invitation-email';
 import { fetchJobs } from './recruitcrm';
 import { requireThat, text, roles } from "./domain";
 export { Identity, Workspace };
@@ -10,6 +11,8 @@ interface Env {
   APP_ORIGIN: string;
   SETUP_KEY?: string;
   RECRUITCRM_TOKENS?: string;
+  RESEND_API_KEY?: string;
+  INVITATION_FROM?: string;
 }
 const json = (
   data: unknown,
@@ -146,7 +149,9 @@ export default {
               body.role,
               body.staffId || null,
             );
-            res = json({ url: `${url.origin}/join/${invite}` });
+            const invitationUrl = `${url.origin}/join/${invite}`;
+            const emailStatus = await sendInvitationEmail(env, text(body.email, 254).toLowerCase(), invitationUrl);
+            res = json({ url: invitationUrl, emailStatus });
           } else if (url.pathname === "/api/members" && req.method === "GET") {
             requireThat(
               a.role === "admin",

@@ -24,6 +24,16 @@ The supplied `scripts/bootstrap.mjs` reads `APP_URL`, `SETUP_KEY`, `ADMIN_EMAIL`
 
 Run `node scripts/bootstrap.mjs`, then immediately run `npx wrangler secret delete SETUP_KEY`. Verify POST /api/setup returns 404. Open the private invitation yourself, choose your password, and invite colleagues from Workspace. Link researcher users to the correct imported staff record. Do not regenerate invitations or replay provisioning casually.
 
+## Invitation email
+
+The authenticated administrator invitation endpoint supports Resend. It keeps the private copy-link option and reports whether the provider accepted the email; acceptance is not proof of inbox delivery.
+
+Before enabling delivery, verify the intended sending domain in Resend. In the Cloudflare Worker settings, add `RESEND_API_KEY` as a secret with sending-only scope and `INVITATION_FROM` as the verified sender address. Never put the key in Git or browser code. Connecting Resend to ChatGPT does not automatically configure the Worker.
+
+Without both settings the app explicitly says email is not connected. Provider rejection or timeout preserves the invitation and tells the administrator to share the link privately. No invitation or provider response is logged by the application. There is no automatic resend on failure.
+
+This integration does not provision the first administrator or alter the protected setup endpoint. First-administrator setup remains a separate required step. No live invitation email has been tested yet.
+
 ## RecruitCRM
 
 Set Worker secret `RECRUITCRM_TOKENS` with a JSON object keyed by workspace, for example `{"xqtiv":"YOUR_TOKEN"}`. Use `npx wrangler secret put RECRUITCRM_TOKENS` and enter the actual value through the secure prompt. Do not put a real value in this document.

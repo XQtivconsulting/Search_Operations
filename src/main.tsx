@@ -99,7 +99,7 @@ function App() {
           body.staff_ids = new FormData(e.currentTarget).getAll("staff_ids");
         if (modal?.kind === "invite") {
           const result = await api("invite", body);
-          setModal({ kind: "invitation", url: result.url });
+          setModal({ kind: "invitation", url: result.url, emailStatus: result.emailStatus });
           return;
         }
         await api("mutate", body);
@@ -991,6 +991,13 @@ function App() {
             </div>
             {modal.kind === "invitation" ? (
               <>
+                <p role="status">
+                  {modal.emailStatus === 'accepted'
+                    ? 'Invitation submitted for email delivery. You can also share the link below.'
+                    : modal.emailStatus === 'unconfirmed'
+                      ? 'Email delivery could not be confirmed. Your invitation is ready; copy the link below and share it privately.'
+                      : 'Email invitations are not connected yet. Copy the link below and share it privately.'}
+                </p>
                 <p>
                   Share this single-use link privately with the intended
                   colleague. It expires in seven days.
