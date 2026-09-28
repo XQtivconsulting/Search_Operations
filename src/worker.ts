@@ -127,7 +127,18 @@ export default {
               const jobs = await fetchJobs(token);
               try {res = json(await workspace.stageCRM(a,jobs));}
               catch {throw Object.assign(new Error('RecruitCRM jobs were fetched, but the app could not save the preview. Existing searches were not changed. Report storage error CRM_PREVIEW.'),{status:500});}
-            } else if(url.pathname === '/api/crm/apply' && req.method === 'POST') res = json(await workspace.applyCRM(a,body.jobs));
+            } else if(url.pathname === '/api/crm/apply' && req.method === 'POST') {
+              requireThat(Array.isArray(body.jobs),'Select jobs to import.');
+              const members=await identity.members(a.tenant);
+              for(const item of body.jobs) {
+                if(Object.prototype.hasOwnProperty.call(item,'partner_id')) {
+                  const partner=item.partner_id?members.find((m:any)=>m.id===item.partner_id&&m.status==='active'&&['admin','founder','partner'].includes(m.role)):null;
+                  requireThat(!item.partner_id||partner,'Choose an active engagement partner.');
+                  item.partner=partner?.name || '';
+                }
+              }
+              res = json(await workspace.applyCRM(a,body.jobs));
+            }
             else res = json({error:'Not found.'},404);
           }
           else if (url.pathname === "/api/state" && req.method === "GET") {

@@ -26,7 +26,7 @@ export function Setup() {
   }
   return <main className="login">
     <section className="login-story">
-      <div className="brand">XQtiv Search Operations</div>
+      <div className="brand"><img src="/brand/xqtiv-logo.svg" alt="XQtiv"/><span>Search Operations</span></div>
       <h1>Set up your workspace.</h1>
       <p>Create the first administrator. You can invite your team after signing in.</p>
     </section>

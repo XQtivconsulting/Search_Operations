@@ -159,3 +159,14 @@ test('legacy duplicate decisions migrate to one current weekly priority without 
  const again=new Workspace(ctx as any,{});assert.equal((await again.state(actor)).priorities[0].version,2);
  assert.equal(db.prepare('SELECT COUNT(*) n FROM assignments').get()?.n,1);db.close();
 });
+
+test('CRM imports save explicit engagement partners and preserve ownership on ordinary refresh',async()=>{
+ const {db,w}=fixture();await w.stageCRM(actor,[{external_id:'99',title:'Role',status:'Open',company_slug:'co',company_name:'Company'}]);
+ const job=(await w.crmState(actor)).jobs[0];await w.applyCRM(actor,[{...job,partner_id:'p',partner:'Partner One'}]);
+ let search=db.prepare("SELECT * FROM searches WHERE external_id='99'").get()!;
+ assert.equal(search.partner_id,'p');assert.equal(search.partner,'Partner One');
+ await w.applyCRM(actor,[{...job,search_id:search.id,version:search.version,partner:'Injected name without ID'}]);
+ search=db.prepare("SELECT * FROM searches WHERE external_id='99'").get()!;assert.equal(search.partner,'Partner One');
+ await w.applyCRM(actor,[{...job,search_id:search.id,version:search.version,partner_id:'',partner:''}]);
+ assert.equal(db.prepare("SELECT partner FROM searches WHERE external_id='99'").get()?.partner,'');db.close();
+});

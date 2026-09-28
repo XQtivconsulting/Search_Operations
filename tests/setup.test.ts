@@ -50,3 +50,11 @@ test('search partner API accepts only active workspace partners and never trusts
  const state=await worker.fetch(new Request('https://app.example.com/api/state'),env);
  assert.deepEqual((await state.json() as any).partners,[{id:'p',name:'Actual Partner'}]);
 });
+
+test('CRM import validates every selected partner before any workspace write',async()=>{
+ let written:any=null;
+ const env:any={IDENTITY:{getByName:()=>({authenticate:async()=>({tenant:'test',role:'admin'}),members:async()=>[{id:'p',name:'Verified Partner',role:'partner',status:'active'},{id:'r',name:'Researcher',role:'researcher',status:'active'}]})},WORKSPACE:{getByName:()=>({applyCRM:async(a:any,jobs:any)=>{written=jobs;return {count:jobs.length};}})}};
+ const send=(jobs:any[])=>worker.fetch(new Request('https://app.example.com/api/crm/apply',{method:'POST',headers:{Origin:'https://app.example.com'},body:JSON.stringify({jobs})}),env);
+ assert.equal((await send([{partner_id:'p'},{partner_id:'r'}])).status,400);assert.equal(written,null);
+ assert.equal((await send([{partner_id:'p',partner:'Wrong name'}])).status,200);assert.equal((written as any)[0].partner,'Verified Partner');
+});

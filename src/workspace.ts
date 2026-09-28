@@ -108,9 +108,11 @@ export class Workspace extends DurableObject {
         requireThat(old ? old.id === item.search_id && old.version === item.version : !item.search_id,'The local search changed. Reload the preview.',409);
         const id = old?.id || uuid(), client = source.company_name || old?.client || text(item.client);
         requireThat(client,'Enter a client name for each new search.');
-        if(old) this.rows('UPDATE searches SET title=?,status=?,client=?,version=version+1 WHERE id=?',source.title,source.status,client,id);
-        else this.rows('INSERT INTO searches(id,external_id,client,title,status) VALUES(?,?,?,?,?)',id,source.external_id,client,source.title,source.status);
-        this.audit(a,'crm-apply',id,old || null,{external_id:source.external_id,title:source.title,status:source.status,client});
+        const changePartner=Object.prototype.hasOwnProperty.call(item,'partner_id');
+        const partner_id=changePartner?text(item.partner_id):(old?.partner_id || ''),partner=changePartner?text(item.partner):(old?.partner || '');
+        if(old) this.rows('UPDATE searches SET title=?,status=?,client=?,partner_id=?,partner=?,version=version+1 WHERE id=?',source.title,source.status,client,partner_id,partner,id);
+        else this.rows('INSERT INTO searches(id,external_id,client,title,status,partner_id,partner) VALUES(?,?,?,?,?,?,?)',id,source.external_id,client,source.title,source.status,partner_id,partner);
+        this.audit(a,'crm-apply',id,old || null,{external_id:source.external_id,title:source.title,status:source.status,client,partner_id,partner});
       }
       this.rows('INSERT INTO integration_runs VALUES(?,?,?,?,?)',uuid(),a.id,'applied',jobs.length,now());
       return {count:jobs.length};

@@ -127,7 +127,7 @@ function App() {
       <main className="login">
         <section className="login-story">
           <div className="brand">
-            <SquaresFour size={30} weight="duotone" /> SEARCH ERP
+            <img src="/brand/xqtiv-logo.svg" alt="XQtiv"/><span>Search Operations</span>
           </div>
           <p className="eyebrow">THE SEARCH OPERATING WORKSPACE</p>
           <h1>
@@ -316,7 +316,7 @@ function App() {
     <div className="app">
       <aside>
         <div className="brand">
-          <SquaresFour size={28} weight="duotone" /> SEARCH ERP
+          <img src="/brand/xqtiv-logo.svg" alt="XQtiv"/><span>Search Operations</span>
         </div>
         <div className="workspace-label">
           <span className="workspace-initial">{data.name[0]}</span>
@@ -463,7 +463,7 @@ function App() {
             </p>
           </div>
         )}
-        {page === "Integrations" && <CRMPanel searches={data.searches} api={api} reload={load} />}
+        {page === "Integrations" && <CRMPanel partners={data.partners || []} searches={data.searches} api={api} reload={load} />}
         {page === "Overview" && (
           <>
             {cards(filtered)}
@@ -577,7 +577,7 @@ function App() {
                         <span>
                           <small>
                             {s.client}{" "}
-                            {s.external_id && " / CRM " + s.external_id}
+                            {s.external_id && " / CRM " + s.external_id}{s.partner && ` · Partner: ${s.partner}`}
                           </small>
                           <strong>{s.title}</strong>
                         </span>

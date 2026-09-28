@@ -54,3 +54,11 @@ Invitation membership, Secure/HttpOnly/SameSite cookies, same-origin writes, act
 See [Weekly planning](WEEKLY-PLANNING.md). `team_members` and versioned `team_rosters` define research teams. New assignments snapshot members into entries. `weekly_priorities` provides a unique current record per search/Monday week; legacy `weekly_decisions` stays append-only. Startup migration retains all historical events and materializes the latest per calendar week. `searches.partner_id` stores the selected account; the API validates active eligible membership in the authenticated tenant and stores its name for display.
 
 The `week-plan` mutation saves seven days atomically, with assignment and roster versions, duplicate checks, and protection of recorded output. The planner displays these same assignments by search or team. Roster changes do not rewrite existing work.
+
+## Brand and integration controls
+
+The UI uses the supplied XQtiv Colors palette, with an original logo extracted from the brand guide. `/brand/xqtiv-logo.svg` wraps the unmodified PNG in a tight SVG viewport. Poppins Latin webfonts are self-hosted under `/fonts` with the SIL license; other character sets use the system fallback. No font requests leave the app at runtime.
+
+The CRM preview supports text filters for IDs/titles and multi-select column filters for statuses, companies and engagement partners. Values within a column combine with OR; columns combine with AND. Filters clear row selection, and imports only apply selected visible rows. Existing engagement partners can be saved independently of CRM field changes; new jobs can receive a partner during selected import. The server validates every chosen account against active eligible members in the authenticated workspace before applying the batch. An ordinary CRM refresh preserves local ownership.
+
+Weekly priority labels and allocation borders share distinct Start, Continue, Recalibrate, Pause and Stop colors, with visible text retained for accessibility.
