@@ -8,6 +8,13 @@ test('daily grid includes unplanned candidate work and distinguishes blank from 
 
 test('daily people controls and missing-field labels explain themselves',async()=>{
  const React=await import('react'),{renderToStaticMarkup}=await import('react-dom/server'),{DailyWork}=await import('../src/DailyWork');
- const d={...data,actor:{tenant:'test',id:'test'},staff:[],searches:[{...data.searches[0],partner:''}]};const rows=dailyRows(d,[assignments[0]],[entries[0]]);assert.equal(rows[0].partnerName,'Partner not assigned');assert.equal(rows[0].researchers,'Removed user');
+ const d={...data,actor:{tenant:'test',id:'test'},searches:[{...data.searches[0],partner:''}]};const rows=dailyRows(d,[assignments[0]],[entries[0]]);assert.equal(rows[0].partnerName,'Partner not assigned');assert.equal(rows[0].researchers,'Researcher');
  const html=renderToStaticMarkup(React.createElement(DailyWork,{data:d,assignments:[assignments[0]],entries:[entries[0]],renderEntries:()=>null,onOpen:()=>{}}));assert.ok(html.includes('Show 1 researcher'));assert.ok(!html.includes('+ 1'));
+});
+
+test('Daily Work hides removed-only work and excludes removed people from mixed totals while retaining empty plans',()=>{
+ const removed={...entries[0],id:'removed',staff_id:'gone',mapped:99};
+ const rows=dailyRows(data,assignments,[removed]);assert.deepEqual(rows.map(r=>r.id),['b']);
+ const mixed=dailyRows(data,assignments,[removed,entries[0]]);assert.equal(mixed[0].mapped,12);assert.equal(mixed[0].entries.length,1);assert.equal(mixed[0].researchers,'Researcher');
+ assert.equal(dailyRows(data,[],[{...removed,assignment_id:'old'}]).length,0);
 });

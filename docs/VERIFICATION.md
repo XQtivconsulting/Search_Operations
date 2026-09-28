@@ -83,3 +83,9 @@ The accounts-only synchronization could hit the legacy UNIQUE staff.name constra
 All 120 tests, typecheck and production build passed. New tests cover inline company/target creation and rollback, canonical candidate reuse, duplicate role rejection, stale profile versions, actual researcher/team attribution, independent coverage vs candidate review, inline entry without dialog/contact fields, role-first screen rendering and explicit Daily Work labels. No customer data was imported, changed or deleted during testing. Authenticated browser interaction was not verified.
 
 Additional coverage verifies atomic multi-company assignment, stale/cross-role/permission failures, role-plan team inference for Assign to me, enforcement of an explicitly assigned company team, and no-talent completion counted with zero mappings and retained researcher/team attribution.
+
+## Focused work and repository navigation — 2026-09-28
+
+Daily Work excludes removed-user entries and their totals, including rows populated only by removed people; genuine empty plans remain visible. Stored history is unchanged. My Work focuses one role with mapping/coverage tabs, retained inputs while switching tabs, and a guarded Back action. Repository role selection supports typed ID/company/title search and numeric ID or company sorting. Target selection and Wave are separate columns. Shared tables use stronger blue row contrast.
+
+All 122 tests, typecheck and production build passed locally. Regression tests cover mixed/removed-only Daily Work rows and role search/sort behavior. No live data was modified for verification. Signed-in browser visual/interaction verification was not performed. Deployment is checked separately through GitHub Actions.
