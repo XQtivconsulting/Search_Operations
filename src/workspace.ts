@@ -1,4 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
+import {researchSchema,researchState,researchMutation,derivedEntries} from "./research";
+import type {Member} from "./research";
 import {weekStart,weekDays} from './planning';
 import { workspaceSchema } from "./schema";
 import type { CRMJob } from './recruitcrm';
@@ -19,6 +21,7 @@ export class Workspace extends DurableObject {
   constructor(ctx: DurableObjectState, env: any) {
     super(ctx, env);
     ctx.storage.sql.exec(workspaceSchema);
+    ctx.storage.sql.exec(researchSchema);
     if(!this.rows('PRAGMA table_info(crm_jobs)').some(c=>c.name === 'company_name'))
       this.rows("ALTER TABLE crm_jobs ADD COLUMN company_name TEXT NOT NULL DEFAULT ''");
     if(!this.rows('PRAGMA table_info(searches)').some(c=>c.name === 'partner_id'))
@@ -47,8 +50,20 @@ export class Workspace extends DurableObject {
       now(),
     );
   }
+  async research(a: Actor,b:any,members:Member[]):Promise<any> {return this.ctx.storage.transactionSync(()=>{
+      if(b.action==='mapping-batch') {
+        requireThat(Array.isArray(b.items)&&b.items.length>0&&b.items.length<=100,'Select 1–100 mappings.');
+        requireThat(new Set(b.items.map((i:any)=>i.id)).size===b.items.length,'Select each mapping once.');
+        requireThat(['mapping-submit','mapping-review'].includes(b.operation),'Unsupported batch operation.');
+        return {saved:b.items.map((item:any)=>researchMutation(this,a,{id:item.id,version:item.version,action:b.operation,decision:b.decision,reason:b.reason,notes:b.notes},members))};
+      }
+      return researchMutation(this,a,b,members);
+    });}
+  async publicBrief(token:string) {const r=this.rows("SELECT data FROM brief_shares WHERE token=?",token)[0];return r?JSON.parse(r.data):null;}
   async state(a: Actor) {
-    return {
+    const research=researchState(this);
+    const result = {
+      research,
       actor: a,
       name:
         this.rows("SELECT value FROM settings WHERE key=?", "name")[0]?.value ??
@@ -77,6 +92,10 @@ export class Workspace extends DurableObject {
           )
         : [],
     };
+    const automated=new Set(research.records.filter(r=>r.kind==='strategy'&&r.active).map(r=>r.role_id));
+    result.entries=result.entries.map(e=>({...e,automated:automated.has(e.search_id)}));
+    result.entries.push(...derivedEntries(research.records,result.assignments));
+    return result;
   }
   async crmState(a: Actor) {
     requireThat(a.role === 'admin', 'Administrator permission required.',403);
@@ -178,6 +197,7 @@ export class Workspace extends DurableObject {
           requireThat(old ? old.id===d.id && old.version===Number(d.version) : !d.id,'The plan changed. Reload before saving.',409);
           if(!d.enabled) {
             if(old) {
+              requireThat(!this.rows("SELECT id FROM research_records WHERE kind='mapping' AND role_id=? AND json_extract(data,'$.team_id')=? AND json_extract(data,'$.work_date')=?",b.search_id,b.team_id,d.date).length,'Candidate work is linked to this day. Keep the assignment and edit its target.',409);
               requireThat(!this.rows("SELECT id FROM entries WHERE assignment_id=? AND (mapped IS NOT NULL OR peer IS NOT NULL OR partner IS NOT NULL OR notes<>'' OR flag IS NOT NULL OR source<>'manual')",old.id).length && !this.rows('SELECT r.id FROM reviews r JOIN entries e ON e.id=r.entry_id WHERE e.assignment_id=?',old.id).length,'Work has already been recorded on '+d.date+'. Keep this assignment and edit its target instead.',409);
               this.rows('DELETE FROM entries WHERE assignment_id=?',old.id);
               this.rows('DELETE FROM assignments WHERE id=?',old.id);
@@ -286,6 +306,11 @@ export class Workspace extends DurableObject {
         }
         this.audit(a, kind, id, null, b);
         return { id };
+      }
+      if (['entry','review','reopen'].includes(kind)) {
+        const row=this.rows('SELECT a.search_id,a.work_date FROM entries e JOIN assignments a ON a.id=e.assignment_id WHERE e.id=?',b.id)[0];
+        const strategy=row&&this.rows("SELECT data FROM research_records WHERE kind='strategy' AND role_id=?",row.search_id)[0];
+        if(strategy) {const doc=JSON.parse(strategy.data);requireThat(!doc.cutover||row.work_date<doc.cutover,'This role uses candidate-derived output. Open its candidate mappings instead.',409);}
       }
       if (kind === "entry") {
         const old = this.rows("SELECT * FROM entries WHERE id=?", b.id)[0];

@@ -62,3 +62,11 @@ The UI uses the supplied XQtiv Colors palette, with an original logo extracted f
 The CRM preview supports text filters for IDs/titles and multi-select column filters for statuses, companies and engagement partners. Values within a column combine with OR; columns combine with AND. Filters clear row selection, and imports only apply selected visible rows. Existing engagement partners can be saved independently of CRM field changes; new jobs can receive a partner during selected import. The server validates every chosen account against active eligible members in the authenticated workspace before applying the batch. An ordinary CRM refresh preserves local ownership.
 
 Weekly priority labels and allocation borders share distinct Start, Continue, Recalibrate, Pause and Stop colors, with visible text retained for accessibility.
+
+## Candidate research workflow
+
+`research_records` stores typed, versioned tenant objects with unique `(kind, record_key)` identities for brief/strategy by role, company by normalized name, target by role/company, candidate by canonical LinkedIn URL, mapping by role/candidate and reviewer default by team. `research_events` preserves immutable old/new snapshots for review and lifecycle actions. SQL transactions include domain writes, events and audit records. `brief_shares` contains only public allowlisted snapshots indexed by unguessable revocable tokens.
+
+POST `/api/research` authenticates membership, loads authoritative active members, and dispatches permission-checked operations inside the tenant Durable Object. Bulk submit/review is atomic. GET `/api/public-brief` is the sole unauthenticated research endpoint; it requires an exact capability and returns only the shared snapshot. The normal state includes a directory of active names/roles/staff links, with no email or credentials.
+
+Derived daily entries are calculated from submitted candidate mappings, never written into legacy entries. Manual counts on/after the strategy activation date are prohibited, including via the bulk API. Historical counts remain separate dated records. All company assignments, review ownership, document publication and cutover rules are described in [Research workflow](RESEARCH-WORKFLOW.md).

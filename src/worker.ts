@@ -61,7 +61,12 @@ export default {
           requireThat(raw.length < 8e6, "Request is too large.", 413);
           body = JSON.parse(raw);
         }
-        if (setup) {
+        if (url.pathname === '/api/public-brief' && req.method === 'GET') {
+          const tenant=text(url.searchParams.get('workspace'),100),token=text(url.searchParams.get('token'),100);
+          requireThat(/^[a-zA-Z0-9_-]+$/.test(tenant)&&/^[a-f0-9-]{72}$/.test(token),'Brief not found.',404);
+          const brief=await (env.WORKSPACE.getByName(tenant) as any).publicBrief(token);
+          requireThat(brief,'This brief is no longer shared.',404);res=json(brief);
+        } else if (setup) {
           requireThat(
             req.method === "POST" &&
               env.SETUP_KEY &&
@@ -143,7 +148,11 @@ export default {
           }
           else if (url.pathname === "/api/state" && req.method === "GET") {
             const partners=(await identity.members(a.tenant)).filter((m:any)=>m.status==='active' && ['admin','founder','partner'].includes(m.role)).map((m:any)=>({id:m.id,name:m.name}));
-            res = json({...await workspace.state(a),partners});
+            const people=(await identity.members(a.tenant)).filter((m:any)=>m.status==='active').map((m:any)=>({id:m.id,name:m.name,role:m.role,staff_id:m.staff_id,status:m.status}));
+            res = json({...await workspace.state(a),partners,people});
+          }
+          else if (url.pathname === '/api/research' && req.method === 'POST') {
+            res=json(await workspace.research(a,body,await identity.members(a.tenant)));
           }
           else if (url.pathname === "/api/mutate" && req.method === "POST") {
             if(['search','search-owner'].includes(body.kind)) {

@@ -11,8 +11,8 @@ Connect the specified GitHub repository and the owner’s Cloudflare account. De
 ## Next priorities
 
 1. Bulk creation/editing of weekly and daily allocations, roster changes, capacity conflicts and plan locking.
-2. Roles and Positions, versioned role brief, strategy and plan approvals, target-company mapping and Boolean query tracking.
-3. Reusable candidates, candidate-role mappings, structured rejection reasons, duplicate control and immutable individual mapping reviews.
+2. Extend implemented versioned role briefs/strategies and target-company mapping with Positions, formal plan approval and Boolean query tracking.
+3. Extend implemented reusable candidates, unique candidate-role mappings, structured rejection reasons and immutable two-stage reviews with enrichment and controlled merges.
 4. RecruitCRM approved-candidate handoff, engagement summaries, tenant secret management, durable retry/outbox and reconciliation.
 5. Server-side reporting/pagination, historical team memberships and role health metrics.
 6. Client presentations, interviews, offers, placements, fee milestones and partner attribution.

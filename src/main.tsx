@@ -20,6 +20,7 @@ import { BulkSheet } from "./BulkSheet";
 import {WeeklyPlanner} from './WeeklyPlanner';
 import {TeamsPanel} from './TeamsPanel';
 import { CRMPanel } from "./CRMPanel";
+import {ResearchPanel,PublicBrief} from "./ResearchPanel";
 import { Setup } from './Setup';
 import "./style.css";
 type Row = Record<string, any>;
@@ -56,6 +57,7 @@ function App() {
     [modal, setModal] = useState<Row | null>(null),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState("");
+  const [repoTab,setRepoTab]=useState("Company universe");
   const [sheetDirty, setSheetDirty] = useState(false);
   const invite = location.pathname.startsWith('/join/') ? location.pathname.split('/')[2] : new URLSearchParams(location.hash.slice(1)).get("invite");
   const [invitation,setInvitation] = useState<Row|null>(null);
@@ -214,11 +216,14 @@ function App() {
       .includes(search.toLowerCase()),
   );
   const queue = filtered.filter(
-    (e: Row) => e.mapped !== null && (e.peer === null || e.partner === null),
+    (e: Row) => e.source!=='candidates' && !e.automated && e.mapped !== null && (e.peer === null || e.partner === null),
   );
   const nav: [string, React.ElementType][] = [
     ["Overview", SquaresFour],
     ["Searches", Briefcase],
+    ["Role repository",Briefcase],
+    ["My Work",ClipboardText],
+    ["Workflow Monitor",ChartBar],
     ["Weekly plan", CalendarBlank],
     ["Daily work", ClipboardText],
     ["Spreadsheet", ClipboardText],
@@ -277,14 +282,15 @@ function App() {
           <strong>{e.partner ?? "Pending"}</strong>
         </div>
         <div className="row-actions">
-          {(isAdmin || actor.staffId === e.staff_id) &&
+          {e.source==='candidates'&&<button onClick={()=>{setSelected(e.search_id);setRepoTab("Candidate mappings");setPage("Role repository");}}>View mappings</button>}
+          {!e.automated&&e.source!=='candidates'&&(isAdmin || actor.staffId === e.staff_id) &&
             !e.peer_at &&
             !e.partner_at && (
               <button onClick={() => open({ kind: "entry", ...e })}>
                 Log output
               </button>
             )}
-          {(isAdmin ||
+          {!e.automated&&e.source!=='candidates'&&(isAdmin ||
             (actor.role === "researcher" &&
               actor.staffId &&
               actor.staffId !== e.staff_id)) &&
@@ -296,14 +302,14 @@ function App() {
                 Peer review
               </button>
             )}
-          {(isAdmin || actor.role === "partner") && e.peer !== null && (
+          {!e.automated&&e.source!=='candidates'&&(isAdmin || actor.role === "partner") && e.peer !== null && (
             <button
               onClick={() => open({ kind: "review", ...e, stage: "partner" })}
             >
               Partner review
             </button>
           )}
-          {isAdmin && (e.peer_at || e.partner_at) && (
+          {!e.automated&&e.source!=='candidates'&&isAdmin && (e.peer_at || e.partner_at) && (
             <button onClick={() => open({ kind: "reopen", ...e })}>
               Reopen
             </button>
@@ -406,7 +412,7 @@ function App() {
             {error}
           </div>
         )}
-        {page !== "Workspace" && page !== "Integrations" && page !== "Weekly plan" && (
+        {!["Role repository","My Work","Workflow Monitor"].includes(page) && page !== "Workspace" && page !== "Integrations" && page !== "Weekly plan" && (
           <div className="filters">
             <label>
               From
@@ -597,7 +603,9 @@ function App() {
                           {s.partner && ` · Partner ${s.partner}`}
                         </p>
                         {s.notes && <p>{s.notes}</p>}
+                        <button className="primary" onClick={()=>{setSelected(s.id);setRepoTab("Company universe");setPage("Role repository");}}>Open role repository</button>
                         <div className="row-actions">
+
                           <button
                             onClick={() => {
                               setSelected(s.id);
@@ -634,7 +642,8 @@ function App() {
           </>
         )}
         {page === "Weekly plan" && <WeeklyPlanner data={data} api={api} reload={load} initialSearch={selected} onDirty={setSheetDirty} onTeams={()=>setPage('Workspace')}/>}
-        {page === "Spreadsheet" && <BulkSheet data={data} entries={filtered} assignments={assignments} api={api} reload={load} onDirty={setSheetDirty} />}
+        {["Role repository","My Work","Workflow Monitor"].includes(page)&&<ResearchPanel key={page} data={data} api={api} reload={load} view={page} initialRole={page==='Role repository'?selected:''} initialTab={repoTab} onDirty={setSheetDirty}/>}
+        {page === "Spreadsheet" && <BulkSheet onOpen={id=>{setSelected(id);setRepoTab("Candidate mappings");setPage("Role repository");}} data={data} entries={filtered} assignments={assignments} api={api} reload={load} onDirty={setSheetDirty} />}
         {page === "Daily work" && (
           <div className="assignment-list">
             {assignments.map((a: Row) => (
@@ -681,7 +690,7 @@ function App() {
         )}
         {page === "Reviews" && (
           <section className="panel">
-            <h2>Awaiting review</h2>
+            <h2>Historical count reviews</h2><p>For individual candidate reviews, open <button onClick={()=>setPage("My Work")}>My Work</button> or <button onClick={()=>setPage("Workflow Monitor")}>Workflow Monitor</button>.</p>
             <p className="fine">
               Zero approvals is a completed review. Missing counts remain
               pending.
@@ -827,6 +836,7 @@ function App() {
                 </button>
               </div>
               <div className="row-actions">
+
                 <button onClick={() => open({ kind: "staff" })}>
                   Add researcher
                 </button>
@@ -1119,4 +1129,4 @@ function Empty({ title, body }: any) {
     </div>
   );
 }
-createRoot(document.getElementById("root")!).render(location.pathname === '/setup' ? <Setup /> : <App />);
+createRoot(document.getElementById("root")!).render(location.pathname === '/brief' ? <PublicBrief/> : location.pathname === '/setup' ? <Setup /> : <App />);

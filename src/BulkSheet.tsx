@@ -2,10 +2,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import { gridCount, parseClipboard } from "./grid";
 type Row = Record<string, any>;
 type Draft = { value: string; notes: string; version: number };
-export function BulkSheet({data, entries, assignments, api, reload, onDirty}: {
+export function BulkSheet({data, entries, assignments, api, reload, onDirty, onOpen}: {
   data: Row; entries: Row[]; assignments: Row[];
   api: (path: string, body?: unknown) => Promise<any>; reload: () => Promise<void>;
-  onDirty: (dirty: boolean) => void;
+  onDirty: (dirty: boolean) => void; onOpen?:(id:string)=>void;
 }) {
   const [mode, setMode] = useState("output"), [team, setTeam] = useState(""), [person, setPerson] = useState("");
   const [draft, setDraft] = useState<Record<string, Draft>>({}), [undo, setUndo] = useState<Record<string, Draft>[]>([]);
@@ -21,6 +21,7 @@ export function BulkSheet({data, entries, assignments, api, reload, onDirty}: {
   ).sort((x: Row, y: Row) => y.work_date.localeCompare(x.work_date) || x.id.localeCompare(y.id)), [entries, assignments, mode, team, person]);
   function editable(e: Row) {
     if (mode === "targets") return admin || a.role === "planner";
+    if (e.source === "candidates" || e.automated) return false;
     if (mode === "output") return (admin || (a.role === "researcher" && a.staffId === e.staff_id)) && !e.peer_at && !e.partner_at;
     if (mode === "peer") return (admin || (a.role === "researcher" && a.staffId && a.staffId !== e.staff_id)) && e.mapped !== null && !e.partner_at;
     return (admin || a.role === "partner") && e.peer !== null;
@@ -81,7 +82,7 @@ export function BulkSheet({data, entries, assignments, api, reload, onDirty}: {
     } catch (e: any) { setError(e.message); } finally { setBusy(false); }
   }
   return <section className="panel bulk-sheet">
-    <div className="section-head"><div><h2>Spreadsheet workspace</h2><p className="fine">Paste counts and notes from Excel. Tab across; Enter moves down. Reviewed output stays locked.</p></div>
+    <div className="section-head"><div><h2>Spreadsheet workspace</h2><p className="fine">Candidate-tracked roles populate automatically. Historical rows remain separate; daily targets are editable.</p></div>
       <button className="primary" disabled={!dirty || busy} onClick={save}>{busy ? "Saving…" : `Save ${dirty || ""} changed rows`}</button></div>
     <div className="sheet-toolbar">
       <label>Work area<select aria-label="Work area" value={mode} disabled={!!dirty || busy} onChange={e => {setMode(e.target.value); setSelected(new Set()); setUndo([]); setError(""); setNotice("");}}>
@@ -106,8 +107,8 @@ export function BulkSheet({data, entries, assignments, api, reload, onDirty}: {
         return <tr key={row.id} className={draft[row.id] ? "sheet-changed" : ""}>
           <td><input type="checkbox" aria-label={`Select row ${i + 1}`} disabled={!unlocked || busy} checked={selected.has(row.id)} onChange={e => {const n = new Set(selected); e.target.checked ? n.add(row.id) : n.delete(row.id); setSelected(n);}} /></td>
           <td>{row.work_date}<small>{teamBy[row.team_id]}</small></td><td><strong>{searchBy[row.search_id]?.client}</strong><small>{searchBy[row.search_id]?.title}</small></td>
-          <td>{mode === "targets" ? row.partner || "—" : staffBy[row.staff_id]}{!unlocked && <small>Read only</small>}{row.flag && <small>Needs reconciliation</small>}</td>
-          <td>{mode === "targets" ? "—" : `${row.mapped ?? "—"} / ${row.peer ?? "—"} / ${row.partner ?? "—"}`}</td>
+          <td>{mode === "targets" ? row.partner || "—" : staffBy[row.staff_id]}{!unlocked && <small>{row.source==='candidates'?'From candidate mappings':'Historical / read only'}</small>}{row.flag && <small>Needs reconciliation</small>}</td>
+          <td>{row.source==='candidates'?<button disabled={!!dirty} onClick={()=>onOpen?.(row.search_id)}>{row.mapped} / {row.peer} / {row.partner}</button>:mode === "targets" ? "—" : `${row.mapped ?? "—"} / ${row.peer ?? "—"} / ${row.partner ?? "—"}`}</td>
           {[d.value, d.notes].map((value, col) => <td key={col}><input id={`sheet-${i}-${col}`} aria-label={`Row ${i + 1} ${col === 0 ? label : "notes"}`} inputMode={col === 0 ? "numeric" : "text"} disabled={!unlocked || busy} value={value} onChange={e => change([{row, col, value: e.target.value}])} onPaste={e => paste(e, i, col)} onKeyDown={e => key(e, i, col)}/></td>)}</tr>;
       })}</tbody></table>
       {!rows.length && <p className="sheet-empty">No rows match these filters. Plan work to create assignments, or clear the filters.</p>}

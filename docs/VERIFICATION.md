@@ -2,6 +2,10 @@
 
 ## Completed
 
+- Candidate workflow tests cover reusable candidate identity across roles, duplicate and atomic batch rollback, two-stage authorization, self-review prevention, stale versions, rework/reopening without count inflation, immutable review snapshots, company claim races, manual/derived cutover, linked-plan removal protection, revocable client-safe publication, same-origin API writes and authenticated tenant routing.
+- React server-render smoke checks cover repository tabs and cross-role views with synthetic data. These are not interactive browser checks.
+
+
 - Applied supplied brand-guide palette (navy #001B50, crimson #EF233C, slate #8D99AF, paper #EDF2F5) and the original XQtiv logo. Poppins Latin fonts are self-hosted with their SIL Open Font License.
 - CRM filter tests verify OR within selected column values, AND across columns, empty versus unrestricted selections, text filtering, and partner filters. Partner import tests verify authoritative member names, whole-batch validation, ownership preservation, and explicit clearing.
 
@@ -10,7 +14,7 @@
 
 - Compact workspace CSS reduces repeated row, card, form and section spacing. Fixed checkbox inputs inheriting the global 48px form minimum height. Typecheck, all tests and build passed after this CSS change; authenticated visual verification remains outstanding.
 
-- TypeScript checking, 38 automated tests and the Vite production build pass locally.
+- TypeScript checking, 50 automated tests and the Vite production build pass locally.
 - Bulk-write tests cover rollback, audit records, permissions, optimistic versions, review locks and clipboard handling.
 - CRM company tests cover paginated exact-slug name joins, hostile company pagination, automatic client creation/update, and preservation of existing client names when absent. Workspace fixtures exercise migration from the prior staging schema.
 - CRM tests cover configuration formats, tenant isolation for plain-token fallback, pagination, hostile URLs, access errors, timeouts, invalid responses, staging and selected apply.
@@ -20,6 +24,8 @@
 - Setup tests cover secret rejection, concurrent first-admin invitation prevention and denial after an existing membership.
 
 ## Still unverified
+
+- Full browser walkthrough of new research screens with live authenticated personas. No customer records or real accounts were used in automated tests.
 
 - Weekly planning visual/interactive browser verification: the cloud browser rejected the local synthetic preview with ERR_BLOCKED_BY_CLIENT. No live authenticated planning writes were attempted. Automated tests use synthetic accounts and data.
 - Invitation inbox delivery after the transport fix.
