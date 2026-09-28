@@ -1105,3 +1105,14 @@ input[type=checkbox] { accent-color:var(--xqtiv-navy); }
 .identity-email{overflow-wrap:anywhere;font-size:11px}.identity button{width:100%;text-align:left}.identity{margin-top:auto}fieldset{border:1px solid #dce0e8;border-radius:8px;padding:10px;margin:12px 0}fieldset .checkbox{display:inline-flex;margin:4px 12px 4px 0}
 @media (min-width:761px){.app aside{overflow:hidden}.app nav{overflow-y:auto;min-height:0;align-content:start;flex:1;padding-bottom:12px}.app .identity{flex-shrink:0}.app .workspace-label,.app aside .brand{flex-shrink:0}}
 @media (max-width:760px){.app .identity{display:block;margin-top:12px}.app .identity button{display:inline-flex;width:auto;margin-right:14px}.app .nav-group{display:none}}
+
+/* Portfolio summary wraps in the available screen instead of a nested scrolling sheet. */
+.workflow-monitor{min-width:0}
+.workflow-monitor .sheet-scroll{max-height:none;overflow:visible}
+.workflow-monitor .sheet-table{table-layout:fixed;white-space:normal}
+.workflow-monitor .sheet-table th,.workflow-monitor .sheet-table td{white-space:normal;overflow-wrap:anywhere;min-width:0;max-width:none;vertical-align:top}
+.workflow-monitor .sheet-table th{position:static}
+.workflow-monitor .row-actions{flex-wrap:wrap}
+.workflow-monitor .row-actions button{white-space:normal;text-align:left}
+.workflow-monitor .sheet-toolbar .checkbox{flex-direction:row;align-items:center;gap:8px}
+@media(max-width:800px){.workflow-monitor .sheet-scroll{overflow-x:auto}.workflow-monitor .sheet-table{min-width:700px}}
