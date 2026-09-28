@@ -43,7 +43,7 @@ Official API reference: https://help.recruitcrm.io/en/articles/11142291-commonly
 
 ## Metrics
 
-Partner approval rate = summed partner approvals / summed mapped output in the same scope. Never average row percentages. A person-day is a unique staff/date with known mapped output, including zero. Estimated effort = person-days × 8; it is not measured time. Blank counts remain unknown. Person-days for separate searches are not additive if the same person worked on multiple searches that day. Historical source contradictions remain flagged, not silently corrected.
+Partner approval rate = summed partner approvals / summed mapped output in the same scope. Never average row percentages. A person-day is a unique staff/date with known mapped output, including zero. No effort-hour conversion is calculated or displayed. Blank counts remain unknown. Person-days for separate searches are not additive if the same person worked on multiple searches that day. Historical source contradictions remain flagged, not silently corrected.
 
 ## Security and operational limits
 
@@ -65,8 +65,16 @@ Weekly priority labels and allocation borders share distinct Start, Continue, Re
 
 ## Candidate research workflow
 
-`research_records` stores typed, versioned tenant objects with unique `(kind, record_key)` identities for brief/strategy by role, company by normalized name, target by role/company, candidate by canonical LinkedIn URL, mapping by role/candidate and reviewer default by team. `research_events` preserves immutable old/new snapshots for review and lifecycle actions. SQL transactions include domain writes, events and audit records. `brief_shares` contains only public allowlisted snapshots indexed by unguessable revocable tokens.
+`research_records` stores typed, versioned tenant objects with unique `(kind, record_key)` identities for brief/strategy by role, company by normalized name, target by role/company, candidate by canonical LinkedIn URL, mapping by role/candidate and reviewer pairings by team/researcher (with legacy team defaults retained). `research_events` preserves immutable old/new snapshots for review and lifecycle actions. SQL transactions include domain writes, events and audit records. `brief_shares` contains only public allowlisted snapshots indexed by unguessable revocable tokens.
 
 POST `/api/research` authenticates membership, loads authoritative active members, and dispatches permission-checked operations inside the tenant Durable Object. Bulk submit/review is atomic. GET `/api/public-brief` is the sole unauthenticated research endpoint; it requires an exact capability and returns only the shared snapshot. The normal state includes a directory of active names/roles/staff links, with no email or credentials.
 
 Derived daily entries are calculated from submitted candidate mappings, never written into legacy entries. Manual counts on/after the strategy activation date are prohibited, including via the bulk API. Historical counts remain separate dated records. All company assignments, review ownership, document publication and cutover rules are described in [Research workflow](RESEARCH-WORKFLOW.md).
+
+## Daily views, company master and team peer routing
+
+Daily Work uses compact assignment rows, including unplanned candidate-derived work. Headers sort date/team/client/role/partner and numerical outputs; grouping supports team, date, Monday week, client, role and partner. Browser-local layout preferences are scoped to user and tenant. Group researcher-days are recomputed over underlying person/date records rather than summed across roles. Expanded rows retain researcher-level historical actions and mapping links.
+
+Company master records now carry optional company type, industry tags, offerings, specialties, geographies, website and notes. Facet filters combine with AND across attributes. Adding selected company IDs to a role is an atomic batch. Target company scope, titles, category, priority, team and owner are optional; strategy approval is required for candidate submission, not for building a target list. Renaming a company retains its ID and role references; candidate mappings retain their historical snapshots.
+
+`peer-route` records map team/staff to an active teammate account. Submit resolves explicit pairing, automatic reciprocal pairing if there is one other researcher, then a valid legacy team default. Explicit mapping reassignment remains versioned and audited. Setup, submission, reassignment and peer decisions all enforce current team membership and exclude the mapper's staff identity. Pending decisions are not silently reassigned when team configuration changes.

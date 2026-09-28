@@ -110,7 +110,6 @@ export function aggregate(
     peer,
     partner,
     personDays: days,
-    estimatedHours: days * 8,
     approvalRate: mapped ? partner / mapped : null,
     mappingPerDay: days ? mapped / days : null,
     unknownMapped: entries.filter((e) => e.mapped === null).length,

@@ -16,6 +16,9 @@ import {
   WarningCircle,
 } from "@phosphor-icons/react";
 import { aggregate } from "./domain";
+import {CompanyUniverse} from "./CompanyUniverse";
+import {PeerSetup} from "./PeerSetup";
+import {DailyWork} from "./DailyWork";
 import { BulkSheet } from "./BulkSheet";
 import {WeeklyPlanner} from './WeeklyPlanner';
 import {TeamsPanel} from './TeamsPanel';
@@ -57,7 +60,7 @@ function App() {
     [modal, setModal] = useState<Row | null>(null),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState("");
-  const [repoTab,setRepoTab]=useState("Company universe");
+  const [repoTab,setRepoTab]=useState("Target companies");
   const [sheetDirty, setSheetDirty] = useState(false);
   const invite = location.pathname.startsWith('/join/') ? location.pathname.split('/')[2] : new URLSearchParams(location.hash.slice(1)).get("invite");
   const [invitation,setInvitation] = useState<Row|null>(null);
@@ -222,6 +225,8 @@ function App() {
     ["Overview", SquaresFour],
     ["Searches", Briefcase],
     ["Role repository",Briefcase],
+    ["Company universe",Briefcase],
+    ["Teams",Users],
     ["My Work",ClipboardText],
     ["Workflow Monitor",ChartBar],
     ["Weekly plan", CalendarBlank],
@@ -412,7 +417,7 @@ function App() {
             {error}
           </div>
         )}
-        {!["Role repository","My Work","Workflow Monitor"].includes(page) && page !== "Workspace" && page !== "Integrations" && page !== "Weekly plan" && (
+        {!["Role repository","My Work","Workflow Monitor","Company universe","Teams"].includes(page) && page !== "Workspace" && page !== "Integrations" && page !== "Weekly plan" && (
           <div className="filters">
             <label>
               From
@@ -525,12 +530,11 @@ function App() {
                   clients and {data.teams.length} teams.
                 </p>
                 <div className="portfolio-number">
-                  {fmt(totals.estimatedHours)}
-                  <small>estimated effort hours</small>
+                  {fmt(totals.personDays)}
+                  <small>researcher-days</small>
                 </div>
                 <p className="fine">
-                  {totals.personDays} unique researcher-days × 8 hours. Not
-                  measured timesheets.
+                  Each researcher and work date is counted once when output is recorded.
                 </p>
                 <button onClick={() => setPage("Performance")}>
                   Explore performance <ArrowRight />
@@ -603,7 +607,7 @@ function App() {
                           {s.partner && ` · Partner ${s.partner}`}
                         </p>
                         {s.notes && <p>{s.notes}</p>}
-                        <button className="primary" onClick={()=>{setSelected(s.id);setRepoTab("Company universe");setPage("Role repository");}}>Open role repository</button>
+                        <button className="primary" onClick={()=>{setSelected(s.id);setRepoTab("Target companies");setPage("Role repository");}}>Open role repository</button>
                         <div className="row-actions">
 
                           <button
@@ -643,51 +647,10 @@ function App() {
         )}
         {page === "Weekly plan" && <WeeklyPlanner data={data} api={api} reload={load} initialSearch={selected} onDirty={setSheetDirty} onTeams={()=>setPage('Workspace')}/>}
         {["Role repository","My Work","Workflow Monitor"].includes(page)&&<ResearchPanel key={page} data={data} api={api} reload={load} view={page} initialRole={page==='Role repository'?selected:''} initialTab={repoTab} onDirty={setSheetDirty}/>}
+        {page === 'Company universe'&&<CompanyUniverse data={data} api={api} reload={load} onDirty={setSheetDirty}/>}
+        {page === 'Teams'&&<>{isAdmin&&<TeamsPanel data={data} api={api} reload={load} onAdd={()=>open({kind:'team'})}/>}{planner?<PeerSetup data={data} api={api} reload={load}/>:<p>Ask your team planner to configure teammate reviewers here.</p>}</>}
         {page === "Spreadsheet" && <BulkSheet onOpen={id=>{setSelected(id);setRepoTab("Candidate mappings");setPage("Role repository");}} data={data} entries={filtered} assignments={assignments} api={api} reload={load} onDirty={setSheetDirty} />}
-        {page === "Daily work" && (
-          <div className="assignment-list">
-            {assignments.map((a: Row) => (
-              <section className="panel" key={a.id}>
-                <div className="section-head">
-                  <div>
-                    <p className="eyebrow">
-                      {dateLabel(a.work_date)} / {tBy[a.team_id]?.name}
-                    </p>
-                    <h2>{sBy[a.search_id]?.client}</h2>
-                    <p>{sBy[a.search_id]?.title}</p>
-                  </div>
-                  <span className="target">
-                    {a.target ?? "—"}
-                    <small>approval target</small>
-                  </span>
-                </div>
-                <div className="assignment-meta">
-                  {sBy[a.search_id]?.partner && <span>Partner: {sBy[a.search_id].partner}</span>}
-                  {a.link && (
-                    <a href={a.link} target="_blank" rel="noreferrer">
-                      Candidate reference <ArrowSquareOut />
-                    </a>
-                  )}
-                  {a.source_row && <span>Workbook row {a.source_row}</span>}
-                </div>
-                {entryRows(entriesFor(a.id))}
-                {a.notes && <p>{a.notes}</p>}
-                {!entriesFor(a.id).length && (
-                  <Empty
-                    title="No researchers assigned"
-                    body="This imported session has no individual contributions recorded."
-                  />
-                )}
-              </section>
-            ))}
-            {!assignments.length && (
-              <Empty
-                title="No work in this view"
-                body="Clear the date filters or plan a new assignment."
-              />
-            )}
-          </div>
-        )}
+        {page === "Daily work" && <DailyWork data={data} assignments={assignments} entries={filtered} renderEntries={entryRows} onOpen={id=>{setSelected(id);setRepoTab("Candidate mappings");setPage("Role repository");}}/>}
         {page === "Reviews" && (
           <section className="panel">
             <h2>Historical count reviews</h2><p>For individual candidate reviews, open <button onClick={()=>setPage("My Work")}>My Work</button> or <button onClick={()=>setPage("Workflow Monitor")}>Workflow Monitor</button>.</p>
@@ -780,8 +743,8 @@ function App() {
                       <th>Peer</th>
                       <th>Partner</th>
                       <th>Approval rate</th>
-                      <th>Person-days</th>
-                      <th>Estimated hours</th>
+                      <th>Researcher-days</th>
+
                     </tr>
                   </thead>
                   <tbody>
@@ -803,7 +766,7 @@ function App() {
                               : (m.approvalRate * 100).toFixed(1) + "%"}
                           </td>
                           <td>{m.personDays}</td>
-                          <td>{m.estimatedHours}</td>
+
                         </tr>
                       );
                     })}
@@ -811,8 +774,8 @@ function App() {
                 </table>
               </div>
               <p className="fine">
-                Person-days count each researcher and work date once, including
-                recorded zero output. Estimated hours = person-days × 8.
+                Researcher-days count each researcher and work date once, including
+                recorded zero output.
                 Approval rate = total partner-approved ÷ total mapped. Missing
                 counts are not zeros; totals sum only recorded values.
               </p>

@@ -16,7 +16,7 @@ Target repository: https://github.com/XQtivconsulting/Search_Operations
 - Peer and partner approvals, immutable review events, correction/reopening history.
 - Spreadsheet workspace: edit mapped counts, peer/partner approvals and daily targets; paste rectangular counts/notes from Excel; Tab/Enter navigation; selected-row fill; undo; explicit bulk save.
 - Atomic batches up to 200 rows: a stale or unauthorized row rolls back the entire batch and its audit records.
-- Productivity metrics with weighted approval ratios and estimated person-day effort.
+- Productivity metrics with weighted approval ratios and researcher-day counts.
 - RecruitCRM job preview and selected import/update, with server-only tenant credentials and explicit field ownership. The connector has synthetic tests; it has not been connected to XQtiv’s live CRM.
 - Read-only workbook extraction and source discrepancy inventory.
 

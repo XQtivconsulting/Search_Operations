@@ -2,6 +2,10 @@
 
 ## Completed
 
+- Daily Work grouping/sorting tests verify researcher-day deduplication across roles, target preservation, unplanned work and zero-versus-unknown output. Company master tests cover metadata, durable identity on rename, role targets without upfront strategy/assignment, version checks and atomic selection. Peer tests cover reciprocal two-person routing, same-team restrictions, reassignment and membership removal.
+- Estimated effort hours removed from domain output and all application views. Review turnaround still measures elapsed time, not researcher effort.
+
+
 - Candidate workflow tests cover reusable candidate identity across roles, duplicate and atomic batch rollback, two-stage authorization, self-review prevention, stale versions, rework/reopening without count inflation, immutable review snapshots, company claim races, manual/derived cutover, linked-plan removal protection, revocable client-safe publication, same-origin API writes and authenticated tenant routing.
 - React server-render smoke checks cover repository tabs and cross-role views with synthetic data. These are not interactive browser checks.
 
@@ -14,7 +18,7 @@
 
 - Compact workspace CSS reduces repeated row, card, form and section spacing. Fixed checkbox inputs inheriting the global 48px form minimum height. Typecheck, all tests and build passed after this CSS change; authenticated visual verification remains outstanding.
 
-- TypeScript checking, 50 automated tests and the Vite production build pass locally.
+- TypeScript checking, 57 automated tests and the Vite production build pass locally.
 - Bulk-write tests cover rollback, audit records, permissions, optimistic versions, review locks and clipboard handling.
 - CRM company tests cover paginated exact-slug name joins, hostile company pagination, automatic client creation/update, and preservation of existing client names when absent. Workspace fixtures exercise migration from the prior staging schema.
 - CRM tests cover configuration formats, tenant isolation for plain-token fallback, pagination, hostile URLs, access errors, timeouts, invalid responses, staging and selected apply.

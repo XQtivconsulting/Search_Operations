@@ -51,6 +51,11 @@ export class Workspace extends DurableObject {
     );
   }
   async research(a: Actor,b:any,members:Member[]):Promise<any> {return this.ctx.storage.transactionSync(()=>{
+      if(b.action==='company-batch') {
+        requireThat(Array.isArray(b.company_ids)&&b.company_ids.length>0&&b.company_ids.length<=100,'Select 1–100 companies.');
+        requireThat(new Set(b.company_ids).size===b.company_ids.length,'Select each company once.');
+        return {saved:b.company_ids.map((company_id:string)=>researchMutation(this,a,{action:'company-save',role_id:b.role_id,company_id,category:b.category,team_id:b.team_id,owner_id:b.owner_id},members))};
+      }
       if(b.action==='mapping-batch') {
         requireThat(Array.isArray(b.items)&&b.items.length>0&&b.items.length<=100,'Select 1–100 mappings.');
         requireThat(new Set(b.items.map((i:any)=>i.id)).size===b.items.length,'Select each mapping once.');

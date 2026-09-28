@@ -24,7 +24,7 @@ test("aggregate ratios use shared totals and person-days deduplicate sessions", 
   ]);
   assert.equal(m.approvalRate, 0.5);
   assert.equal(m.personDays, 2);
-  assert.equal(m.estimatedHours, 16);
+  assert.equal("estimatedHours" in m, false);
   assert.equal(m.mappingPerDay, 15);
 });
 test("breakdown links reject executable and credential-bearing URLs", () => {
