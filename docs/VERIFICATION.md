@@ -69,3 +69,7 @@ Local verification: TypeScript passed, all 106 Node tests passed, Vite productio
 Typecheck, all 110 tests, and production build passed locally. New tests cover header/row validation, canonical duplicate reuse, repeated-import idempotency, independent mappings by different researchers, permission checks, stale previews and atomic rollback. No live candidate data was imported and authenticated browser interaction was not tested. GitHub Actions independently runs the gates before Cloudflare deployment.
 
 Individual researcher selection was also verified: new allocations snapshot only selected researchers, unstarted selections can change, outsiders are rejected, and recorded zero output protects existing allocation.
+
+## Accepted accounts and UI clarity — 2026-09-28
+
+Typecheck, all 112 tests and production build passed locally. Updated tests replace pre-activation reviewer support with accepted-account-only assignment and pairing. New tests verify owner-only cleanup, preserved owner credentials/session, revoked other workspace access, cancelled invitations, stale preview rejection and cross-workspace isolation. Researcher role upgrades now use the existing account identity. Invitations create no assignable person until acceptance. Searches and Company Universe controls were regrouped, and action buttons use consistent tinted/primary treatments. Authenticated visual QA and live cleanup were not performed: the available browser shows the sign-in page. Cleanup remains an explicit owner action after deployment.

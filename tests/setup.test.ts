@@ -85,7 +85,7 @@ test('replacement invitation revokes the earlier link and linked staff cannot re
  assert.equal((await identity.invitationInfo(first,'ip')).status,'used');
  await assert.rejects(identity.accept({token:first,email:'typo@example.com',password:'Synthetic-password-123'},'ip'),/expired/);
  await identity.accept({token:second,email:'correct@example.com',password:'Synthetic-password-123'},'ip');
- await assert.rejects(identity.invite('third@example.com','One','test','researcher','staff'),/already has an account/);
+ await assert.rejects(identity.invite('third@example.com','One','test','researcher',(await identity.members('test'))[0].staff_id),/already has an account/);
  assert.equal(db.prepare('SELECT COUNT(*) n FROM memberships').get()?.n,1);db.close();
 });
 async function emailFixture(){const f=fixture(),{passwordHash}=await import('../src/password');f.db.prepare('INSERT INTO users VALUES(?,?,?,?)').run('u','before@example.com','Synthetic',passwordHash('Synthetic-password-123'));f.db.exec("INSERT INTO memberships VALUES('u','test','researcher','s','active')");return {...f,session:await f.identity.session('u')};}
@@ -124,7 +124,7 @@ test('original administrator is retained as protected owner and accounts are not
 test('super admin can combine roles, admins can manage ordinary roles, last owner and staff links are protected',async()=>{
  const {db,identity}=peopleFixture(),all=await identity.members('test');const owner=all.find(m=>m.id==='owner')!,admin=all.find(m=>m.id==='admin2')!,reader=all.find(m=>m.id==='reader')!;
  await identity.updateMember(owner as any,{...owner,roles:['super_admin','admin','partner','researcher'],staff_id:'staff-owner'});
- let current=(await identity.members('test')).find(m=>m.id==='owner')!;assert.deepEqual(current.roles,['super_admin','admin','partner','researcher']);assert.equal(current.staff_id,'staff-owner');
+ let current=(await identity.members('test')).find(m=>m.id==='owner')!;assert.deepEqual(current.roles,['super_admin','admin','partner','researcher']);assert.equal(current.staff_id,'person:owner');
  await assert.rejects(identity.updateMember(owner as any,{...current,roles:['planner']}),/at least one/);
  await assert.rejects(identity.updateMember(admin as any,{...current,name:'Takeover',roles:['admin']}),/Only a super/);
  await assert.rejects(identity.updateMember(admin as any,{...reader,roles:['super_admin']}),/Only a super/);
@@ -132,7 +132,7 @@ test('super admin can combine roles, admins can manage ordinary roles, last owne
  await identity.updateMember(admin as any,{...reader,name:'Updated Person',roles:['planner','founder']});
  const updated=(await identity.members('test')).find(m=>m.id==='reader')!;assert.equal(updated.name,'Updated Person');assert.deepEqual(updated.roles,['planner','founder']);
  await assert.rejects(identity.updateMember(admin as any,{...reader,roles:['partner']}),/changed/);
- await assert.rejects(identity.updateMember(admin as any,{...updated,roles:['researcher'],staff_id:'staff-owner'}),/already linked/);
+ await identity.updateMember(admin as any,{...updated,roles:['researcher'],staff_id:'person:owner'});assert.equal((await identity.members('test')).find(m=>m.id==='reader')?.staff_id,'person:reader');
  await assert.rejects(identity.updateMember(owner as any,{...current,staff_id:'other-staff'}),/cannot be replaced/);
  await assert.rejects(identity.updateMember({...owner,tenant:'foreign'} as any,{...current}),/permission/);db.close();
 });
@@ -140,7 +140,7 @@ test('membership changes take effect on existing sessions and prevent privilege 
  const {db,identity}=peopleFixture(),all=await identity.members('test'),owner=all.find(m=>m.id==='owner')!,reader=all.find(m=>m.id==='reader')!;
  const session=await identity.session('reader');await assert.rejects(identity.updateMember(reader as any,{...reader,roles:['admin']}),/permission/);
  await identity.updateMember(owner as any,{...reader,roles:['researcher','partner'],staff_id:'new-staff'});
- const actor=await identity.authenticate(session.token,'test');assert.deepEqual(actor?.roles,['researcher','partner']);assert.equal(actor?.staffId,'new-staff');
+ const actor=await identity.authenticate(session.token,'test');assert.deepEqual(actor?.roles,['researcher','partner']);assert.equal(actor?.staffId,'person:reader');
  const current=(await identity.members('test')).find(m=>m.id==='reader')!;await identity.updateMember(owner as any,{...current,status:'revoked'});assert.equal(await identity.authenticate(session.token,'test'),null);db.close();
 });
 test('multi-role invitations retain all roles; duplicate email cannot create another workspace membership',async()=>{
@@ -165,4 +165,20 @@ test('manual count endpoints are retired and cross-workspace role updates are re
  const send=(path:string,body:any)=>worker.fetch(new Request('https://app.example.com/api/'+path,{method:'POST',headers:{Origin:'https://app.example.com',Cookie:'search_session='+session.token,'X-Workspace':'test','X-Expected-User':'owner'},body:JSON.stringify(body)}),env);
  assert.equal((await send('mutate',{kind:'entry'})).status,410);assert.equal((await send('bulk',{changes:[{kind:'review'}]})).status,410);assert.equal(writes,0);
  assert.equal((await send('members/update',{id:'not-in-workspace',version:0,roles:['admin']})).status,404);db.close();
+});
+
+test('reset test people preserves original owner, password and foreign memberships; invalidates other access and invitations',async()=>{
+ const {db,identity}=peopleFixture(),all=await identity.members('test'),owner=all.find(m=>m.id==='owner')!;
+ const otherSession=await identity.session('reader'),ownerSession=await identity.session('owner');const password=db.prepare("SELECT password FROM users WHERE id='owner'").get()!.password;
+ db.exec("INSERT INTO memberships VALUES('reader','foreign','founder',NULL,'active')");
+ const pending=await identity.invite('pending@example.com','Pending','test','researcher',null);
+ await assert.rejects(identity.resetTestPeople(all.find(m=>m.id==='admin2') as any,{preview:true}),/original workspace owner/);
+ const preview:any=await identity.resetTestPeople(owner as any,{preview:true});assert.equal(preview.remove.length,2);assert.equal(preview.keep.id,'owner');
+ await assert.rejects(identity.resetTestPeople(owner as any,{signature:preview.signature,confirmEmail:'wrong@example.com'}),/email/);
+ const result=await identity.resetTestPeople(owner as any,{signature:preview.signature,confirmEmail:owner.email});assert.equal(result.removed,2);assert.equal((await identity.members('test')).length,1);assert.equal(await identity.authenticate(otherSession.token,'test'),null);assert.ok(await identity.authenticate(otherSession.token,'foreign'));assert.ok(await identity.authenticate(ownerSession.token,'test'));assert.equal(db.prepare("SELECT password FROM users WHERE id='owner'").get()!.password,password);assert.equal((await identity.invitationInfo(pending,'ip')).status,'used');
+ await assert.rejects(identity.resetTestPeople(owner as any,{signature:preview.signature,confirmEmail:owner.email}),/changed/);db.close();
+});
+test('new researcher invitation has no person allocation until accepted; role upgrades use account identity',async()=>{
+ const {db,identity}=fixture();const invite=await identity.invite('new@example.com','New Person','test','researcher',null,false,['researcher','partner']);assert.equal((await identity.members('test')).length,0);assert.equal((await identity.pendingInvitations('test'))[0].staff_id,null);
+ await identity.accept({token:invite,email:'new@example.com',password:'Synthetic-password-123'},'ip');const person=(await identity.members('test'))[0];assert.equal(person.staff_id,'person:'+person.id);assert.deepEqual(person.roles,['researcher','partner']);db.close();
 });

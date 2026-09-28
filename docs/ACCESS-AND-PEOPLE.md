@@ -2,9 +2,11 @@
 
 ## People flow
 
-People & access is the single administrative directory. It lists all workspace accounts (including super admins, admins, planners, founders, partners and researchers), then outstanding invitations and unlinked researcher planning records. Linked accounts do not appear a second time as unlinked researchers.
+People & access lists accepted workspace accounts with multiple roles and a separate pending-invitations list. Standalone researcher records are retired. Inviting someone creates no assignable staff record. Acceptance creates the internal account-linked research identifier when needed. Adding Researcher to an existing account uses that account's stable identifier; there is no manual staff-record linking step and no name-based merging.
 
-Add person / researcher starts with existing accounts. Enable Researcher on the correct existing person, optionally alongside Admin, Partner or other roles. A staff link is created once or selected from unlinked records; an existing link cannot be swapped to another identity. Invite new person is the secondary option. Duplicate account emails in the same workspace are rejected. Name changes apply to this workspace; sign-in email changes still require the account holder's password and new-mailbox verification.
+Only accepted, active researcher accounts can join team rosters, be allocated new work or become peer reviewers. Workspace synchronization removes ineligible roster members, bumps roster versions and preserves historical entries and mappings. Legacy unlinked records are hidden from operating selectors. Existing data is retained internally for history.
+
+The original owner has a Reset test people action with a preview and explicit email confirmation. It retains the owner account, roles and password, removes other memberships in this workspace, cancels its invitations and retains audit/work history. Global user credentials and other-workspace memberships remain untouched. This cleanup is an explicit authenticated operation, not a deployment migration.
 
 Teams contains rosters and peer routing only. Admins and planners edit them; all members can read rosters. Account settings is beneath the signed-in name, email and roles, immediately before Sign out.
 

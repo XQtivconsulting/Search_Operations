@@ -566,11 +566,11 @@ function App() {
                         <span>
                           <small>
                             {s.client}{" "}
-                            {s.external_id && " / CRM " + s.external_id}{s.partner && ` · Partner: ${s.partner}`}
+                            {s.external_id && " / CRM " + s.external_id}
                           </small>
                           <strong>{s.title}</strong>
                         </span>
-                        <span className="badge">{s.status}</span>
+                        <span className="badge">Status: {s.status||'Not set'}</span>
                         <span className="search-stat">
                           <strong>{m.mapped}</strong>
                           <small>mapped</small>
@@ -581,13 +581,10 @@ function App() {
                         </span>
                       </summary>
                       <div className="search-detail">
-                        <p>
-                          Created {dateLabel(s.start_date)}
-                          {s.partner && ` · Partner ${s.partner}`}
-                        </p>
+                        <div className="search-meta"><span>Engagement partner: <strong>{s.partner||'Not assigned'}</strong></span>{s.start_date&&<span>Search start: {dateLabel(s.start_date)}</span>}</div>
                         {s.notes && <p>{s.notes}</p>}
-                        <button className="primary" onClick={()=>{setSelected(s.id);setRepoTab("Target companies");setPage("Role repository");}}>Open role repository</button>
-                        <div className="row-actions">
+                        <div className="row-actions search-actions">
+                          <button onClick={()=>{setSelected(s.id);setRepoTab("Target companies");setPage("Role repository");}}>Role repository</button>
 
                           <button
                             onClick={() => {
@@ -595,7 +592,7 @@ function App() {
                               setPage("Daily work");
                             }}
                           >
-                            View sourcing work
+                            Sourcing work
                           </button>
                           <button
                             onClick={() => {
@@ -603,7 +600,7 @@ function App() {
                               setPage("Performance");
                             }}
                           >
-                            View performance
+                            Performance
                           </button>
                           {planner && (
                             <button
@@ -611,11 +608,11 @@ function App() {
                                 (setSelected(s.id), setPage("Weekly plan"))
                               }
                             >
-                              Plan this search
+                              Weekly assignments
                             </button>
                           )}
+                          {planner&&<button onClick={()=>open({kind:'search-owner',...s})}>Edit engagement partner</button>}
                         </div>
-                        {planner&&<button onClick={()=>open({kind:'search-owner',...s})}>{s.partner?'Edit engagement partner':'Set engagement partner'}</button>}
                         {data.assignments.some((a:Row)=>a.search_id===s.id&&a.link)&&<details><summary>Reference links</summary><p className="fine">Legacy links to external candidate lists; not required for planning.</p>{Array.from(new Set<string>(data.assignments.filter((a:Row)=>a.search_id===s.id&&a.link).map((a:Row)=>a.link))).map(link=><a className="external-link" key={link} href={link} target="_blank" rel="noreferrer">Open candidate reference <ArrowSquareOut/></a>)}</details>}
                       </div>
                     </details>
@@ -849,7 +846,7 @@ function App() {
                     <Select name="partner_id" label="Engagement partner" values={[["","Not assigned"],...(data.partners || []).map((p:Row)=>[p.id,p.name])]}/>
                   </>
                 )}
-                {modal.kind === 'search-owner' && <><p>{modal.client} · {modal.title}</p>{modal.partner&&!modal.partner_id&&<p className="fine">Previously recorded: {modal.partner}. Select the partner’s account below.</p>}<Select name="partner_id" label="Engagement partner" initial={modal.partner_id || ''} values={[["","Not assigned"],...(data.partners || []).map((p:Row)=>[p.id,p.name])]}/><p className="fine">Set once for this search. Available partners are active Admin, Founder and Partner accounts. Invite any missing partner from Workspace.</p></>}
+                {modal.kind === 'search-owner' && <><p>{modal.client} · {modal.title}</p>{modal.partner&&!modal.partner_id&&<p className="fine">Previously recorded: {modal.partner}. Select the partner’s account below.</p>}<Select name="partner_id" label="Engagement partner" initial={modal.partner_id || ''} values={[["","Not assigned"],...(data.partners || []).map((p:Row)=>[p.id,p.name])]}/><p className="fine">Set once for this search. Available partners are active Admin and Partner accounts. Invite missing partners from People & access.</p></>}
                 {modal.kind === "entry" && (
                   <Field
                     name="mapped"

@@ -90,3 +90,7 @@ Candidates → Import Excel accepts the first worksheet of .xlsx files, up to 50
 Preview lists new candidates, reused canonical LinkedIn profiles and duplicate file rows. Existing profile details are not overwritten. Optionally select a role and your research team to create direct mapping drafts; no target-company coverage is inferred from company names. Alternatively select candidates in the directory (or select filtered results) and Assign selected to role. Mapping requires Researcher access and active membership in the selected team, and is attributed to the current user. Existing mappings to that role are skipped, while other role relationships are retained. Drafts still require fit evidence and normal peer/partner review.
 
 All writes and audit records are atomic. A stale preview requires a fresh preview; validation failures leave no partial imports or mappings. Candidate contact corrections remain in Edit candidate.
+
+## Accepted accounts only
+
+Invite colleagues in People & access, wait for acceptance, enable Researcher and select their team in Teams. Role Target companies then offers active researchers in that team. No unlinked planning-person creation or pre-acceptance peer pairing is available. When a team has no eligible accounts, the researcher selector explains the setup required.

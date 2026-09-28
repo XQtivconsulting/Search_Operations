@@ -62,7 +62,7 @@ export class Identity extends DurableObject {
         const others=this.rows("SELECT u.id,m.* FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.tenant=? AND m.status='active' AND m.user_id<>?",a.tenant,b.id);
         requireThat(others.some(m=>hasRole(this.details(m),'super_admin')),'Keep at least one active super admin.',409);
       }
-      const staffId=old.staff_id||text(b.staff_id)||null;
+      const staffId=old.staff_id||(nextRoles.includes('researcher')?'person:'+old.id:null);
       requireThat(!old.staff_id||!b.staff_id||old.staff_id===b.staff_id,'An existing researcher identity cannot be replaced. Keep the current staff link.');
       requireThat(!nextRoles.includes('researcher')||staffId,'Link a researcher record first.');
       if(staffId) {
@@ -74,6 +74,24 @@ export class Identity extends DurableObject {
       this.rows('INSERT INTO member_profiles VALUES(?,?,?,?,?) ON CONFLICT(user_id,tenant) DO UPDATE SET roles=excluded.roles,name=excluded.name,version=excluded.version',b.id,a.tenant,JSON.stringify(nextRoles),name,old.version+1);
       this.rows('INSERT INTO member_events VALUES(?,?,?,?,?,?,?)',crypto.randomUUID(),a.tenant,a.id,b.id,JSON.stringify(old),JSON.stringify({name,roles:nextRoles,staff_id:staffId,status,version:old.version+1}),new Date().toISOString());
       return {ok:true};
+    });
+  }
+  async resetTestPeople(a:Actor,b:any) {
+    this.ensureOwners();
+    return this.ctx.storage.transactionSync(()=>{
+      const members=this.rows('SELECT u.id,u.email,u.name,m.* FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.tenant=?',a.tenant).map(m=>this.details(m));
+      const owner=this.rows('SELECT user_id FROM workspace_owners WHERE tenant=?',a.tenant)[0]?.user_id;
+      const current=members.find(m=>m.id===a.id);
+      requireThat(current?.status==='active'&&hasRole(current,'super_admin')&&a.id===owner,'Only the original workspace owner can reset test people.',403);
+      const remove=members.filter(m=>m.id!==owner),pending=this.rows('SELECT token,email,name FROM invites WHERE tenant=? AND used=0',a.tenant);
+      const signature=JSON.stringify({owner,people:members.map(m=>[m.id,m.version,m.status]).sort(),invites:pending.map(i=>i.token).sort()});
+      if(b.preview)return {keep:{id:current.id,name:current.name,email:current.email},remove:remove.map(m=>({id:m.id,name:m.name,email:m.email})),invitations:pending.length,signature};
+      requireThat(b.signature===signature,'People changed. Preview the cleanup again.',409);
+      requireThat(text(b.confirmEmail,254).toLowerCase()===current.email,'Enter your own sign-in email to confirm.');
+      for(const m of remove){this.rows('DELETE FROM memberships WHERE tenant=? AND user_id=?',a.tenant,m.id);this.rows('DELETE FROM member_profiles WHERE tenant=? AND user_id=?',a.tenant,m.id);this.rows('INSERT INTO member_events VALUES(?,?,?,?,?,?,?)',crypto.randomUUID(),a.tenant,a.id,m.id,JSON.stringify(m),JSON.stringify({removed_from_workspace:true}),new Date().toISOString());}
+      this.rows('UPDATE invites SET used=1 WHERE tenant=? AND used=0',a.tenant);
+      this.rows('INSERT INTO member_events VALUES(?,?,?,?,?,?,?)',crypto.randomUUID(),a.tenant,a.id,owner,'null',JSON.stringify({test_people_reset:true,removed:remove.length,cancelled:pending.length}),new Date().toISOString());
+      return {removed:remove.length,cancelled:pending.length};
     });
   }
   async cancelInvitation(a:Actor,id:string) {
@@ -256,12 +274,14 @@ export class Identity extends DurableObject {
           invite.name,
           hashPassword,
         );
+      const invitationRoles=JSON.parse(this.rows('SELECT roles FROM invitation_roles WHERE token=?',hash)[0]?.roles||JSON.stringify([invite.role]));
+      const acceptedStaff=invitationRoles.includes('researcher')?'person:'+id:null;
       this.rows(
         "INSERT OR IGNORE INTO memberships VALUES(?,?,?,?,?)",
         id,
         invite.tenant,
         invite.role,
-        invite.staff_id,
+        acceptedStaff,
         "active",
       );
       const assigned=this.rows('SELECT roles FROM invitation_roles WHERE token=?',hash)[0];

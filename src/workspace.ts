@@ -54,7 +54,7 @@ export class Workspace extends DurableObject {
       now(),
     );
   }
-  async research(a: Actor,b:any,members:Member[]):Promise<any> {return this.ctx.storage.transactionSync(()=>{
+  async research(a: Actor,b:any,members:Member[]):Promise<any> {await this.syncPeople(members);return this.ctx.storage.transactionSync(()=>{
       if(b.action==='candidate-import'||b.action==='candidate-assign') {
         requireThat(canPlan(a)||hasRole(a,'researcher')||hasRole(a,'partner'),'Candidate editing permission required.',403);
         const records=researchState(this).records,candidates=records.filter(r=>r.kind==='candidate');
@@ -120,7 +120,8 @@ export class Workspace extends DurableObject {
   assignmentHasWork(a:any) {
     return !!(this.rows("SELECT id FROM research_records WHERE kind='mapping' AND role_id=? AND json_extract(data,'$.team_id')=? AND json_extract(data,'$.work_date')=?",a.search_id,a.team_id,a.work_date).length||this.rows("SELECT id FROM entries WHERE assignment_id=? AND (mapped IS NOT NULL OR peer IS NOT NULL OR partner IS NOT NULL OR notes<>'' OR flag IS NOT NULL OR source<>'manual')",a.id).length||this.rows('SELECT r.id FROM reviews r JOIN entries e ON e.id=r.entry_id WHERE e.assignment_id=?',a.id).length);
   }
-  async state(a: Actor) {
+  async state(a: Actor,members?:Member[]) {
+    if(members)await this.syncPeople(members);
     const research=researchState(this);
     const result = {
       research,
@@ -198,6 +199,21 @@ export class Workspace extends DurableObject {
       return {count:jobs.length};
     });
   }
+  async syncPeople(members:Member[]) {
+    return this.ctx.storage.transactionSync(()=>{
+      this.rows('CREATE TABLE IF NOT EXISTS account_researchers(staff_id TEXT PRIMARY KEY,user_id TEXT NOT NULL)');
+      this.rows('DELETE FROM account_researchers');
+      for(const m of members.filter(m=>m.status==='active'&&hasRole(m,'researcher')&&(m.staff_id||m.staffId))){const sid=m.staff_id||m.staffId!;
+        this.rows('INSERT INTO staff(id,name) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name',sid,m.name);
+        this.rows('INSERT INTO account_researchers VALUES(?,?)',sid,m.id);
+        this.rows('UPDATE staff_profiles SET archived=0 WHERE staff_id=? AND archived<>0',sid);
+      }
+      const removed=this.rows('SELECT * FROM team_members WHERE staff_id NOT IN (SELECT staff_id FROM account_researchers)');
+      for(const team of new Set(removed.map(r=>r.team_id))){this.audit({id:'account-sync'} as Actor,'account-roster-prune',team,removed.filter(r=>r.team_id===team),{reason:'Account no longer eligible for research assignments'});this.rows('DELETE FROM team_members WHERE team_id=? AND staff_id NOT IN (SELECT staff_id FROM account_researchers)',team);this.rows('INSERT INTO team_rosters VALUES(?,1) ON CONFLICT(team_id) DO UPDATE SET version=version+1',team);}
+      this.rows("INSERT OR REPLACE INTO settings VALUES('accounts_only','1')");
+    });
+  }
+  assignableStaff(id:string){return !this.rows("SELECT value FROM settings WHERE key='accounts_only'").length||!!this.rows('SELECT staff_id FROM account_researchers WHERE staff_id=?',id).length;}
   async ensureResearcher(a:Actor,b:any) {
     requireThat(hasRole(a,'admin'),'Administrator permission required.',403);
     return this.ctx.storage.transactionSync(()=>{
@@ -211,7 +227,8 @@ export class Workspace extends DurableObject {
       this.rows('INSERT INTO staff(id,name) VALUES(?,?)',id,name);this.audit(a,'staff',id,null,{name});return {id};
     });
   }
-  async mutate(a: Actor, kind: string, b: any) {
+  async mutate(a: Actor, kind: string, b: any,members?:Member[]) {
+    if(members)await this.syncPeople(members);
     return this.ctx.storage.transactionSync(() => this.applyMutation(a, kind, b));
   }
   async bulk(a: Actor, changes: any[]) {
@@ -262,7 +279,7 @@ export class Workspace extends DurableObject {
         requireThat(Number(b.version)===version,'The team roster changed. Reload before editing.',409);
         requireThat(Array.isArray(b.staff_ids),'Select team members.');
         const ids=[...new Set<string>(b.staff_ids)];
-        for(const id of ids) requireThat(this.rows('SELECT s.id FROM staff s LEFT JOIN staff_profiles p ON p.staff_id=s.id WHERE s.id=? AND COALESCE(p.archived,0)=0',id).length,'Unknown researcher or archived record. Choose an active researcher.');
+        for(const id of ids) requireThat(this.assignableStaff(id)&&this.rows('SELECT s.id FROM staff s LEFT JOIN staff_profiles p ON p.staff_id=s.id WHERE s.id=? AND COALESCE(p.archived,0)=0',id).length,'Unknown researcher or archived record. Choose an active researcher.');
         const before=this.rows('SELECT staff_id FROM team_members WHERE team_id=?',b.id);
         this.rows('DELETE FROM team_members WHERE team_id=?',b.id);
         for(const id of ids) this.rows('INSERT INTO team_members VALUES(?,?)',b.id,id);
@@ -289,7 +306,7 @@ export class Workspace extends DurableObject {
           requireThat(destination&&destination!==b.team_id&&this.rows('SELECT id FROM teams WHERE id=?',destination).length,'Choose a different existing team.');
           const roster=this.rows('SELECT version FROM team_rosters WHERE team_id=?',destination)[0]?.version||0;
           requireThat(Number(b.roster_version)===roster,'The destination team roster changed. Reload before moving.',409);
-          members=this.rows('SELECT staff_id FROM team_members WHERE team_id=?',destination).map(r=>r.staff_id);
+          members=this.rows('SELECT staff_id FROM team_members WHERE team_id=?',destination).map(r=>r.staff_id).filter(id=>this.assignableStaff(id));
           requireThat(members.length,'Add researchers to the destination team first.');
         }
         for(const item of b.items) {
@@ -315,7 +332,7 @@ export class Workspace extends DurableObject {
         const dates=weekDays(b.week);
         requireThat(this.rows('SELECT id FROM searches WHERE id=?',b.search_id).length && this.rows('SELECT id FROM teams WHERE id=?',b.team_id).length,'Choose an existing search and team.');
         requireThat(Array.isArray(b.days) && b.days.length===7 && new Set(b.days.map((d:any)=>d.date)).size===7 && b.days.every((d:any)=>dates.includes(d.date)),'Submit all seven days of this week.');
-        const members=this.rows('SELECT staff_id FROM team_members WHERE team_id=?',b.team_id).map(r=>r.staff_id);
+        const members=this.rows('SELECT staff_id FROM team_members WHERE team_id=?',b.team_id).map(r=>r.staff_id).filter(id=>this.assignableStaff(id));
         const rosterVersion=this.rows('SELECT version FROM team_rosters WHERE team_id=?',b.team_id)[0]?.version || 0;
         requireThat(Number(b.roster_version)===rosterVersion,'The team roster changed. Reload before planning.',409);
         for(const d of b.days) {
@@ -339,7 +356,7 @@ export class Workspace extends DurableObject {
           const selected=d.staff_ids===undefined?(old?prior:members):d.staff_ids;
           requireThat(Array.isArray(selected)&&selected.length>0&&new Set(selected).size===selected.length,'Select at least one researcher for each working day.');
           const changed=JSON.stringify([...selected].sort())!==JSON.stringify([...prior].sort());
-          requireThat(selected.every((sid:string)=>members.includes(sid)||old&&prior.includes(sid)),'Choose researchers from the selected team.');
+          requireThat(selected.every((sid:string)=>members.includes(sid)||old&&!changed&&prior.includes(sid)),'Choose researchers from the selected team.');
           if(old) {
             if(changed){requireThat(!this.assignmentHasWork(old),'Recorded work protects this day’s researcher allocation. Change an unstarted day instead.',409);this.rows('DELETE FROM entries WHERE assignment_id=?',old.id);for(const sid of selected)this.rows('INSERT INTO entries(id,assignment_id,staff_id) VALUES(?,?,?)',uuid(),old.id,sid);}
             if(old.target!==target || old.notes!==notes || changed) {
@@ -429,7 +446,7 @@ export class Workspace extends DurableObject {
         );
         for (const staffId of new Set<string>(b.staff_ids ?? [])) {
           requireThat(
-            this.rows("SELECT s.id FROM staff s LEFT JOIN staff_profiles p ON p.staff_id=s.id WHERE s.id=? AND COALESCE(p.archived,0)=0", staffId).length,
+            this.assignableStaff(staffId)&&this.rows("SELECT s.id FROM staff s LEFT JOIN staff_profiles p ON p.staff_id=s.id WHERE s.id=? AND COALESCE(p.archived,0)=0", staffId).length,
             "Choose an active researcher.",
           );
           this.rows(

@@ -47,25 +47,28 @@ button {
   gap: 8px;
   padding: 10px 15px;
   min-height: 44px;
-  border: 1px solid #dce2eb;
-  border-radius: 9px;
-  background: white;
-  color: #001b50;
-  font-size: 15px;
+  border: 1px solid #a8bbdc;
+  border-radius: 6px;
+  background: #e9effb;
+  color: #173b78;
+  box-shadow: 0 1px 2px #001b501a;
+  font-size: 13px;
   font-weight: 600;
   transition:
     background 0.15s,
     transform 0.15s;
 }
-button:hover {
-  background: #edf2f5;
+button:hover:not(:disabled) {
+  background: #d8e4fa;
+  border-color: #6d8bc0;
 }
 button:active {
   transform: scale(0.98);
 }
 button:disabled {
   opacity: 0.55;
-  cursor: wait;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 button.primary {
   background: #001b50;
@@ -1116,3 +1119,43 @@ input[type=checkbox] { accent-color:var(--xqtiv-navy); }
 .workflow-monitor .row-actions button{white-space:normal;text-align:left}
 .workflow-monitor .sheet-toolbar .checkbox{flex-direction:row;align-items:center;gap:8px}
 @media(max-width:800px){.workflow-monitor .sheet-scroll{overflow-x:auto}.workflow-monitor .sheet-table{min-width:700px}}
+
+.search-meta{display:flex;flex-wrap:wrap;gap:6px 24px;font-size:12px;margin-bottom:8px;color:#52627d}
+.search-meta strong{color:#001b50}
+.app .search-actions{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.app .search-actions button{min-height:28px;padding:4px 9px;font-size:12px;line-height:1.3;background:#fff;color:#001b50;border:1px solid #cbd3e0;border-radius:5px}
+.app .search-actions button:hover{background:#edf2fa}
+.search-detail>p{white-space:normal;overflow-wrap:anywhere;font-size:13px}
+
+.company-master .company-filters{padding:12px;background:#f4f6fa;border:1px solid #dce2ec;border-radius:8px;align-items:end}
+.company-master .company-filters .search-filter{flex:1;max-width:none;min-width:240px}
+.company-master .company-filters .search-filter input{max-width:none;width:100%}
+.company-master .company-assignment{margin:14px 0 8px;padding:12px;border:1px solid #c5d2e9;border-left:4px solid #001b50;border-radius:6px;background:#f2f5fc}
+.company-master .assignment-main{display:flex;align-items:end;gap:12px;flex-wrap:wrap}
+.company-master .assignment-main label{flex:1;min-width:240px;display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:600}
+.company-master .assignment-main select{width:100%;background:white;border:1px solid #a7b4ca;border-radius:5px}
+.company-master .assignment-main button{white-space:nowrap}
+.company-master .company-assignment details{margin-top:8px;font-size:12px}
+.company-master .company-selection{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 0 4px}
+.company-master .company-selection p{margin:0;font-size:12px;color:#52627d}
+.company-master .company-selection p span{margin:0 8px}
+.company-master button:not(.text-button){border:1px solid #bac7dc;border-radius:5px;background:#fff;color:#001b50;padding:5px 10px}
+.company-master button.primary,.company-master button.selected-toggle.active{background:#001b50;color:#fff;border-color:#001b50}
+.company-master button:disabled{background:#edf0f5;color:#7b8597;border-color:#d5dbe5;cursor:not-allowed;opacity:1}
+.company-master .sheet-table th button{border:0;background:transparent;padding:0}
+
+/* Action buttons have a tinted fill, unlike white editable form controls. */
+.app .row-actions button:not(.primary):not(.text-button):not(.active),
+.app .research-actions button:not(.primary),
+.app .section-head button:not(.primary),
+.app .search-actions button{background:#e9effb;color:#173b78;border:1px solid #a8bbdc;border-radius:6px;box-shadow:0 1px 2px #001b501a;font-weight:600;font-size:12px}
+.app .row-actions button:not(.primary):not(.text-button):not(:disabled):hover,
+.app .research-actions button:not(:disabled):hover,
+.app .search-actions button:not(:disabled):hover{background:#d8e4fa;border-color:#6d8bc0}
+.app button.primary,.modal button.primary{background:#001b50;color:#fff;border-color:#001b50;box-shadow:0 2px 3px #001b5026}
+.app button.primary:hover:not(:disabled),.modal button.primary:hover:not(:disabled){background:#163a7a;border-color:#163a7a}
+.app button:focus-visible,.modal button:focus-visible{outline:3px solid #6088d0;outline-offset:2px}
+.app button:disabled,.modal button:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+.app th button,.app .text-button{box-shadow:none}
+.workflow-monitor .row-actions{gap:6px;align-items:flex-start}
+.workflow-monitor .row-actions button{justify-content:flex-start;line-height:1.3;padding:7px 10px}

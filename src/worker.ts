@@ -190,8 +190,8 @@ export default {
           else if (url.pathname === "/api/state" && req.method === "GET") {
             const partners=(await identity.members(a.tenant)).filter((m:any)=>m.status==='active' && canPartnerReview(m)).map((m:any)=>({id:m.id,name:m.name}));
             const people=(await identity.members(a.tenant)).filter((m:any)=>m.status==='active').map((m:any)=>({id:m.id,name:m.name,role:m.role,roles:m.roles,staff_id:m.staff_id,status:m.status}));
-            const state=await workspace.state(a);
-            res = json({...state,partners,people,staff:state.staff?.map((s:any)=>({...s,name:people.find((p:any)=>p.staff_id===s.id)?.name||s.name}))});
+            const state=await workspace.state(a,await identity.members(a.tenant));
+            res = json({...state,partners,people,staff:state.staff?.filter((s:any)=>people.some((p:any)=>p.staff_id===s.id)).map((s:any)=>({...s,name:people.find((p:any)=>p.staff_id===s.id)?.name||s.name,archived:people.some((p:any)=>p.staff_id===s.id&&hasRole(p,'researcher'))?0:1}))});
           }
           else if (url.pathname === '/api/company-lookup'&&req.method==='POST') {
             requireThat(canPlan(a),'Planning permission required.',403);
@@ -220,22 +220,19 @@ export default {
             requireThat(Array.isArray(body.roles)&&body.roles.length>0&&body.roles.every((r:any)=>roles.includes(r)),'Choose at least one valid role.');
             requireThat(Number(body.version)===old.version,'This account changed. Reload before saving.',409);
             requireThat(hasRole(a,'super_admin')||(!hasRole(old,'super_admin')&&!body.roles.includes('super_admin')),'Only a super admin can change a super admin account.',403);
-            if(body.roles.includes('researcher')) {
-              const desired=old.staff_id||text(body.staff_id);
-              requireThat(!desired||!members.some((m:any)=>m.id!==old.id&&m.staff_id===desired),'This researcher is already linked to another account.',409);
-              const staff=await workspace.ensureResearcher(a,{staff_id:desired,key:old.id,name:text(body.name,100)||old.name});body.staff_id=staff.id;
-            }
             res=json(await identity.updateMember(a,body));
           }
+          else if(url.pathname==='/api/people/reset'&&req.method==='POST'){const result=await identity.resetTestPeople(a,body);if(!body.preview)await workspace.syncPeople(await identity.members(a.tenant));res=json(result);}
           else if(url.pathname==='/api/invitations/cancel'&&req.method==='POST')res=json(await identity.cancelInvitation(a,text(body.id,100)));
           else if (url.pathname === "/api/mutate" && req.method === "POST") {
+            requireThat(!['staff','staff-edit','staff-archive'].includes(body.kind),'Manage accepted accounts and roles in People & access. Standalone researcher records are retired.',410);
             requireThat(!['entry','review','reopen'].includes(body.kind),'Manual count entry is retired. Add candidate mappings and use their review workflow.',410);
             if(['search','search-owner'].includes(body.kind)) {
               const partner=body.partner_id ? (await identity.members(a.tenant)).find((m:any)=>m.id===body.partner_id && m.status==='active' && canPartnerReview(m)) : null;
               requireThat(!body.partner_id || partner,'Choose an active engagement partner.');
               body.partner=partner?.name || '';
             }
-            res = json(await workspace.mutate(a, body.kind, body));
+            res = json(await workspace.mutate(a, body.kind, body, await identity.members(a.tenant)));
           }
           else if (url.pathname === "/api/bulk" && req.method === "POST") {
             requireThat(Array.isArray(body.changes)&&body.changes.every((b:any)=>b.kind==='assignment-edit'),'Manual count entry is retired. Add candidate mappings instead.',410);
@@ -252,22 +249,12 @@ export default {
             requireThat(!assigned.includes('super_admin')||hasRole(a,'super_admin'),'Only a super admin can grant super admin access.',403);
             const members=await identity.members(a.tenant),email=text(body.email,254).toLowerCase();
             requireThat(!members.some((m:any)=>m.email===email),'This person already has an account here. Edit their roles instead.',409);
-            if(assigned.includes('researcher')) {
-              requireThat(!body.staffId||!members.some((m:any)=>m.staff_id===body.staffId),'This researcher is already linked to another account.',409);
-              const staff=await workspace.ensureResearcher(a,{staff_id:body.staffId,key:await digest(email),name:text(body.name,100)});body.staffId=staff.id;
-            }
-            const state = await workspace.state(a);
-            requireThat(
-              !body.staffId ||
-                state.staff.some((s: any) => s.id === body.staffId&&!s.archived),
-              "Unknown staff record.",
-            );
             const invite = await identity.invite(
               text(body.email, 254),
               text(body.name, 100),
               a.tenant,
               assigned[0],
-              body.staffId || null,
+              null,
               false,
               assigned,
             );
