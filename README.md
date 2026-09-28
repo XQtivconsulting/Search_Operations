@@ -4,7 +4,7 @@ Internal sourcing operations application for XQtiv, designed with isolated organ
 
 Target repository: https://github.com/XQtivconsulting/Search_Operations
 
-**Status: local implementation, not deployed to the owner’s Cloudflare account.** The public target repository is readable, but a file write returned HTTP 403 Resource not accessible by integration. GitHub write access and Cloudflare deployment authorization remain required. No code or data was pushed to another repository or deployed to another account in this task.
+**Status: sourcing pilot implementation.** Source upload to the designated repository is authorized and working. Cloudflare deployment is performed by GitHub Actions using the owner-provided repository secrets. Check the latest workflow result before assuming a live deployment exists. No customer data has been imported by this build.
 
 ## Included
 

@@ -1,0 +1,12 @@
+import {mkdir,writeFile,readFile} from 'node:fs/promises';
+const {APP_URL,SETUP_KEY,ADMIN_EMAIL,ADMIN_NAME,WORKBOOK_JSON}=process.env;
+if(!APP_URL||!SETUP_KEY||!ADMIN_EMAIL||!ADMIN_NAME) throw new Error('Set APP_URL, SETUP_KEY, ADMIN_EMAIL and ADMIN_NAME in your local environment.');
+const origin=new URL(APP_URL);
+if(origin.protocol!=='https:' && origin.hostname!=='localhost' && origin.hostname!=='127.0.0.1') throw new Error('Use HTTPS for hosted setup.');
+const workbook=WORKBOOK_JSON?JSON.parse(await readFile(WORKBOOK_JSON,'utf8')):undefined;
+const response=await fetch(new URL('/api/setup',origin),{method:'POST',headers:{Authorization:`Bearer ${SETUP_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({tenant:'xqtiv',email:ADMIN_EMAIL,name:ADMIN_NAME,workbook})});
+const result=await response.json();
+if(!response.ok) throw new Error(result.error || 'Provisioning failed.');
+await mkdir('private-data',{recursive:true});
+await writeFile('private-data/administrator-invitation.txt',`${origin.origin}/join/${result.invitation}\n`,{mode:0o600});
+console.log('Invitation saved privately. Delete the SETUP_KEY Worker secret before continuing.');

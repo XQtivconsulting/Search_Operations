@@ -1,0 +1,23 @@
+{
+  "name": "xqtiv-search-operations",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-09-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"],
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "IDENTITY", "class_name": "Identity" },
+      { "name": "WORKSPACE", "class_name": "Workspace" },
+    ],
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["Identity", "Workspace"] },
+  ],
+  "vars": { "APP_ORIGIN": "http://localhost:8787" },
+}
+
