@@ -45,6 +45,7 @@ export class Identity extends DurableObject {
     tenant: string,
     role: AccessRole,
     staffId: string | null,
+    firstAdmin = false,
   ) {
     requireThat(roles.includes(role), "Invalid permission role.");
     requireThat(
@@ -52,9 +53,17 @@ export class Identity extends DurableObject {
       "Enter a valid email.",
     );
     const raw = token();
+    const hash = await digest(raw);
+    this.ctx.storage.transactionSync(() => {
+    if (firstAdmin) {
+      requireThat(!this.rows('SELECT user_id FROM memberships WHERE tenant=? LIMIT 1', tenant).length,
+        'This workspace is already set up. Sign in or contact its administrator.', 409);
+      requireThat(!this.rows('SELECT token FROM invites WHERE tenant=? AND role=? AND used=0 AND expires>? LIMIT 1', tenant, 'admin', Date.now()).length,
+        'An administrator invitation is already pending. Use the invitation link already created.', 409);
+    }
     this.rows(
       "INSERT INTO invites VALUES(?,?,?,?,?,?,?,0)",
-      await digest(raw),
+      hash,
       email.toLowerCase(),
       name,
       tenant,
@@ -62,6 +71,7 @@ export class Identity extends DurableObject {
       staffId,
       Date.now() + 7 * 86400e3,
     );
+    });
     return raw;
   }
   async authenticate(raw: string, tenant: string): Promise<Actor | null> {
@@ -204,4 +214,3 @@ export class Identity extends DurableObject {
     );
   }
 }
-

@@ -18,6 +18,10 @@ For GitHub-based deployments, configure repository Actions secrets `CLOUDFLARE_A
 
 ## First administrator and workbook
 
+Browser setup is available at `/setup`. The account owner first creates a random temporary `SETUP_KEY` in the Worker dashboard as a Secret, then enters that key, their name, and email on the setup page. The page calls the existing key-protected setup endpoint. The key is never stored in browser storage or included in a URL. The resulting invitation can be used directly and is also submitted to Resend if email is configured. Delete the Worker `SETUP_KEY` secret before choosing the account password. No setup key or first-admin invitation is created by deploying this page.
+
+First-admin invitation creation is transactional: an existing membership or an unexpired administrator invitation blocks repeated setup. Ordinary administrators can still invite colleagues through Workspace. A pending invitation is not recreated automatically after an uncertain network response; retain the original page or check the recipient's email.
+
 Provision only after confirming the deployment URL and intended account. Set a temporary random `SETUP_KEY` using `npx wrangler secret put SETUP_KEY`. The setup endpoint can create the first invitation for the empty `xqtiv` workspace and optionally import the reviewed extraction.
 
 The supplied `scripts/bootstrap.mjs` reads `APP_URL`, `SETUP_KEY`, `ADMIN_EMAIL`, and `ADMIN_NAME` from the local environment. Set `WORKBOOK_JSON` only when importing the inspected extraction. It saves the invitation in ignored `private-data/administrator-invitation.txt`; it does not email anybody or choose the administrator’s password.

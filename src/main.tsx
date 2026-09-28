@@ -18,6 +18,7 @@ import {
 import { aggregate } from "./domain";
 import { BulkSheet } from "./BulkSheet";
 import { CRMPanel } from "./CRMPanel";
+import { Setup } from './Setup';
 import "./style.css";
 type Row = Record<string, any>;
 let workspace = sessionStorage.getItem("workspace") || "xqtiv";
@@ -1270,4 +1271,4 @@ function Empty({ title, body }: any) {
     </div>
   );
 }
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById("root")!).render(location.pathname === '/setup' ? <Setup /> : <App />);

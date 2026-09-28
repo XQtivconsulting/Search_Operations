@@ -83,8 +83,11 @@ export default {
             body.tenant,
             "admin",
             null,
+            true,
           );
-          res = json({ imported, invitation });
+          const invitationUrl = `${url.origin}/join/${invitation}`;
+          const emailStatus = await sendInvitationEmail(env, text(body.email, 254).toLowerCase(), invitationUrl);
+          res = json({ imported, invitation, emailStatus });
         } else if (url.pathname === '/api/invitation' && req.method === 'POST') {
           res = json(await identity.invitationInfo(text(body.token,200),ip));
         } else if (
