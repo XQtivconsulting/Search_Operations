@@ -1,7 +1,7 @@
 import { Identity, digest } from "./identity";
 import { Workspace } from "./workspace";
 import { sendInvitationEmail } from './invitation-email';
-import { fetchJobs } from './recruitcrm';
+import { fetchJobs, readCRMToken } from './recruitcrm';
 import { requireThat, text, roles } from "./domain";
 export { Identity, Workspace };
 interface Env {
@@ -117,12 +117,16 @@ export default {
           const workspace: any = env.WORKSPACE.getByName(a.tenant);
           if (url.pathname.startsWith('/api/crm/')) {
             requireThat(a.role === 'admin','Administrator permission required.',403);
-            const tokens = JSON.parse(env.RECRUITCRM_TOKENS || '{}');
-            const token = Object.prototype.hasOwnProperty.call(tokens,a.tenant) ? tokens[a.tenant] : null;
-            if(url.pathname === '/api/crm/status' && req.method === 'GET') res = json({configured:!!token,...await workspace.crmState(a)});
+            const token = readCRMToken(env.RECRUITCRM_TOKENS,a.tenant);
+            if(url.pathname === '/api/crm/status' && req.method === 'GET') {
+              try {res = json({configured:!!token,...await workspace.crmState(a)});}
+              catch {throw Object.assign(new Error('The app could not load its RecruitCRM integration records. Report storage error CRM_STATUS.'),{status:500});}
+            }
             else if(url.pathname === '/api/crm/fetch' && req.method === 'POST') {
               requireThat(typeof token === 'string' && token.length > 0,'RecruitCRM is not connected for this workspace.',409);
-              res = json(await workspace.stageCRM(a,await fetchJobs(token)));
+              const jobs = await fetchJobs(token);
+              try {res = json(await workspace.stageCRM(a,jobs));}
+              catch {throw Object.assign(new Error('RecruitCRM jobs were fetched, but the app could not save the preview. Existing searches were not changed. Report storage error CRM_PREVIEW.'),{status:500});}
             } else if(url.pathname === '/api/crm/apply' && req.method === 'POST') res = json(await workspace.applyCRM(a,body.jobs));
             else res = json({error:'Not found.'},404);
           }

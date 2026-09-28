@@ -42,6 +42,8 @@ This integration does not provision the first administrator or alter the protect
 
 Set Worker secret `RECRUITCRM_TOKENS` with a JSON object keyed by workspace, for example `{"xqtiv":"YOUR_TOKEN"}`. Use `npx wrangler secret put RECRUITCRM_TOKENS` and enter the actual value through the secure prompt. Do not put a real value in this document.
 
+For the XQtiv workspace only, the secret also accepts the plain API token. Surrounding whitespace and an optional Bearer prefix are removed. Plain-token fallback is never shared with other tenants. Invalid configuration, access rejection, network failures, invalid JSON responses and preview-storage failures have separate safe error messages; token values and provider response bodies are never included.
+
 An administrator opens Integrations, fetches a preview, verifies CRM IDs and local matches, supplies client names for new jobs, and applies selected changes. The first connector handles job titles/status only. Candidate handoff and outreach summary synchronization remain future work. A live API check has not been run.
 
 ## Production gates
