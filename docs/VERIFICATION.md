@@ -2,6 +2,8 @@
 
 ## Completed
 
+- Compact workspace CSS reduces repeated row, card, form and section spacing. Fixed checkbox inputs inheriting the global 48px form minimum height. Typecheck, all 25 tests and build passed after this CSS change; authenticated visual verification remains outstanding.
+
 - TypeScript checking, 25 automated tests and the Vite production build pass locally.
 - Bulk-write tests cover rollback, audit records, permissions, optimistic versions, review locks and clipboard handling.
 - CRM company tests cover paginated exact-slug name joins, hostile company pagination, automatic client creation/update, and preservation of existing client names when absent. Workspace fixtures exercise migration from the prior staging schema.

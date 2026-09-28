@@ -922,3 +922,74 @@ footer button {
 .crm-panel .sort-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; padding:4px 0; border:0; border-radius:0; background:transparent; color:inherit; font:inherit; font-weight:600; text-align:left; cursor:pointer; }
 .crm-panel .sort-heading:focus-visible { outline:2px solid #176d52; outline-offset:2px; }
 .crm-panel .sheet-table tbody tr:hover { background:#f3f7f5; }
+
+/* Dense working views: preserve font sizes while reducing repeated vertical space. */
+.app { line-height:1.4; }
+.app .main { padding:24px 28px; }
+.app aside { padding:22px 16px; overflow-y:auto; }
+.app .workspace-label { margin:24px 8px 18px; }
+.app nav { gap:3px; }
+.app nav button { padding:8px 10px; }
+.app .identity { padding-top:12px; }
+.app header { margin-bottom:18px; gap:16px; }
+.app .subheading { margin-top:6px; }
+.app .filters { gap:12px; margin-bottom:16px; }
+.app .panel { padding:16px 18px; margin-bottom:14px; }
+.app .overview-grid { gap:14px; }
+.app .section-head { gap:12px; margin-bottom:12px; }
+.app .section-head p:not(.eyebrow) { margin-top:4px; }
+.app .eyebrow { margin-bottom:6px; }
+.app .fine { margin-top:10px; line-height:1.4; }
+.app .metrics { padding:12px 0; margin-bottom:16px; }
+.app .metric { padding-right:18px; }
+.app .metric strong { font-size:32px; line-height:1.2; }
+.app .work-row { padding:8px 0; gap:12px; }
+.app .work-row small { margin-top:1px; }
+.app .monogram { width:32px; height:32px; }
+.app .badge { padding:2px 7px; }
+.app .portfolio-number { margin-top:20px; font-size:40px; }
+.app .dark button { margin-top:14px; }
+.app .searchbox { margin:14px 0; }
+.app .search-card { margin-bottom:8px; }
+.app .search-card summary { padding:10px 14px; gap:16px; }
+.app .search-card summary > span:first-child strong { margin-top:2px; }
+.app .search-detail { padding:14px; }
+.app .search-detail h3 { margin-top:14px; }
+.app .search-detail .row-actions { margin-top:12px; }
+.app .assignment-meta { gap:12px; margin-bottom:10px; }
+.app .entry { padding:8px 0; gap:10px; }
+.app .review-block { margin-top:14px; padding-top:12px; }
+.app th, .app td { padding:7px 10px; }
+.app .sheet-table th, .app .sheet-table td { padding:3px 8px; line-height:1.3; }
+.app .sheet-toolbar { margin:10px 0; gap:10px; }
+.app button, .modal button { min-height:34px; padding:6px 10px; }
+.app input:not([type=checkbox]), .app select, .modal input:not([type=checkbox]), .modal select { min-height:34px; padding:5px 8px; }
+.app .sheet-table input:not([type=checkbox]) { min-height:28px; padding:3px 6px; }
+/* Global form input height must never enlarge checkbox rows. */
+input[type=checkbox] { width:18px; height:18px; min-height:18px; padding:0; flex-shrink:0; }
+.app .sheet-table input[type=checkbox] { display:block; margin:2px auto; }
+.app .sort-heading { min-height:28px; padding:3px 0; }
+.app label, .modal label { gap:4px; }
+.app form, .modal form { gap:12px; }
+.app .people-grid { gap:8px; margin-top:14px; }
+.app .people-grid span { padding:4px 8px; }
+.app .source-note, .app .notice, .app .error { padding:9px 12px; margin-bottom:12px; }
+.app .issue { padding:10px 0; }
+.app .empty { padding:22px; margin-top:10px; }
+.app footer { margin-top:18px; }
+.modal { padding:20px; }
+.modal .section-head { top:-20px; margin-bottom:12px; }
+@media (max-width:760px) {
+  .app .main { padding:16px 12px; }
+  .app aside { padding:12px; }
+  .app nav { margin-top:12px; }
+  .app .panel { padding:12px; }
+  .app .search-card summary { gap:10px; }
+  .app .metrics { gap:12px; }
+}
+/* Maintain comfortable targets on touch devices without restoring card whitespace. */
+@media (pointer:coarse) {
+  .app button, .modal button, .app input:not([type=checkbox]), .app select,
+  .modal input:not([type=checkbox]), .modal select { min-height:44px; }
+  .app .sheet-table td:first-child { min-width:44px; height:44px; }
+}
