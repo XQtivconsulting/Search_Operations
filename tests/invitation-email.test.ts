@@ -39,3 +39,12 @@ test('provider failures, malformed responses and timeouts never claim delivery o
     assert.equal(await sendInvitationEmail(config, 'user@example.com', url, transport as typeof fetch), 'unconfirmed');
   }
 });
+
+test('account verification email uses a bounded idempotent send with explicit purpose and no secret in result',async()=>{
+ const {sendAccountEmail}=await import('../src/invitation-email');let payload:any,options:any;
+ const transport=async(url:any,init:any)=>{assert.equal(url,'https://api.resend.com/emails');options=init;payload=JSON.parse(init.body);return Response.json({id:'synthetic-id'});};
+ const status=await sendAccountEmail({RESEND_API_KEY:'synthetic',INVITATION_FROM:'XQtiv <test@example.com>'},'new@example.com','code','123456','synthetic-message',transport as any);
+ assert.equal(status,'accepted');assert.match(payload.subject,/new XQtiv sign-in email/);assert.match(payload.text,/10 minutes/);assert.equal(options.headers['Idempotency-Key'],'synthetic-message');assert.equal(options.redirect,'manual');assert.ok(options.signal);
+ assert.equal(await sendAccountEmail({},'new@example.com','code','123456','id',transport as any),'not_configured');
+ assert.equal(await sendAccountEmail({RESEND_API_KEY:'synthetic',INVITATION_FROM:'test@example.com'},'old@example.com','changed','new@example.com','id',(async()=>new Response('secret provider error',{status:500})) as any),'unconfirmed');
+});

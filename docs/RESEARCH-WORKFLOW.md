@@ -57,3 +57,16 @@ Set a wave when adding selected master companies to a role, or select targets in
 ## Password changes
 
 Every signed-in user has Account settings → Change password. Supply the current password and confirm a new 12–128 character password. The change applies across that user's workspaces, replaces the current session and revokes all older sessions. Password recovery remains a separate future feature.
+
+
+## Correcting researchers and reviewer setup
+
+Teams → Researchers (also Workspace → People and access) lets administrators edit a researcher's name and optional contact email, before or after account activation. Save researcher keeps the same staff ID, assignments and history. Contact email is a directory field; it does not replace the account email or change a previously sent invitation.
+
+Archive removes a researcher from all current team rosters and future roster choices, with version checks and audit records. It preserves assignments, mappings and reviews. Show archived researchers → Restore makes the record available again; add it back to the appropriate teams. Account access and outstanding invitations remain separate. Use Manage accounts to revoke access where appropriate.
+
+Reviewed by lists all other researchers in the same team, even without accounts. Selecting a name saves immediately with a confirmation. A selected reviewer must have exactly one active linked researcher account before work can be submitted; the app reports what is missing rather than silently selecting someone else. Teams with a single active alternative can still pair automatically if no explicit pairing is saved. Existing pending reviews retain their reviewer.
+
+For an unaccepted invitation with a misspelled email, choose Replace invitation and correct the address. Sending the replacement invalidates the earlier invitation link for that researcher. An already-linked staff record cannot receive a second account through invitation.
+
+Active users change their own sign-in email in Account settings: enter the new address and current password, send a code, then enter the six-digit code from the new inbox within ten minutes. The change preserves identity and workspace memberships, signs out other sessions and notifies the old address. Verification requires configured email delivery; no verification code is returned to the browser. Admins can edit directory contact details but cannot overwrite another person's sign-in identity.

@@ -1,5 +1,6 @@
 import './role-page.css';
 import {CandidateRolePage} from './RolePageView';
+import {StaffDirectory} from './StaffDirectory';
 import {AccountSettings} from './AccountSettings';
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -109,6 +110,7 @@ function App() {
         if (modal?.kind === "invite") {
           const result = await api("invite", body);
           setModal({ kind: "invitation", url: result.url, emailStatus: result.emailStatus });
+          await load();
           return;
         }
         await api("mutate", body);
@@ -478,7 +480,7 @@ function App() {
             </p>
           </div>
         )}
-        {page==='Account settings'&&<AccountSettings api={api} onDirty={setSheetDirty}/>}
+        {page==='Account settings'&&<AccountSettings api={api} onDirty={setSheetDirty} email={actor.email} reload={load}/>}
         {page === "Integrations" && <CRMPanel partners={data.partners || []} searches={data.searches} api={api} reload={load} />}
         {page === "Overview" && (
           <>
@@ -653,7 +655,7 @@ function App() {
         {page === "Weekly plan" && <WeeklyPlanner data={data} api={api} reload={load} initialSearch={selected} onDirty={setSheetDirty} onTeams={()=>setPage('Workspace')}/>}
         {["Role repository","My Work","Workflow Monitor"].includes(page)&&<ResearchPanel key={page} data={data} api={api} reload={load} view={page} initialRole={page==='Role repository'?selected:''} initialTab={repoTab} onDirty={setSheetDirty}/>}
         {page === 'Company universe'&&<CompanyUniverse data={data} api={api} reload={load} onDirty={setSheetDirty}/>}
-        {page === 'Teams'&&<>{isAdmin&&<TeamsPanel data={data} api={api} reload={load} onAdd={()=>open({kind:'team'})}/>}{planner?<PeerSetup data={data} api={api} reload={load}/>:<p>Ask your team planner to configure teammate reviewers here.</p>}</>}
+        {page === 'Teams'&&<>{isAdmin&&<><TeamsPanel data={data} api={api} reload={load} onAdd={()=>open({kind:'team'})}/><StaffDirectory data={data} api={api} reload={load} onDirty={setSheetDirty} onAdd={()=>open({kind:'staff'})} onInvite={s=>open({kind:'invite',name:s.name,email:s.email,staffId:s.id})}/></>}{planner?<PeerSetup data={data} api={api} reload={load}/>:<p>Ask your team planner to configure teammate reviewers here.</p>}</>}
         {page === "Spreadsheet" && <BulkSheet onOpen={id=>{setSelected(id);setRepoTab("Candidate mappings");setPage("Role repository");}} data={data} entries={filtered} assignments={assignments} api={api} reload={load} onDirty={setSheetDirty} />}
         {page === "Daily work" && <DailyWork data={data} assignments={assignments} entries={filtered} renderEntries={entryRows} onOpen={id=>{setSelected(id);setRepoTab("Candidate mappings");setPage("Role repository");}}/>}
         {page === "Reviews" && (
@@ -817,17 +819,13 @@ function App() {
                   Manage accounts
                 </button>
               </div>
-              <div className="people-grid">
-                {data.staff.map((p: Row) => (
-                  <span key={p.id}>{p.name}</span>
-                ))}
-              </div>
+              <StaffDirectory data={data} api={api} reload={load} onDirty={setSheetDirty} onAdd={()=>open({kind:'staff'})} onInvite={s=>open({kind:'invite',name:s.name,email:s.email,staffId:s.id})}/>
               <p className="fine">
                 Everyone can view this workspace's searches. Editing, planning,
                 and review permissions depend on their assigned access role.
               </p>
             </section>
-            <TeamsPanel data={data} api={api} reload={load} onAdd={()=>open({kind:'team'})}/>
+            <><TeamsPanel data={data} api={api} reload={load} onAdd={()=>open({kind:'team'})}/><StaffDirectory data={data} api={api} reload={load} onDirty={setSheetDirty} onAdd={()=>open({kind:'staff'})} onInvite={s=>open({kind:'invite',name:s.name,email:s.email,staffId:s.id})}/></>
             <section className="panel">
               <h2>Import reconciliation</h2>
               <p>
@@ -991,10 +989,11 @@ function App() {
                 )}
                 {modal.kind === "invite" && (
                   <>
-                    <Field name="name" label="Full name" required />
+                    <Field name="name" label="Full name" initial={modal.name} required />
                     <Field
                       name="email"
                       label="Work email"
+                      initial={modal.email}
                       type="email"
                       required
                     />
@@ -1011,10 +1010,11 @@ function App() {
                     />
                     <Select
                       name="staffId"
-                      label="Link historical researcher (optional)"
+                      label="Link researcher (optional)"
+                      initial={modal.staffId}
                       values={[
                         ["", "No staff link"],
-                        ...data.staff.map((s: Row) => [s.id, s.name]),
+                        ...data.staff.filter((s:Row)=>!s.archived).map((s: Row) => [s.id, s.name]),
                       ]}
                     />
                     <p className="fine">

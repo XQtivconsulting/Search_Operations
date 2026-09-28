@@ -170,3 +170,25 @@ test('CRM imports save explicit engagement partners and preserve ownership on or
  await w.applyCRM(actor,[{...job,search_id:search.id,version:search.version,partner_id:'',partner:''}]);
  assert.equal(db.prepare("SELECT partner FROM searches WHERE external_id='99'").get()?.partner,'');db.close();
 });
+
+test('researcher edits preserve references, enforce versions and audit atomically',async()=>{
+ const {db,w}=fixture();await roster(w);
+ await w.mutate(actor,'staff-edit',{id:'s',version:0,name:'Corrected Researcher',email:'NEW@example.com'});
+ const state=await w.state(actor),person=state.staff.find((s:any)=>s.id==='s');
+ assert.equal(person?.name,'Corrected Researcher');assert.equal(person?.email,'new@example.com');assert.equal(person?.version,1);
+ assert.equal(state.entries[0].staff_id,'s');assert.ok(state.team_members.some((m:any)=>m.staff_id==='s'));
+ await assert.rejects(w.mutate(actor,'staff-edit',{id:'s',version:0,name:'Stale',email:''}),/changed/);
+ await assert.rejects(w.mutate(actor,'staff-edit',{id:'s',version:1,name:'Other',email:''}),/already/);
+ await assert.rejects(w.mutate({...actor,role:'researcher'},'staff-edit',{id:'s',version:1,name:'No',email:''}),/Administrator/);
+ await assert.rejects(w.mutate(actor,'staff-edit',{id:'foreign',version:0,name:'No',email:''}),/not found/);
+ assert.equal(db.prepare("SELECT COUNT(*) n FROM audit WHERE action='staff-edit'").get()?.n,1);
+ assert.ok(!JSON.stringify((await w.state({...actor,role:'researcher'})).staff).includes('new@example.com'));db.close();
+});
+test('archive removes future roster membership, bumps roster versions, preserves work and supports restore',async()=>{
+ const {db,w}=fixture();await roster(w);
+ await w.mutate(actor,'staff-archive',{id:'s',version:0,archived:true});
+ let state=await w.state(actor);assert.equal(state.staff.find((s:any)=>s.id==='s')?.archived,1);assert.equal(state.entries.length,2);assert.equal(state.teams[0].roster_version,2);assert.ok(!state.team_members.some((m:any)=>m.staff_id==='s'));
+ await assert.rejects(w.mutate(actor,'team-members',{id:'t',version:2,staff_ids:['s']}),/active researcher/);
+ await assert.rejects(w.mutate(actor,'team-members',{id:'t',version:1,staff_ids:['s2']}),/roster changed/);
+ await w.mutate(actor,'staff-archive',{id:'s',version:1,archived:false});state=await w.state(actor);assert.equal(state.staff.find((s:any)=>s.id==='s')?.archived,0);assert.equal(state.entries.length,2);db.close();
+});

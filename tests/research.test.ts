@@ -84,3 +84,25 @@ test('document publication never inherits the role title, client or earlier page
  await assert.rejects(f.run(admin,{action:'brief-release',role_id:'r',...before,page:{...page,title:'Unrelated company content'}}),/only wording/);
  assert.equal((await f.rec(first.id)).version,before.version);assert.equal(JSON.parse(f.db.prepare('SELECT data FROM role_publications WHERE role_id=?').get('r')!.data as string).title,'Synthetic Alpha role');f.db.close();
 });
+
+test('pairing can be configured before activation and never silently falls back to a different active reviewer',async()=>{
+ const f=fixture(),t=await setup(f),id=await mapping(f,t);
+ f.db.exec("INSERT INTO staff VALUES('unlinked','Future Teammate');INSERT INTO team_members VALUES('t','unlinked')");
+ const route=await f.run(admin,{action:'peer-route',team_id:'t',staff_id:'s',reviewer_staff_id:'unlinked'});
+ await assert.rejects(f.run(mapper,{...await f.rec(id),action:'mapping-submit'}),/selected teammate reviewer needs/);
+ assert.equal((await f.rec(id)).status,'Draft');
+ await assert.rejects(f.run(admin,{...await f.rec(route.id),action:'peer-route',team_id:'t',staff_id:'s',reviewer_staff_id:'s'}),/Self-review/);
+ await assert.rejects(f.run(admin,{...await f.rec(route.id),action:'peer-route',team_id:'t',staff_id:'s',reviewer_staff_id:'foreign'}),/same team/);
+ await assert.rejects(f.run(mapper,{action:'peer-route',team_id:'t',staff_id:'unlinked',reviewer_staff_id:'s'}),/permission/);
+ const activated=[...members,{id:'future-account',name:'Future',role:'researcher',status:'active',staff_id:'unlinked'}];
+ await f.w.research(mapper,{...await f.rec(id),action:'mapping-submit'},activated);assert.equal((await f.rec(id)).reviewer_id,'future-account');
+ await f.run(admin,{...await f.rec(route.id),action:'peer-route',team_id:'t',staff_id:'s',reviewer_staff_id:'p'});assert.equal((await f.rec(id)).reviewer_id,'future-account');f.db.close();
+});
+test('unlinked teammates have an enabled reviewer selector and archive/edit actions render',async()=>{
+ const f=fixture();f.db.exec("INSERT INTO staff VALUES('unlinked','Future Teammate');INSERT INTO team_members VALUES('t','unlinked')");
+ const React=await import('react'),{renderToStaticMarkup}=await import('react-dom/server'),{PeerSetup}=await import('../src/PeerSetup'),{StaffDirectory}=await import('../src/StaffDirectory');
+ const data={...await f.state(),people:members},props={data,api:async()=>({}),reload:async()=>{}};
+ const html=renderToStaticMarkup(React.createElement(PeerSetup,props));
+ assert.match(html,/<select aria-label="Reviewer for Future Teammate in Blue"><option/);assert.ok(html.includes('Future Teammate (account not active)'));
+ const staff=renderToStaticMarkup(React.createElement(StaffDirectory,{...props,onAdd:()=>{},onInvite:()=>{},onDirty:()=>{}}));assert.ok(staff.includes('Edit researcher'));assert.ok(staff.includes('Archive'));assert.ok(staff.includes('No account yet'));f.db.close();
+});

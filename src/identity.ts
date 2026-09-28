@@ -16,6 +16,7 @@ export class Identity extends DurableObject {
   constructor(ctx: DurableObjectState, env: any) {
     super(ctx, env);
     ctx.storage.sql.exec(identitySchema);
+    ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS email_changes(user_id TEXT PRIMARY KEY,email TEXT NOT NULL,old_email TEXT NOT NULL,session_hash TEXT NOT NULL,code_hash TEXT NOT NULL,expires INTEGER NOT NULL,created INTEGER NOT NULL)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS account_events(id TEXT PRIMARY KEY,user_id TEXT NOT NULL,action TEXT NOT NULL,created_at TEXT NOT NULL)');
   }
   rows(q: string, ...p: (string | number | null)[]): any[] {
@@ -61,6 +62,10 @@ export class Identity extends DurableObject {
         'This workspace is already set up. Sign in or contact its administrator.', 409);
       requireThat(!this.rows('SELECT token FROM invites WHERE tenant=? AND role=? AND used=0 AND expires>? LIMIT 1', tenant, 'admin', Date.now()).length,
         'An administrator invitation is already pending. Use the invitation link already created.', 409);
+    }
+    if(staffId) {
+      requireThat(!this.rows("SELECT user_id FROM memberships WHERE tenant=? AND staff_id=?",tenant,staffId).length,'This researcher already has an account. The account holder can change their sign-in email in Account settings.',409);
+      this.rows('UPDATE invites SET used=1 WHERE tenant=? AND staff_id=? AND used=0',tenant,staffId);
     }
     this.rows(
       "INSERT INTO invites VALUES(?,?,?,?,?,?,?,0)",
@@ -168,6 +173,8 @@ export class Identity extends DurableObject {
         hash,
       )[0];
       requireThat(current && !current.used, "Invitation already used.");
+      if(invite.staff_id) requireThat(!this.rows('SELECT user_id FROM memberships WHERE tenant=? AND staff_id=?',invite.tenant,invite.staff_id).length,'This researcher is already linked to an account. Ask your administrator.',409);
+      requireThat(!this.rows('SELECT user_id FROM memberships WHERE tenant=? AND user_id=?',invite.tenant,id).length,'This account already belongs to this workspace. Sign in or contact your administrator.',409);
       if (!u)
         this.rows(
           "INSERT INTO users VALUES(?,?,?,?)",
@@ -213,6 +220,55 @@ export class Identity extends DurableObject {
     requireThat(session, 'Please sign in again.', 401);
     this.limit('password-user:'+session.user_id, 5);
     return this.changePassword(raw, body);
+  }
+  async pendingInvitations(tenant:string) {
+    return this.rows('SELECT email,name,role,staff_id FROM invites WHERE tenant=? AND used=0 AND expires>?',tenant,Date.now());
+  }
+  async requestEmailChange(raw:string,body:any,ip:string) {
+    this.limit('email-change-ip:'+ip,10);
+    const sessionHash=await digest(raw);
+    const u=this.rows('SELECT u.* FROM users u JOIN sessions s ON s.user_id=u.id WHERE s.token=? AND s.expires>?',sessionHash,Date.now())[0];
+    requireThat(u,'Please sign in again.',401);
+    this.limit('email-change-user:'+u.id,3);
+    const password=String(body.currentPassword??'');
+    requireThat(password.length<=128&&passwordOK(password,u.password),'Current password is incorrect.',401);
+    const email=text(body.email,254).toLowerCase();
+    requireThat(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),'Enter a valid email.');
+    requireThat(email!==u.email,'Enter a different email address.');
+    const code=String(crypto.getRandomValues(new Uint32Array(1))[0]%1000000).padStart(6,'0');
+    const codeHash=await digest(u.id+':'+code);
+    this.ctx.storage.transactionSync(()=>{
+      requireThat(this.rows('SELECT token FROM sessions WHERE token=? AND expires>?',sessionHash,Date.now()).length,'Please sign in again.',401);
+      requireThat(!this.rows('SELECT id FROM users WHERE email=?',email).length,'This email cannot be used for this account.',409);
+      const pending=this.rows('SELECT created FROM email_changes WHERE user_id=?',u.id)[0];
+      requireThat(!pending||Date.now()-pending.created>=60000,'Wait one minute before requesting another code.',429);
+      this.rows('INSERT OR REPLACE INTO email_changes VALUES(?,?,?,?,?,?,?)',u.id,email,u.email,sessionHash,codeHash,Date.now()+600000,Date.now());
+      this.rows('INSERT INTO account_events VALUES(?,?,?,?)',crypto.randomUUID(),u.id,'email-change-requested',new Date().toISOString());
+    });
+    return {email,code,id:crypto.randomUUID()};
+  }
+  async confirmEmailChange(raw:string,body:any,ip:string) {
+    this.limit('email-confirm-ip:'+ip,15);
+    const sessionHash=await digest(raw);
+    const session=this.rows('SELECT user_id FROM sessions WHERE token=? AND expires>?',sessionHash,Date.now())[0];
+    requireThat(session,'Please sign in again.',401);
+    this.limit('email-confirm-user:'+session.user_id,5);
+    const codeHash=await digest(session.user_id+':'+text(body.code,6));
+    const rawToken=token(),tokenHash=await digest(rawToken);
+    return this.ctx.storage.transactionSync(()=>{
+      const u=this.rows('SELECT u.* FROM users u JOIN sessions s ON s.user_id=u.id WHERE s.token=? AND s.expires>?',sessionHash,Date.now())[0];
+      requireThat(u,'Please sign in again.',401);
+      const pending=this.rows('SELECT * FROM email_changes WHERE user_id=?',u.id)[0];
+      requireThat(pending&&pending.session_hash===sessionHash&&pending.expires>Date.now()&&pending.old_email===u.email,'Request a new email verification code.');
+      requireThat(/^\d{6}$/.test(String(body.code||''))&&pending.code_hash===codeHash,'Incorrect verification code.');
+      requireThat(!this.rows('SELECT id FROM users WHERE email=?',pending.email).length,'This email cannot be used for this account.',409);
+      this.rows('UPDATE users SET email=? WHERE id=?',pending.email,u.id);
+      this.rows('DELETE FROM email_changes WHERE user_id=?',u.id);
+      this.rows('DELETE FROM sessions WHERE user_id=?',u.id);
+      this.rows('INSERT INTO sessions VALUES(?,?,?)',tokenHash,u.id,Date.now()+7*86400e3);
+      this.rows('INSERT INTO account_events VALUES(?,?,?,?)',crypto.randomUUID(),u.id,'email-changed',new Date().toISOString());
+      return {token:rawToken,email:pending.email,oldEmail:u.email,id:crypto.randomUUID()};
+    });
   }
   async logout(raw: string) {
     this.rows("DELETE FROM sessions WHERE token=?", await digest(raw));

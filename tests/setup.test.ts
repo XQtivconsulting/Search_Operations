@@ -78,3 +78,37 @@ test('password endpoint enforces same origin and returns replacement HttpOnly co
  const send=(origin:string,method='POST')=>worker.fetch(new Request('https://app.example.com/api/change-password',{method,headers:{Origin:origin,Cookie:'search_session=synthetic-session'},...(method==='POST'?{body:'{}'}:{})}),env);
  assert.equal((await send('https://evil.example')).status,403);assert.equal((await send('https://app.example.com','GET')).status,405);assert.equal(changed,0);const r=await send('https://app.example.com');assert.equal(r.status,200);assert.match(r.headers.get('Set-Cookie')!,/HttpOnly; Secure; SameSite=Strict/);assert.deepEqual(await r.json(),{ok:true});
 });
+
+test('replacement invitation revokes the earlier link and linked staff cannot receive a second account',async()=>{
+ const {db,identity}=fixture();const first=await identity.invite('typo@example.com','One','test','researcher','staff');
+ const second=await identity.invite('correct@example.com','One','test','researcher','staff');
+ assert.equal((await identity.invitationInfo(first,'ip')).status,'used');
+ await assert.rejects(identity.accept({token:first,email:'typo@example.com',password:'Synthetic-password-123'},'ip'),/expired/);
+ await identity.accept({token:second,email:'correct@example.com',password:'Synthetic-password-123'},'ip');
+ await assert.rejects(identity.invite('third@example.com','One','test','researcher','staff'),/already has an account/);
+ assert.equal(db.prepare('SELECT COUNT(*) n FROM memberships').get()?.n,1);db.close();
+});
+async function emailFixture(){const f=fixture(),{passwordHash}=await import('../src/password');f.db.prepare('INSERT INTO users VALUES(?,?,?,?)').run('u','before@example.com','Synthetic',passwordHash('Synthetic-password-123'));f.db.exec("INSERT INTO memberships VALUES('u','test','researcher','s','active')");return {...f,session:await f.identity.session('u')};}
+test('email changes require password and mailbox proof, preserve memberships and rotate sessions',async()=>{
+ const {db,identity,session}=await emailFixture();
+ await assert.rejects(identity.requestEmailChange(session.token,{email:'after@example.com',currentPassword:'wrong'},'ip'),/incorrect/);
+ const issued=await identity.requestEmailChange(session.token,{email:'AFTER@example.com',currentPassword:'Synthetic-password-123'},'ip');
+ assert.equal(db.prepare('SELECT email FROM users').get()?.email,'before@example.com');
+ assert.ok(!JSON.stringify(db.prepare('SELECT * FROM email_changes').get()).includes('"'+issued.code+'"'));
+ const other=await identity.session('u');await assert.rejects(identity.confirmEmailChange(other.token,{code:issued.code},'ip'),/new email verification/);
+ await assert.rejects(identity.confirmEmailChange(session.token,{code:'invalid'},'ip'),/Incorrect/);
+ const changed=await identity.confirmEmailChange(session.token,{code:issued.code},'ip');assert.equal(changed.email,'after@example.com');
+ assert.equal(await identity.authenticate(other.token,'test'),null);assert.equal(await identity.authenticate(session.token,'test'),null);
+ const a=await identity.authenticate(changed.token,'test');assert.equal(a?.staffId,'s');assert.equal(a?.id,'u');assert.equal(a?.email,'after@example.com');
+ await assert.rejects(identity.confirmEmailChange(changed.token,{code:issued.code},'ip'),/new email verification/);db.close();
+});
+test('email codes expire, repeated guesses are throttled and concurrent email ownership is checked',async()=>{
+ let f=await emailFixture();let c=await f.identity.requestEmailChange(f.session.token,{email:'after@example.com',currentPassword:'Synthetic-password-123'},'ip');f.db.exec('UPDATE email_changes SET expires=0');await assert.rejects(f.identity.confirmEmailChange(f.session.token,{code:c.code},'ip'),/new email verification/);f.db.close();
+ f=await emailFixture();c=await f.identity.requestEmailChange(f.session.token,{email:'after@example.com',currentPassword:'Synthetic-password-123'},'ip');f.db.exec("INSERT INTO users VALUES('another','after@example.com','Other','unused')");await assert.rejects(f.identity.confirmEmailChange(f.session.token,{code:c.code},'ip'),/cannot be used/);assert.equal(f.db.prepare("SELECT email FROM users WHERE id='u'").get()?.email,'before@example.com');f.db.close();
+ f=await emailFixture();await f.identity.requestEmailChange(f.session.token,{email:'after@example.com',currentPassword:'Synthetic-password-123'},'ip');for(let i=0;i<5;i++)await assert.rejects(f.identity.confirmEmailChange(f.session.token,{code:'invalid'},'ip'),/Incorrect/);await assert.rejects(f.identity.confirmEmailChange(f.session.token,{code:'invalid'},'ip'),/Too many/);assert.equal(f.db.prepare('SELECT email FROM users').get()?.email,'before@example.com');f.db.close();
+});
+test('staff directory requires admin and email-change endpoints enforce origin and method',async()=>{
+ let role='researcher',calls=0;const env:any={IDENTITY:{getByName:()=>({authenticate:async()=>({tenant:'test',role}),members:async()=>{calls++;return []},pendingInvitations:async()=>[]})},WORKSPACE:{getByName:()=>({})}};
+ assert.equal((await worker.fetch(new Request('https://app.example.com/api/staff-directory'),env)).status,403);assert.equal(calls,0);role='admin';assert.equal((await worker.fetch(new Request('https://app.example.com/api/staff-directory'),env)).status,200);
+ for(const path of ['request','confirm']) {assert.equal((await worker.fetch(new Request('https://app.example.com/api/change-email/'+path),env)).status,405);assert.equal((await worker.fetch(new Request('https://app.example.com/api/change-email/'+path,{method:'POST',headers:{Origin:'https://other.example'},body:'{}'}),env)).status,403);}
+});

@@ -1,7 +1,7 @@
 import {companySuggestions} from './company-enrichment';
 import { Identity, digest } from "./identity";
 import { Workspace } from "./workspace";
-import { sendInvitationEmail,sendRoleEmail } from './invitation-email';
+import { sendInvitationEmail,sendRoleEmail,sendAccountEmail } from './invitation-email';
 import { fetchJobs, readCRMToken } from './recruitcrm';
 import { requireThat, text, roles } from "./domain";
 export { Identity, Workspace };
@@ -128,6 +128,18 @@ export default {
           requireThat(req.method === 'POST', 'Method not allowed.', 405);
           const result = await identity.changePasswordAttempt(rawCookie, body, ip);
           res = json({ok:true},200,{'Set-Cookie':cookie(result.token)});
+        } else if (url.pathname === '/api/change-email/request') {
+          requireThat(req.method==='POST','Method not allowed.',405);
+          requireThat(env.RESEND_API_KEY&&env.INVITATION_FROM,'Email verification is not configured. Ask your administrator.',503);
+          const result=await identity.requestEmailChange(rawCookie,body,ip);
+          const status=await sendAccountEmail(env,result.email,'code',result.code,result.id);
+          requireThat(status==='accepted','Code delivery could not be confirmed. Your sign-in email has not changed. Wait one minute and request another code.',503);
+          res=json({ok:true,email:result.email});
+        } else if (url.pathname === '/api/change-email/confirm') {
+          requireThat(req.method==='POST','Method not allowed.',405);
+          const result=await identity.confirmEmailChange(rawCookie,body,ip);
+          const notificationStatus=await sendAccountEmail(env,result.oldEmail,'changed',result.email,result.id);
+          res=json({ok:true,email:result.email,notificationStatus},200,{'Set-Cookie':cookie(result.token)});
         } else if (url.pathname === "/api/logout") {
           requireThat(req.method === "POST", "Method not allowed.", 405);
           await identity.logout(rawCookie);
@@ -171,7 +183,8 @@ export default {
           else if (url.pathname === "/api/state" && req.method === "GET") {
             const partners=(await identity.members(a.tenant)).filter((m:any)=>m.status==='active' && ['admin','founder','partner'].includes(m.role)).map((m:any)=>({id:m.id,name:m.name}));
             const people=(await identity.members(a.tenant)).filter((m:any)=>m.status==='active').map((m:any)=>({id:m.id,name:m.name,role:m.role,staff_id:m.staff_id,status:m.status}));
-            res = json({...await workspace.state(a),partners,people});
+            const state=await workspace.state(a);
+            res = json({...state,partners,people:people.map((p:any)=>({...p,name:state.staff?.find((s:any)=>s.id===p.staff_id)?.name||p.name}))});
           }
           else if (url.pathname === '/api/company-lookup'&&req.method==='POST') {
             requireThat(['admin','planner'].includes(a.role),'Planning permission required.',403);
@@ -213,7 +226,7 @@ export default {
             const state = await workspace.state(a);
             requireThat(
               !body.staffId ||
-                state.staff.some((s: any) => s.id === body.staffId),
+                state.staff.some((s: any) => s.id === body.staffId&&!s.archived),
               "Unknown staff record.",
             );
             const invite = await identity.invite(
@@ -226,6 +239,9 @@ export default {
             const invitationUrl = `${url.origin}/join/${invite}`;
             const emailStatus = await sendInvitationEmail(env, text(body.email, 254).toLowerCase(), invitationUrl);
             res = json({ url: invitationUrl, emailStatus });
+          } else if(url.pathname==='/api/staff-directory'&&req.method==='GET') {
+            requireThat(a.role==='admin','Administrator permission required.',403);
+            res=json({members:await identity.members(a.tenant),invitations:await identity.pendingInvitations(a.tenant)});
           } else if (url.pathname === "/api/members" && req.method === "GET") {
             requireThat(
               a.role === "admin",

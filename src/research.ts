@@ -22,8 +22,15 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
  const resolvePeer=(team:string,staff:string)=>{
   const candidates=active.filter(m=>m.role==='researcher'&&(m.staff_id||m.staffId)!==staff&&db.rows('SELECT staff_id FROM team_members WHERE team_id=? AND staff_id=?',team,m.staff_id||m.staffId||'').length);
   const route=db.rows("SELECT data FROM research_records WHERE kind='peer-route' AND record_key=?",team+':'+staff)[0];
-  const selected=route?JSON.parse(route.data).reviewer_id:'';
+  const pairing=route?JSON.parse(route.data):null;
+  if(pairing?.reviewer_staff_id) {
+    const matched=candidates.filter(m=>(m.staff_id||m.staffId)===pairing.reviewer_staff_id);
+    requireThat(matched.length===1,'The selected teammate reviewer needs one active researcher account in this team. Update the pairing in Teams or activate their account.');
+    return matched[0].id;
+  }
+  const selected=pairing?.reviewer_id||'';
   const matched=candidates.find(m=>m.id===selected);if(matched)return matched.id;
+  requireThat(!selected,'The selected teammate reviewer is no longer active in this team. Update the pairing in Teams.');
   const unique=[...new Set(candidates.map(m=>m.staff_id||m.staffId))];
   if(unique.length===1)return candidates[0].id;
   const legacy=db.rows("SELECT data FROM research_records WHERE kind='team-reviewer' AND record_key=?",team)[0];
@@ -51,8 +58,12 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
   next=cleanCompany(b);
  } else if(b.action==='peer-route') {
   requireThat(canPlan(a),'Planning permission required.',403);requireThat(db.rows('SELECT staff_id FROM team_members WHERE team_id=? AND staff_id=?',b.team_id,b.staff_id).length,'This researcher is not in the team.');
-  teammate(b.reviewer_id,b.team_id,b.staff_id);kind='peer-route';key=b.team_id+':'+b.staff_id;requireThat(old?.id===find(kind,key)?.id,'Peer pairing changed. Reload.',409);
-  next={team_id:b.team_id,staff_id:b.staff_id,reviewer_id:b.reviewer_id};
+  requireThat(!old||old.kind==='peer-route','Wrong record type.');
+  const reviewerStaff=b.reviewer_staff_id||((()=>{const m=teammate(b.reviewer_id,b.team_id,b.staff_id);return m.staff_id||m.staffId;})());
+  requireThat(reviewerStaff!==b.staff_id,'Self-review is not allowed.');
+  requireThat(db.rows('SELECT staff_id FROM team_members WHERE team_id=? AND staff_id=?',b.team_id,reviewerStaff).length,'The peer reviewer must be a researcher in the same team.');
+  kind='peer-route';key=b.team_id+':'+b.staff_id;requireThat(old?.id===find(kind,key)?.id,'Peer pairing changed. Reload.',409);
+  next={team_id:b.team_id,staff_id:b.staff_id,reviewer_staff_id:reviewerStaff};
  } else if(b.action==='team-reviewer') {
   requireThat(canPlan(a),'Planning permission required.',403);requireThat(db.rows('SELECT id FROM teams WHERE id=?',b.team_id).length,'Team not found.');
   kind='team-reviewer';key=text(b.team_id);teammate(b.reviewer_id,key);

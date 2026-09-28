@@ -109,7 +109,7 @@ export class Workspace extends DurableObject {
       teams: this.rows("SELECT t.*,COALESCE(r.version,0) roster_version FROM teams t LEFT JOIN team_rosters r ON r.team_id=t.id ORDER BY t.name"),
       team_members: this.rows('SELECT * FROM team_members'),
       priorities: this.rows('SELECT * FROM weekly_priorities ORDER BY week DESC'),
-      staff: this.rows("SELECT * FROM staff ORDER BY name"),
+      staff: this.rows("SELECT s.*,COALESCE(p.email,'') email,COALESCE(p.archived,0) archived,COALESCE(p.version,0) version FROM staff s LEFT JOIN staff_profiles p ON p.staff_id=s.id ORDER BY s.name").map(s=>a.role==='admin'?s:(({email,...rest})=>rest)(s)),
       assignments: this.rows(
         "SELECT * FROM assignments ORDER BY work_date DESC",
       ),
@@ -194,6 +194,30 @@ export class Workspace extends DurableObject {
     });
   }
   private applyMutation(a: Actor, kind: string, b: any): { id: string } {
+      if(kind === 'staff-edit' || kind === 'staff-archive') {
+        requireThat(a.role==='admin','Administrator permission required.',403);
+        const old=this.rows("SELECT s.*,COALESCE(p.email,'') email,COALESCE(p.archived,0) archived,COALESCE(p.version,0) version FROM staff s LEFT JOIN staff_profiles p ON p.staff_id=s.id WHERE s.id=?",b.id)[0];
+        requireThat(old,'Researcher not found.',404);
+        requireThat(Number(b.version)===old.version,'This researcher changed. Reload before editing.',409);
+        const name=kind==='staff-edit'?text(b.name,100):old.name;
+        const email=kind==='staff-edit'?text(b.email,254).toLowerCase():old.email;
+        const archived=kind==='staff-archive'?(b.archived===true?1:0):old.archived;
+        requireThat(name,'Enter a name.');
+        requireThat(!email||/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),'Enter a valid contact email.');
+        requireThat(!this.rows('SELECT id FROM staff WHERE lower(trim(name))=lower(?) AND id<>?',name,b.id).length,'Another researcher already has this name.',409);
+        this.rows('UPDATE staff SET name=? WHERE id=?',name,b.id);
+        this.rows('INSERT INTO staff_profiles VALUES(?,?,?,?) ON CONFLICT(staff_id) DO UPDATE SET email=excluded.email,archived=excluded.archived,version=excluded.version',b.id,email,archived,old.version+1);
+        if(archived&&!old.archived) {
+          for(const t of this.rows('SELECT team_id FROM team_members WHERE staff_id=?',b.id)) {
+            const before=this.rows('SELECT staff_id FROM team_members WHERE team_id=?',t.team_id);
+            this.rows('DELETE FROM team_members WHERE team_id=? AND staff_id=?',t.team_id,b.id);
+            this.rows('INSERT INTO team_rosters VALUES(?,1) ON CONFLICT(team_id) DO UPDATE SET version=version+1',t.team_id);
+            this.audit(a,'team-members',t.team_id,before,this.rows('SELECT staff_id FROM team_members WHERE team_id=?',t.team_id));
+          }
+        }
+        this.audit(a,kind,b.id,old,{name,email,archived,version:old.version+1});
+        return {id:b.id};
+      }
       if(kind === 'team-members') {
         requireThat(a.role === 'admin','Administrator permission required.',403);
         requireThat(this.rows('SELECT id FROM teams WHERE id=?',b.id).length,'Team not found.',404);
@@ -201,7 +225,7 @@ export class Workspace extends DurableObject {
         requireThat(Number(b.version)===version,'The team roster changed. Reload before editing.',409);
         requireThat(Array.isArray(b.staff_ids),'Select team members.');
         const ids=[...new Set<string>(b.staff_ids)];
-        for(const id of ids) requireThat(this.rows('SELECT id FROM staff WHERE id=?',id).length,'Unknown researcher.');
+        for(const id of ids) requireThat(this.rows('SELECT s.id FROM staff s LEFT JOIN staff_profiles p ON p.staff_id=s.id WHERE s.id=? AND COALESCE(p.archived,0)=0',id).length,'Unknown researcher or archived record. Choose an active researcher.');
         const before=this.rows('SELECT staff_id FROM team_members WHERE team_id=?',b.id);
         this.rows('DELETE FROM team_members WHERE team_id=?',b.id);
         for(const id of ids) this.rows('INSERT INTO team_members VALUES(?,?)',b.id,id);
@@ -331,8 +355,8 @@ export class Workspace extends DurableObject {
         );
         for (const staffId of new Set<string>(b.staff_ids ?? [])) {
           requireThat(
-            this.rows("SELECT id FROM staff WHERE id=?", staffId).length,
-            "Choose an existing researcher.",
+            this.rows("SELECT s.id FROM staff s LEFT JOIN staff_profiles p ON p.staff_id=s.id WHERE s.id=? AND COALESCE(p.archived,0)=0", staffId).length,
+            "Choose an active researcher.",
           );
           this.rows(
             "INSERT INTO entries(id,assignment_id,staff_id) VALUES(?,?,?)",

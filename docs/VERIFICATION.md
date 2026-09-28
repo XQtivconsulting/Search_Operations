@@ -51,3 +51,11 @@
 - Historical workbook migration: source inspection is complete, but no spreadsheet data was imported by this build.
 
 The runtime tests use synthetic provider responses and do not claim live API success.
+
+## Researcher editing and reviewer setup — 2026-09-28
+
+- Actual local checks: TypeScript passed, all 87 tests passed, Vite production build passed and Wrangler Worker dry-run packaging passed.
+- Added SQLite tests for versioned staff edits, duplicate names, admin permission, missing staff, contact privacy, archive/restore, roster invalidation and preservation of historical entries.
+- Added peer routing tests for account-free setup, self/outsider rejection, activation at submission, no silent fallback and preservation of already-pending review ownership. React render checks cover enabled unlinked researcher selectors and staff actions.
+- Added identity tests for replacement-invitation invalidation, duplicate account prevention, current-password/email proof, session binding, expiry, rate limits, email uniqueness, membership preservation and session rotation. Worker checks cover admin-only directory access and same-origin/method enforcement. Mail transport tests use synthetic responses.
+- No customer records were edited and no real verification emails were sent during testing. Live email inbox delivery and an authenticated browser walkthrough remain unverified. Deployment status must be checked separately in the GitHub Actions run for the release commit.
