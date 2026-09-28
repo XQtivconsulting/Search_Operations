@@ -64,11 +64,24 @@ test('targets use assignment versions and duplicate batches are rejected',async(
 test('CRM preview never overwrites searches until applied and stale edits abort',async()=>{
   const {db,w}=fixture();
   db.exec("UPDATE searches SET external_id='1' WHERE id='r'");
-  await w.stageCRM(actor,[{external_id:'1',title:'Updated role',status:'On Hold',company_slug:'c'}]);
+  await w.stageCRM(actor,[{external_id:'1',title:'Updated role',status:'On Hold',company_slug:'c',company_name:'CRM Company'}]);
   assert.equal(db.prepare("SELECT title FROM searches WHERE id='r'").get()?.title,'Test role');
   const snapshot=await w.crmState(actor),job=snapshot.jobs[0];
   await assert.rejects(w.applyCRM(actor,[{...job,search_id:'r',version:99}]),/local search changed/);
   await w.applyCRM(actor,[{...job,search_id:'r',version:1}]);
   assert.equal(db.prepare("SELECT title FROM searches WHERE id='r'").get()?.title,'Updated role');
+  assert.equal(db.prepare("SELECT client FROM searches WHERE id='r'").get()?.client,'CRM Company');
   assert.equal(db.prepare('SELECT COUNT(*) n FROM entries').get()?.n,2);db.close();
+});
+
+test('CRM company names create clients and missing names preserve existing clients',async()=>{
+ const {db,w}=fixture();
+ await w.stageCRM(actor,[{external_id:'new',title:'New',status:'Open',company_slug:'co',company_name:'Imported Company'}]);
+ let job=(await w.crmState(actor)).jobs[0];await w.applyCRM(actor,[job]);
+ const search=db.prepare("SELECT * FROM searches WHERE external_id='new'").get()!;
+ assert.equal(search.client,'Imported Company');
+ await w.stageCRM(actor,[{external_id:'new',title:'New',status:'Closed',company_slug:'co'}]);
+ job=(await w.crmState(actor)).jobs[0];await w.applyCRM(actor,[{...job,search_id:search.id,version:search.version}]);
+ assert.equal(db.prepare("SELECT client FROM searches WHERE external_id='new'").get()?.client,'Imported Company');
+ db.close();
 });

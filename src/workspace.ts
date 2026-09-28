@@ -18,6 +18,8 @@ export class Workspace extends DurableObject {
   constructor(ctx: DurableObjectState, env: any) {
     super(ctx, env);
     ctx.storage.sql.exec(workspaceSchema);
+    if(!this.rows('PRAGMA table_info(crm_jobs)').some(c=>c.name === 'company_name'))
+      this.rows("ALTER TABLE crm_jobs ADD COLUMN company_name TEXT NOT NULL DEFAULT ''");
   }
   rows(q: string, ...p: any[]): any[] {
     return this.ctx.storage.sql.exec(q, ...p).toArray();
@@ -72,7 +74,7 @@ export class Workspace extends DurableObject {
     return this.ctx.storage.transactionSync(() => {
       // Replace only the staging snapshot, never the operating records.
       this.rows('DELETE FROM crm_jobs');
-      for(const j of jobs) this.rows('INSERT INTO crm_jobs VALUES(?,?,?,?,?)',j.external_id,j.title,j.status,j.company_slug,now());
+      for(const j of jobs) this.rows('INSERT INTO crm_jobs(external_id,title,status,company_slug,fetched_at,company_name) VALUES(?,?,?,?,?,?)',j.external_id,j.title,j.status,j.company_slug,now(),j.company_name || '');
       this.rows('INSERT INTO integration_runs VALUES(?,?,?,?,?)',uuid(),a.id,'staged',jobs.length,now());
       this.audit(a,'crm-stage','recruitcrm',null,{count:jobs.length});
       return {count:jobs.length};
@@ -91,9 +93,9 @@ export class Workspace extends DurableObject {
         requireThat(matches.length <= 1,'Multiple searches share this CRM ID. Reconcile before applying.',409);
         const old = matches[0];
         requireThat(old ? old.id === item.search_id && old.version === item.version : !item.search_id,'The local search changed. Reload the preview.',409);
-        const id = old?.id || uuid(), client = old?.client || text(item.client);
+        const id = old?.id || uuid(), client = source.company_name || old?.client || text(item.client);
         requireThat(client,'Enter a client name for each new search.');
-        if(old) this.rows('UPDATE searches SET title=?,status=?,version=version+1 WHERE id=?',source.title,source.status,id);
+        if(old) this.rows('UPDATE searches SET title=?,status=?,client=?,version=version+1 WHERE id=?',source.title,source.status,client,id);
         else this.rows('INSERT INTO searches(id,external_id,client,title,status) VALUES(?,?,?,?,?)',id,source.external_id,client,source.title,source.status);
         this.audit(a,'crm-apply',id,old || null,{external_id:source.external_id,title:source.title,status:source.status,client});
       }

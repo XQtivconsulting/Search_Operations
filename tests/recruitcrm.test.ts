@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { fetchJobs, normalizeJob, readCRMToken } from '../src/recruitcrm';
 test('CRM adapter paginates and projects only required job fields',async()=>{
  let calls=0;
- const transport=(async(url:any,init:any)=>{calls++;assert.equal(init.headers.Authorization,'Bearer synthetic');return Response.json({data:[{id:calls,name:'Test',company_slug:'co',job_status:{label:'Open'},private_note:'not imported'}],next_page_url:calls===1?'https://api.recruitcrm.io/v1/jobs?page=2':null});}) as typeof fetch;
- const jobs=await fetchJobs('synthetic',transport);assert.equal(jobs.length,2);assert.equal('private_note' in jobs[0],false);
+ const transport=(async(url:any,init:any)=>{assert.equal(init.headers.Authorization,'Bearer synthetic');if(String(url).includes('/companies')) return Response.json({data:[{slug:'co',company_name:'Example client'}],next_page_url:null});calls++;return Response.json({data:[{id:calls,name:'Test',company_slug:'co',job_status:{label:'Open'},private_note:'not imported'}],next_page_url:calls===1?'https://api.recruitcrm.io/v1/jobs?page=2':null});}) as typeof fetch;
+ const jobs=await fetchJobs('synthetic',transport);assert.equal(jobs.length,2);assert.equal(jobs[0].company_name,'Example client');assert.equal('private_note' in jobs[0],false);
 });
 test('CRM configuration accepts JSON and plain tokens without sharing plain tokens across tenants',()=>{
  assert.equal(readCRMToken(' synthetic ','xqtiv'),'synthetic');
@@ -38,4 +38,17 @@ test('CRM adapter handles invalid payloads and rate limits',async()=>{
  assert.throws(()=>normalizeJob({id:1}),/without a name/);
  await assert.rejects(fetchJobs('synthetic',(async()=>new Response('',{status:429})) as typeof fetch),/rate limit/);
  await assert.rejects(fetchJobs('synthetic',(async()=>Response.json({not_data:[]})) as typeof fetch),/unexpected response/);
+});
+
+test('CRM company pagination matches exact slugs and rejects unsafe next pages',async()=>{
+ const calls:string[]=[];
+ const transport=(async(url:any)=>{calls.push(String(url));
+  if(String(url).includes('/jobs')) return Response.json({data:[{id:1,name:'Role',company_slug:'c2'},{id:2,name:'Missing',company_slug:'missing'}]});
+  return Response.json(String(url).includes('page=2')?{data:[{slug:'c2',company_name:'Second Company'}]}:{data:[{slug:'c1',company_name:'First Company'}],next_page_url:'https://api.recruitcrm.io/v1/companies?page=2'});
+ }) as typeof fetch;
+ const jobs=await fetchJobs('synthetic',transport);
+ assert.equal(jobs[0].company_name,'Second Company');assert.equal(jobs[1].company_name,'');assert.equal(calls.length,3);
+ let count=0;
+ await assert.rejects(fetchJobs('synthetic',(async()=>{count++;return Response.json(count===1?{data:[{id:1,name:'Role',company_slug:'c'}]}:{data:[],next_page_url:'https://untrusted.example/v1/companies'});}) as typeof fetch),/unexpected pagination/);
+ assert.equal(count,2);
 });

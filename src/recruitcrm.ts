@@ -1,5 +1,5 @@
 import { requireThat, text } from './domain';
-export type CRMJob = {external_id:string; title:string; status:string; company_slug:string};
+export type CRMJob = {external_id:string; title:string; status:string; company_slug:string; company_name?:string};
 export function readCRMToken(raw: string | undefined, tenant: string): string | null {
   const value = (raw || '').trim();
   if (!value) return null;
@@ -25,15 +25,15 @@ export function normalizeJob(job:any): CRMJob {
   requireThat(typeof job.name === 'string' && job.name.trim(), 'RecruitCRM returned a job without a name.',502);
   return {external_id:String(job.id),title:text(job.name),status:text(job.job_status?.label) || 'Unknown',company_slug:text(job.company_slug)};
 }
-export async function fetchJobs(token:string, transport:typeof fetch = fetch):Promise<CRMJob[]> {
-  let url: string | null = 'https://api.recruitcrm.io/v1/jobs';
-  const seen = new Set<string>(), jobs = new Map<string,CRMJob>();
+async function fetchPages(token:string, endpoint:'jobs'|'companies', transport:typeof fetch):Promise<any[]> {
+  let url: string | null = `https://api.recruitcrm.io/v1/${endpoint}`;
+  const seen = new Set<string>(), records:any[] = [];
   while(url) {
     requireThat(!seen.has(url) && seen.size < 100, 'RecruitCRM pagination exceeded the supported sync size.',502);
     let parsed: URL;
     try { parsed = new URL(url); }
     catch { throw Object.assign(new Error('RecruitCRM returned an invalid pagination URL.'), {status:502}); }
-    requireThat(parsed.origin === 'https://api.recruitcrm.io' && parsed.pathname === '/v1/jobs' && !parsed.username && !parsed.password, 'RecruitCRM returned an unexpected pagination URL.',502);
+    requireThat(parsed.origin === 'https://api.recruitcrm.io' && parsed.pathname === `/v1/${endpoint}` && !parsed.username && !parsed.password, 'RecruitCRM returned an unexpected pagination URL.',502);
     seen.add(url);
     let response: Response;
     try {
@@ -52,9 +52,24 @@ export async function fetchJobs(token:string, transport:typeof fetch = fetch):Pr
     try { body = await response.json(); }
     catch { throw Object.assign(new Error('RecruitCRM returned a response that was not valid JSON. No searches were imported. Report response error CRM_RESPONSE.'),{status:502}); }
     requireThat(Array.isArray(body.data), 'RecruitCRM returned an unexpected response.',502);
-    for(const raw of body.data) {const job=normalizeJob(raw); jobs.set(job.external_id,job);}
-    requireThat(jobs.size <= 10000,'RecruitCRM returned too many jobs for one sync.',502);
+    records.push(...body.data);
+    requireThat(records.length <= 10000,'RecruitCRM returned too many records for one sync.',502);
     url = !body.next_page_url || body.next_page_url === 'null' ? null : String(body.next_page_url);
+  }
+  return records;
+}
+export async function fetchJobs(token:string, transport:typeof fetch = fetch):Promise<CRMJob[]> {
+  const jobs = new Map<string,CRMJob>();
+  for(const raw of await fetchPages(token,'jobs',transport)) {
+    const job = normalizeJob(raw); jobs.set(job.external_id,job);
+  }
+  if([...jobs.values()].some(j=>j.company_slug)) {
+    const companies = new Map<string,string>();
+    for(const company of await fetchPages(token,'companies',transport)) {
+      if(typeof company.slug === 'string' && typeof company.company_name === 'string')
+        companies.set(company.slug,text(company.company_name));
+    }
+    for(const job of jobs.values()) job.company_name = companies.get(job.company_slug) || '';
   }
   return [...jobs.values()];
 }
