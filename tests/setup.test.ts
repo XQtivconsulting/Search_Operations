@@ -112,3 +112,57 @@ test('staff directory requires admin and email-change endpoints enforce origin a
  assert.equal((await worker.fetch(new Request('https://app.example.com/api/staff-directory'),env)).status,403);assert.equal(calls,0);role='admin';assert.equal((await worker.fetch(new Request('https://app.example.com/api/staff-directory'),env)).status,200);
  for(const path of ['request','confirm']) {assert.equal((await worker.fetch(new Request('https://app.example.com/api/change-email/'+path),env)).status,405);assert.equal((await worker.fetch(new Request('https://app.example.com/api/change-email/'+path,{method:'POST',headers:{Origin:'https://other.example'},body:'{}'}),env)).status,403);}
 });
+
+function peopleFixture(){const f=fixture();f.db.exec("INSERT INTO users VALUES('owner','owner@example.com','Original Owner','synthetic'),('admin2','admin@example.com','Another Admin','synthetic'),('reader','reader@example.com','Reader','synthetic');INSERT INTO memberships VALUES('owner','test','admin',NULL,'active'),('admin2','test','admin',NULL,'active'),('reader','test','founder',NULL,'active');");return f;}
+test('original administrator is retained as protected owner and accounts are not merged',async()=>{
+ const {db,identity}=peopleFixture(),{hasRole}=await import('../src/domain');
+ const one=await identity.members('test'),two=await identity.members('test');assert.equal(one.length,3);assert.equal(two.length,3);
+ assert.ok(hasRole(one.find(m=>m.id==='owner')!,'super_admin'));assert.ok(!hasRole(one.find(m=>m.id==='admin2')!,'super_admin'));
+ assert.equal(db.prepare('SELECT COUNT(*) n FROM workspace_owners').get()?.n,1);assert.equal(db.prepare('SELECT COUNT(*) n FROM member_events').get()?.n,1);
+ assert.equal(new Set(one.map(m=>m.email)).size,3);db.close();
+});
+test('super admin can combine roles, admins can manage ordinary roles, last owner and staff links are protected',async()=>{
+ const {db,identity}=peopleFixture(),all=await identity.members('test');const owner=all.find(m=>m.id==='owner')!,admin=all.find(m=>m.id==='admin2')!,reader=all.find(m=>m.id==='reader')!;
+ await identity.updateMember(owner as any,{...owner,roles:['super_admin','admin','partner','researcher'],staff_id:'staff-owner'});
+ let current=(await identity.members('test')).find(m=>m.id==='owner')!;assert.deepEqual(current.roles,['super_admin','admin','partner','researcher']);assert.equal(current.staff_id,'staff-owner');
+ await assert.rejects(identity.updateMember(owner as any,{...current,roles:['planner']}),/at least one/);
+ await assert.rejects(identity.updateMember(admin as any,{...current,name:'Takeover',roles:['admin']}),/Only a super/);
+ await assert.rejects(identity.updateMember(admin as any,{...reader,roles:['super_admin']}),/Only a super/);
+ await assert.rejects(identity.revoke('test','owner','admin2'),/Only a super/);
+ await identity.updateMember(admin as any,{...reader,name:'Updated Person',roles:['planner','founder']});
+ const updated=(await identity.members('test')).find(m=>m.id==='reader')!;assert.equal(updated.name,'Updated Person');assert.deepEqual(updated.roles,['planner','founder']);
+ await assert.rejects(identity.updateMember(admin as any,{...reader,roles:['partner']}),/changed/);
+ await assert.rejects(identity.updateMember(admin as any,{...updated,roles:['researcher'],staff_id:'staff-owner'}),/already linked/);
+ await assert.rejects(identity.updateMember(owner as any,{...current,staff_id:'other-staff'}),/cannot be replaced/);
+ await assert.rejects(identity.updateMember({...owner,tenant:'foreign'} as any,{...current}),/permission/);db.close();
+});
+test('membership changes take effect on existing sessions and prevent privilege escalation by readers',async()=>{
+ const {db,identity}=peopleFixture(),all=await identity.members('test'),owner=all.find(m=>m.id==='owner')!,reader=all.find(m=>m.id==='reader')!;
+ const session=await identity.session('reader');await assert.rejects(identity.updateMember(reader as any,{...reader,roles:['admin']}),/permission/);
+ await identity.updateMember(owner as any,{...reader,roles:['researcher','partner'],staff_id:'new-staff'});
+ const actor=await identity.authenticate(session.token,'test');assert.deepEqual(actor?.roles,['researcher','partner']);assert.equal(actor?.staffId,'new-staff');
+ const current=(await identity.members('test')).find(m=>m.id==='reader')!;await identity.updateMember(owner as any,{...current,status:'revoked'});assert.equal(await identity.authenticate(session.token,'test'),null);db.close();
+});
+test('multi-role invitations retain all roles; duplicate email cannot create another workspace membership',async()=>{
+ const {db,identity}=fixture();const invite=await identity.invite('dual@example.com','Dual Person','test','researcher','s',false,['researcher','partner']);
+ await identity.accept({token:invite,email:'dual@example.com',password:'Synthetic-password-123'},'ip');
+ const members=await identity.members('test');assert.deepEqual(members[0].roles,['researcher','partner']);
+ await assert.rejects(identity.invite('dual@example.com','Other Name','test','admin',null),/already has a workspace account/);assert.equal(members.length,1);db.close();
+});
+test('switched browser cookie is blocked before writes to a different account, including password and logout',async()=>{
+ const {db,identity}=peopleFixture();const a=await identity.session('owner'),b=await identity.session('admin2');let writes=0;
+ const env:any={IDENTITY:{getByName:()=>identity},WORKSPACE:{getByName:()=>({mutate:async()=>{writes++;return{};},state:async()=>({staff:[],entries:[]})})}};
+ for(const path of ['mutate','logout','change-password','change-email/request','members/update']) {
+  const r=await worker.fetch(new Request('https://app.example.com/api/'+path,{method:'POST',headers:{Origin:'https://app.example.com',Cookie:'search_session='+b.token,'X-Expected-User':'owner','X-Workspace':'test'},body:JSON.stringify({kind:'staff',name:'Forbidden'})}),env);
+  assert.equal(r.status,409,path);assert.equal((await r.json() as any).code,'SESSION_CHANGED');
+ }
+ assert.equal(writes,0);assert.ok(await identity.authenticate(a.token,'test'));assert.ok(await identity.authenticate(b.token,'test'));
+ const r=await worker.fetch(new Request('https://app.example.com/api/session',{headers:{Cookie:'search_session='+b.token,'X-Expected-User':'admin2'}}),env);assert.equal(r.status,200);assert.deepEqual(await r.json(),{id:'admin2',email:'admin@example.com'});db.close();
+});
+test('manual count endpoints are retired and cross-workspace role updates are rejected',async()=>{
+ const {db,identity}=peopleFixture(),session=await identity.session('owner');let writes=0;
+ const env:any={IDENTITY:{getByName:()=>identity},WORKSPACE:{getByName:()=>({mutate:async()=>{writes++;},bulk:async()=>{writes++;}})}};
+ const send=(path:string,body:any)=>worker.fetch(new Request('https://app.example.com/api/'+path,{method:'POST',headers:{Origin:'https://app.example.com',Cookie:'search_session='+session.token,'X-Workspace':'test','X-Expected-User':'owner'},body:JSON.stringify(body)}),env);
+ assert.equal((await send('mutate',{kind:'entry'})).status,410);assert.equal((await send('bulk',{changes:[{kind:'review'}]})).status,410);assert.equal(writes,0);
+ assert.equal((await send('members/update',{id:'not-in-workspace',version:0,roles:['admin']})).status,404);db.close();
+});

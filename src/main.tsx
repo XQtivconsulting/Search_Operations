@@ -1,6 +1,8 @@
 import './role-page.css';
 import {CandidateRolePage} from './RolePageView';
-import {StaffDirectory} from './StaffDirectory';
+import {PeoplePanel} from './PeoplePanel';
+import {Candidates} from './Candidates';
+import {WorkflowMonitor} from './WorkflowMonitor';
 import {AccountSettings} from './AccountSettings';
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -19,11 +21,10 @@ import {
   ArrowSquareOut,
   WarningCircle,
 } from "@phosphor-icons/react";
-import { aggregate } from "./domain";
+import {hasRole,roleList,roleLabel, aggregate } from "./domain";
 import {CompanyUniverse} from "./CompanyUniverse";
 import {PeerSetup} from "./PeerSetup";
 import {DailyWork} from "./DailyWork";
-import { BulkSheet } from "./BulkSheet";
 import {WeeklyPlanner} from './WeeklyPlanner';
 import {TeamsPanel} from './TeamsPanel';
 import { CRMPanel } from "./CRMPanel";
@@ -32,15 +33,20 @@ import { Setup } from './Setup';
 import "./style.css";
 type Row = Record<string, any>;
 let workspace = sessionStorage.getItem("workspace") || "xqtiv";
+let expectedUser:string|null=null;
+let sessionRevision=0;
+const sessionChannel=typeof BroadcastChannel!=='undefined'?new BroadcastChannel('xqtiv-account'):null;
+function accountChanged(){sessionRevision++;expectedUser=null;window.dispatchEvent(new Event('xqtiv-account-changed'));}
+if(sessionChannel)sessionChannel.onmessage=()=>accountChanged();
 async function api(path: string, body?: unknown) {
-  const r = await fetch("/api/" + path, {
-    method: body ? "POST" : "GET",
-    headers: { "Content-Type": "application/json", "X-Workspace": workspace },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const data = (await r.json()) as any;
-  if (!r.ok) throw new Error(data.error || "Request failed.");
-  return data;
+  const publicCall=['login','accept','invitation'].includes(path),expected=publicCall?null:expectedUser,revision=sessionRevision;
+  const r = await fetch('/api/'+path, {method:body?'POST':'GET',headers:{'Content-Type':'application/json','X-Workspace':workspace,...(expected?{'X-Expected-User':expected}:{})},body:body?JSON.stringify(body):undefined});
+  const result=await r.json() as any;
+  if(result.code==='SESSION_CHANGED'||r.status===401&&!!expected){accountChanged();throw new Error(result.error||'Please sign in again.');}
+  if(!r.ok)throw new Error(result.error||'Request failed.');
+  if(!publicCall&&revision!==sessionRevision)throw new Error('Account changed while loading. Reload this page.');
+  if(['login','accept','logout'].includes(path)){sessionRevision++;expectedUser=null;sessionChannel?.postMessage({changed:true});}
+  return result;
 }
 const fmt = (n: number) => new Intl.NumberFormat().format(n);
 const today = () => new Date().toLocaleDateString("en-CA");
@@ -66,21 +72,29 @@ function App() {
     [notice, setNotice] = useState("");
   const [repoTab,setRepoTab]=useState("Target companies");
   const [sheetDirty, setSheetDirty] = useState(false);
+  useEffect(()=>{const warn=(e:BeforeUnloadEvent)=>{if(sheetDirty){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[sheetDirty]);
   const invite = location.pathname.startsWith('/join/') ? location.pathname.split('/')[2] : new URLSearchParams(location.hash.slice(1)).get("invite");
   const [invitation,setInvitation] = useState<Row|null>(null);
   const joining = !!invite && invitation?.status === 'active';
   const [showPassword,setShowPassword] = useState(false);
   async function load() {
     try {
-      setData(await api("state"));
+      const next=await api('state');expectedUser=next.actor.id;
+      // Operational totals come only from candidate mappings. Historical aggregates remain in storage.
+      setData({...next,entries:next.entries.map((e:Row)=>e.source==='candidates'?e:{...e,mapped:null,peer:null,partner:null,peer_at:null,partner_at:null,flag:null,automated:true,notes:''})});
       setError("");
     } catch (e: any) {
-      if (!data) setData(null);
-      else setError(e.message);
+      setError(e.message);
     } finally {
       setLoading(false);
     }
   }
+  useEffect(()=>{
+    const changed=()=>{setData(null);setModal(null);setInvitation(null);setSheetDirty(false);setPage('Overview');setSelected('');setError('The signed-in account changed or expired. Reload to use the current browser account, or sign in again. Use separate browser profiles for simultaneous accounts.');};
+    const focus=()=>{if(expectedUser)api('session').catch(()=>{});};
+    window.addEventListener('xqtiv-account-changed',changed);window.addEventListener('focus',focus);
+    return()=>{window.removeEventListener('xqtiv-account-changed',changed);window.removeEventListener('focus',focus);};
+  },[]);
   useEffect(() => {
     if (invite) {
       api('invitation',{token:invite}).then(info=>{
@@ -98,12 +112,13 @@ function App() {
       if (!data) {
         const result = await api(joining ? "accept" : "login", {
           ...b,
-          email: invitation?.email || b.email,
+          email: joining ? invitation?.email : b.email,
           token: invite,
         });
         workspace = result.memberships[0]?.tenant || "xqtiv";
         sessionStorage.setItem("workspace", workspace);
         history.replaceState({}, "", "/");
+        setInvitation(null);setModal(null);setPage("Overview");setSelected("");
         await load();
       } else {
         const body = { ...modal, ...b };
@@ -166,7 +181,7 @@ function App() {
               : invitation?.status==='used' ? "Your invitation was already accepted. Sign in with the password you chose." : "Sign in with your invited account."}
           </p>
           <form onSubmit={save}>
-            <Field name="email" label="Work email" type="email" initial={invitation?.email || ""} readOnly={!!invitation?.email} required />
+            <Field name="email" label="Work email" type="email" initial={joining?invitation?.email:""} readOnly={joining} required />
             <Field
               name="password"
               label="Password"
@@ -192,15 +207,15 @@ function App() {
             </button>
           </form>
           <p className="fine">
-            Access is invitation-only. Contact your workspace administrator for
+            One browser profile shares one sign-in across tabs. Use a separate browser profile or private window to test another account. Access is invitation-only. Contact your workspace administrator for
             an invitation or help with access.
           </p>
         </section>
       </main>
     );
   const actor = data.actor,
-    isAdmin = actor.role === "admin",
-    planner = isAdmin || actor.role === "planner";
+    isAdmin = hasRole(actor,'admin'),
+    planner = isAdmin || hasRole(actor,'planner');
   const sBy = Object.fromEntries(data.searches.map((s: Row) => [s.id, s])),
     tBy = Object.fromEntries(data.teams.map((t: Row) => [t.id, t])),
     pBy = Object.fromEntries(data.staff.map((s: Row) => [s.id, s]));
@@ -223,25 +238,20 @@ function App() {
       .toLowerCase()
       .includes(search.toLowerCase()),
   );
-  const queue = filtered.filter(
-    (e: Row) => e.source!=='candidates' && !e.automated && e.mapped !== null && (e.peer === null || e.partner === null),
-  );
-  const nav: [string, React.ElementType][] = [
-    ["Overview", SquaresFour],
-    ["Account settings", Users],
-    ["Searches", Briefcase],
-    ["Role repository",Briefcase],
-    ["Company universe",Briefcase],
-    ["Teams",Users],
-    ["My Work",ClipboardText],
-    ["Workflow Monitor",ChartBar],
-    ["Weekly plan", CalendarBlank],
-    ["Daily work", ClipboardText],
-    ["Spreadsheet", ClipboardText],
-    ["Reviews", CheckCircle],
-    ["Performance", ChartBar],
-    ...(isAdmin ? [["Integrations", Briefcase] as [string, React.ElementType]] : []),
-    ...(isAdmin ? [["Workspace", Users] as [string, React.ElementType]] : []),
+  const queue=(data.research?.records||[]).filter((m:Row)=>m.kind==='mapping'&&['Peer review','Partner review'].includes(m.status));
+  const nav: [string, React.ElementType,string][] = [
+    ['Overview',SquaresFour,'Work'],
+    ['My Work',ClipboardText,'Work'],
+    ['Searches',Briefcase,'Research'],
+    ['Role repository',Briefcase,'Research'],
+    ['Candidates',Users,'Research'],
+    ['Company universe',Briefcase,'Research'],
+    ['Weekly plan',CalendarBlank,'Delivery'],
+    ['Daily work',ClipboardText,'Delivery'],
+    ['Workflow Monitor',ChartBar,'Delivery'],
+    ['Performance',ChartBar,'Delivery'],
+    ['Teams',Users,'Organization'],
+    ...(isAdmin?[['People & access',Users,'Organization'] as [string,React.ElementType,string],['Integrations',Briefcase,'Organization'] as [string,React.ElementType,string]]:[]),
   ];
   const open = (m: Row) => {
     setError("");
@@ -294,37 +304,6 @@ function App() {
         </div>
         <div className="row-actions">
           {e.source==='candidates'&&<button onClick={()=>{setSelected(e.search_id);setRepoTab("Candidate mappings");setPage("Role repository");}}>View mappings</button>}
-          {!e.automated&&e.source!=='candidates'&&(isAdmin || actor.staffId === e.staff_id) &&
-            !e.peer_at &&
-            !e.partner_at && (
-              <button onClick={() => open({ kind: "entry", ...e })}>
-                Log output
-              </button>
-            )}
-          {!e.automated&&e.source!=='candidates'&&(isAdmin ||
-            (actor.role === "researcher" &&
-              actor.staffId &&
-              actor.staffId !== e.staff_id)) &&
-            e.mapped !== null &&
-            !e.partner_at && (
-              <button
-                onClick={() => open({ kind: "review", ...e, stage: "peer" })}
-              >
-                Peer review
-              </button>
-            )}
-          {!e.automated&&e.source!=='candidates'&&(isAdmin || actor.role === "partner") && e.peer !== null && (
-            <button
-              onClick={() => open({ kind: "review", ...e, stage: "partner" })}
-            >
-              Partner review
-            </button>
-          )}
-          {!e.automated&&e.source!=='candidates'&&isAdmin && (e.peer_at || e.partner_at) && (
-            <button onClick={() => open({ kind: "reopen", ...e })}>
-              Reopen
-            </button>
-          )}
         </div>
       </div>
     ));
@@ -343,7 +322,8 @@ function App() {
           </div>
         </div>
         <nav aria-label="Main navigation">
-          {nav.map(([label, Icon]) => (
+          {nav.map(([label, Icon, group],index) => (
+            <React.Fragment key={label}>{(index===0||nav[index-1][2]!==group)&&<p className="nav-group">{group}</p>}
             <button
               key={label}
               className={page === label ? "active" : ""}
@@ -360,17 +340,20 @@ function App() {
                 <span className="nav-count">{queue.length}</span>
               )}
             </button>
+            </React.Fragment>
           ))}
         </nav>
         <div className="identity">
           <strong>{actor.name}</strong>
-          <small>{actor.role}</small>
+          <small className="identity-email">{actor.email}</small>
+          <small>{roleList(actor).map(roleLabel).join(' · ')}</small>
+          <button className={page==='Account settings'?'active':''} onClick={()=>{if(sheetDirty&&!confirm('Discard unsaved changes?'))return;setSheetDirty(false);setPage('Account settings');}}><Users/>Account settings</button>
           <button
             onClick={async () => {
               if (sheetDirty && !confirm("Discard unsaved changes and sign out?")) return;
               setSheetDirty(false);
               await api("logout", {});
-              setData(null);
+              setData(null);setInvitation(null);setModal(null);setPage("Overview");history.replaceState({},"","/");
             }}
           >
             <SignOut />
@@ -393,10 +376,9 @@ function App() {
                     "Set priorities and allocate teams across all seven days.",
                   "Daily work":
                     "Team assignments and individual contributions, together.",
-                  Spreadsheet: "Update many records on one screen, then save them together.",
-                  Reviews: "Peer review first. Partner review next.",
+                  Candidates: "One candidate record, linked to every mapped client and role.",
                   Performance: "Trace every result to the work behind it.",
-                  Workspace: "People, access, and source data.",
+                  "People & access": "Accounts, invitations and combined responsibilities.",
                 }[page]
               }
             </p>
@@ -423,7 +405,7 @@ function App() {
             {error}
           </div>
         )}
-        {!["Account settings","Role repository","My Work","Workflow Monitor","Company universe","Teams"].includes(page) && page !== "Workspace" && page !== "Integrations" && page !== "Weekly plan" && (
+        {!["Account settings","Role repository","My Work","Workflow Monitor","Company universe","Teams","Candidates","People & access"].includes(page)  && page !== "Integrations" && page !== "Weekly plan" && (
           <div className="filters">
             <label>
               From
@@ -470,16 +452,6 @@ function App() {
             </button>
           </div>
         )}
-        {flagged > 0 && page !== "Workspace" && page !== "Account settings" && (
-          <div className="source-note">
-            <WarningCircle size={20} />
-            <p>
-              {flagged} entries in this view have inconsistent historical review
-              counts. Totals use recorded individual values; affected results
-              need reconciliation.
-            </p>
-          </div>
-        )}
         {page==='Account settings'&&<AccountSettings api={api} onDirty={setSheetDirty} email={actor.email} reload={load}/>}
         {page === "Integrations" && <CRMPanel partners={data.partners || []} searches={data.searches} api={api} reload={load} />}
         {page === "Overview" && (
@@ -492,7 +464,7 @@ function App() {
                     <p className="eyebrow">NEXT ACTIONS</p>
                     <h2>Reviews waiting on a decision</h2>
                   </div>
-                  <button onClick={() => setPage("Reviews")}>
+                  <button onClick={() => setPage("Workflow Monitor")}>
                     View all <ArrowRight />
                   </button>
                 </div>
@@ -501,8 +473,8 @@ function App() {
                     className="work-row"
                     key={e.id}
                     onClick={() => {
-                      setSelected(e.search_id);
-                      setPage("Reviews");
+                      setSelected(e.role_id);
+                      setPage("Workflow Monitor");
                     }}
                   >
                     <span className="monogram">
@@ -510,12 +482,12 @@ function App() {
                     </span>
                     <span>
                       <strong>
-                        {pBy[e.staff_id]?.name} · {sBy[e.search_id]?.client}
+                        {e.name} · {sBy[e.role_id]?.client}
                       </strong>
-                      <small>{sBy[e.search_id]?.title}</small>
+                      <small>{sBy[e.role_id]?.title}</small>
                     </span>
                     <span className="badge">
-                      {e.peer === null ? "Peer review" : "Partner review"}
+                      {e.status}
                     </span>
                   </button>
                 ))}
@@ -652,36 +624,13 @@ function App() {
             </div>
           </>
         )}
-        {page === "Weekly plan" && <WeeklyPlanner data={data} api={api} reload={load} initialSearch={selected} onDirty={setSheetDirty} onTeams={()=>setPage('Workspace')}/>}
-        {["Role repository","My Work","Workflow Monitor"].includes(page)&&<ResearchPanel key={page} data={data} api={api} reload={load} view={page} initialRole={page==='Role repository'?selected:''} initialTab={repoTab} onDirty={setSheetDirty}/>}
-        {page === 'Company universe'&&<CompanyUniverse data={data} api={api} reload={load} onDirty={setSheetDirty}/>}
-        {page === 'Teams'&&<>{isAdmin&&<><TeamsPanel data={data} api={api} reload={load} onAdd={()=>open({kind:'team'})}/><StaffDirectory data={data} api={api} reload={load} onDirty={setSheetDirty} onAdd={()=>open({kind:'staff'})} onInvite={s=>open({kind:'invite',name:s.name,email:s.email,staffId:s.id})}/></>}{planner?<PeerSetup data={data} api={api} reload={load}/>:<p>Ask your team planner to configure teammate reviewers here.</p>}</>}
-        {page === "Spreadsheet" && <BulkSheet onOpen={id=>{setSelected(id);setRepoTab("Candidate mappings");setPage("Role repository");}} data={data} entries={filtered} assignments={assignments} api={api} reload={load} onDirty={setSheetDirty} />}
+        {page === "Weekly plan" && <WeeklyPlanner data={data} api={api} reload={load} initialSearch={selected} onDirty={setSheetDirty} onTeams={()=>setPage('Teams')}/>}
+        {["Role repository","My Work"].includes(page)&&<ResearchPanel key={page} data={data} api={api} reload={load} view={page} initialRole={page==='Role repository'?selected:''} initialTab={repoTab} onDirty={setSheetDirty} onCompanies={id=>{setSelected(id);setPage("Company universe");}}/>}
+        {page === 'Company universe'&&<CompanyUniverse data={data} api={api} reload={load} onDirty={setSheetDirty} initialRole={selected} onOpen={id=>{setSelected(id);setRepoTab("Target companies");setPage("Role repository");}}/>}
+        {page==='Workflow Monitor'&&<WorkflowMonitor data={data} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage('Role repository');}}/>}
+        {page==='Candidates'&&<Candidates data={data} api={api} reload={load} onDirty={setSheetDirty} onOpen={id=>{setSelected(id);setRepoTab("Candidate mappings");setPage("Role repository");}}/>}
+        {page==='Teams'&&<><TeamsPanel data={data} api={api} reload={load} onAdd={()=>open({kind:'team'})}/>{planner?<PeerSetup data={data} api={api} reload={load}/>:<p>Team planners manage peer-review pairings.</p>}</>}
         {page === "Daily work" && <DailyWork data={data} assignments={assignments} entries={filtered} renderEntries={entryRows} onOpen={id=>{setSelected(id);setRepoTab("Candidate mappings");setPage("Role repository");}}/>}
-        {page === "Reviews" && (
-          <section className="panel">
-            <h2>Historical count reviews</h2><p>For individual candidate reviews, open <button onClick={()=>setPage("My Work")}>My Work</button> or <button onClick={()=>setPage("Workflow Monitor")}>Workflow Monitor</button>.</p>
-            <p className="fine">
-              Zero approvals is a completed review. Missing counts remain
-              pending.
-            </p>
-            {queue.map((e: Row) => (
-              <div key={e.id} className="review-block">
-                <p className="eyebrow">
-                  {dateLabel(e.work_date)} / {sBy[e.search_id]?.client}
-                </p>
-                <h3>{sBy[e.search_id]?.title}</h3>
-                {entryRows([e])}
-              </div>
-            ))}
-            {!queue.length && (
-              <Empty
-                title="No pending reviews"
-                body="All recorded sourcing output in this view has both review counts."
-              />
-            )}
-          </section>
-        )}
         {page === "Performance" && (
           <>
             {cards(filtered)}
@@ -689,9 +638,9 @@ function App() {
               <div className="section-head">
                 <div>
                   <h2>Researcher contributions</h2>
-                  <p>Individual source counts for the selected period.</p>
+                  <p>Candidate mapping contributions for the selected period.</p>
                 </div>
-                {["admin", "founder"].includes(actor.role) && (
+                {(hasRole(actor,'admin')||hasRole(actor,'founder')) && (
                   <button
                     onClick={() => {
                       const header = [
@@ -789,65 +738,9 @@ function App() {
             </section>
           </>
         )}
-        {page === "Workspace" && (
-          <>
-            <section className="panel">
-              <div className="section-head">
-                <div>
-                  <h2>People and access</h2>
-                  <p>Historical staff are separate from invited accounts.</p>
-                </div>
-                <button
-                  className="primary"
-                  onClick={() => open({ kind: "invite" })}
-                >
-                  <Plus />
-                  Invite colleague
-                </button>
-              </div>
-              <div className="row-actions">
-
-                <button onClick={() => open({ kind: "staff" })}>
-                  Add researcher
-                </button>
-
-                <button
-                  onClick={async () =>
-                    open({ kind: "members", members: await api("members") })
-                  }
-                >
-                  Manage accounts
-                </button>
-              </div>
-              <StaffDirectory data={data} api={api} reload={load} onDirty={setSheetDirty} onAdd={()=>open({kind:'staff'})} onInvite={s=>open({kind:'invite',name:s.name,email:s.email,staffId:s.id})}/>
-              <p className="fine">
-                Everyone can view this workspace's searches. Editing, planning,
-                and review permissions depend on their assigned access role.
-              </p>
-            </section>
-            <><TeamsPanel data={data} api={api} reload={load} onAdd={()=>open({kind:'team'})}/><StaffDirectory data={data} api={api} reload={load} onDirty={setSheetDirty} onAdd={()=>open({kind:'staff'})} onInvite={s=>open({kind:'invite',name:s.name,email:s.email,staffId:s.id})}/></>
-            <section className="panel">
-              <h2>Import reconciliation</h2>
-              <p>
-                Arithmetic totals are rebuilt from individual entries. Source
-                values remain preserved.
-              </p>
-              <details>
-                <summary>{data.issues.length} source issues recorded</summary>
-                {data.issues.map((i: Row) => (
-                  <div className="issue" key={i.id}>
-                    <strong>
-                      {i.kind.replaceAll("_", " ")} · row {i.source_row}
-                    </strong>
-                    <pre>{JSON.stringify(JSON.parse(i.details), null, 2)}</pre>
-                  </div>
-                ))}
-              </details>
-            </section>
-          </>
-        )}
+        {page==='People & access'&&isAdmin&&<PeoplePanel data={data} api={api} reload={load} onDirty={setSheetDirty}/>}
         <footer>
-          Private workspace · Eight-hour person-day convention ·{" "}
+          Private workspace · Counts derived from candidate mappings ·{" "}
           <button onClick={() => load()}>Refresh data</button>
         </footer>
       </main>

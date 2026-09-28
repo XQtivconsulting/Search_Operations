@@ -1,8 +1,9 @@
+import {hasRole,canPlan,canPartnerReview,roleList,roleLabel} from './domain';
 import React,{useState} from 'react';
 type R=Record<string,any>;
 export function PeerSetup({data,api,reload}:{data:R;api:(p:string,b?:unknown)=>Promise<any>;reload:()=>Promise<void>}){
  const [error,setError]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
- const records:R[]=data.research?.records||[],people:R[]=(data.people||[]).filter((p:R)=>p.role==='researcher'&&p.staff_id);
+ const records:R[]=data.research?.records||[],people:R[]=(data.people||[]).filter((p:R)=>hasRole(p,'researcher')&&p.staff_id);
  async function save(team:string,staff:string,reviewer:string){const old=records.find(r=>r.kind==='peer-route'&&r.team_id===team&&r.staff_id===staff);setBusy(true);setError('');setMessage('');try{await api('research',{action:'peer-route',id:old?.id,version:old?.version,team_id:team,staff_id:staff,reviewer_staff_id:reviewer});await reload();setMessage('Reviewer pairing saved.');}catch(e:any){setError(e.message);}finally{setBusy(false);}}
  return <section className="panel"><h2>Who reviews whose work?</h2><p>Choose another researcher in the same team. You can set pairings before inviting people; an active researcher account is required to submit and review work.</p>{error&&<p className="error" role="alert">{error}</p>}{message&&<p role="status">{message}</p>}{data.teams.map((t:R)=>{
   const staffIds:string[]=data.team_members.filter((m:R)=>m.team_id===t.id).map((m:R)=>m.staff_id),teamStaff:R[]=data.staff.filter((s:R)=>staffIds.includes(s.id)),teamPeople=people.filter(p=>staffIds.includes(p.staff_id));

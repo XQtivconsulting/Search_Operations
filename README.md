@@ -8,13 +8,13 @@ Target repository: https://github.com/XQtivconsulting/Search_Operations
 
 ## Included
 
-- Invitation-based sign-in, organization membership and action permissions.
+- Invitation-based sign-in, protected workspace super admin and multiple roles per person. People & access shows accounts, invitations and unlinked researcher records.
 - Optional Resend invitation email with explicit delivery status and private-link fallback; requires Worker email configuration.
 - Search portfolio, weekly priorities, daily team assignments and researcher output.
 - Role repositories with versioned briefs/strategies, company ownership, reusable candidates, per-role mappings, peer/partner review, My Work queues and workflow monitoring. See [Research workflow](docs/RESEARCH-WORKFLOW.md).
 - Candidate-derived daily output and revocable client-safe approved brief links.
 - Peer and partner approvals, immutable review events, correction/reopening history.
-- Spreadsheet workspace: edit mapped counts, peer/partner approvals and daily targets; paste rectangular counts/notes from Excel; Tab/Enter navigation; selected-row fill; undo; explicit bulk save.
+- Candidate directory: required first/last names and unique LinkedIn identity, optional contact details, reusable across roles with independent mapping ownership and review history. Manual count entry and spreadsheet navigation are retired.
 - Atomic batches up to 200 rows: a stale or unauthorized row rolls back the entire batch and its audit records.
 - Productivity metrics with weighted approval ratios and researcher-day counts.
 - RecruitCRM job preview and selected import/update, with server-only tenant credentials and explicit field ownership. The connector has synthetic tests; it has not been connected to XQtiv’s live CRM.
@@ -39,6 +39,8 @@ See [Research workflow](docs/RESEARCH-WORKFLOW.md) for usage and limits.
 
 ## Boundaries
 
-This is a sourcing pilot, not the entire long-term ERP. Attachments, reusable strategy templates, downstream delivery, commercials, AI, password recovery/SSO, scheduled synchronization, pagination, and production recovery validation remain open. The spreadsheet is a bulk operational editor, not an Excel formula engine.
+This is a sourcing pilot, not the entire long-term ERP. Attachments, reusable strategy templates, downstream delivery, commercials, AI, password recovery/SSO, scheduled synchronization, pagination, and production recovery validation remain open. Prior aggregate counts remain stored as history; current screens calculate progress from candidate mappings.
 
 Customer workbooks, extraction data, tokens, invitations and generated dependencies must never be committed. The source archive excludes them. Cloudflare hosts the application and database. Resend is optional for invitation delivery; recovery and SSO remain future work.
+
+See [People, permissions and candidate identity](docs/ACCESS-AND-PEOPLE.md) for the current account and navigation model.

@@ -1,4 +1,5 @@
 export type AccessRole =
+  | "super_admin"
   | "admin"
   | "founder"
   | "planner"
@@ -10,18 +11,24 @@ export type Actor = {
   email: string;
   tenant: string;
   role: AccessRole;
+  roles?: AccessRole[];
   staffId: string | null;
 };
 export const roles: AccessRole[] = [
+  "super_admin",
   "admin",
   "founder",
   "planner",
   "partner",
   "researcher",
 ];
-export const canPlan = (a: Actor) => ["admin", "planner"].includes(a.role);
-export const canPartnerReview = (a: Actor) =>
-  ["admin", "partner"].includes(a.role);
+export function roleList(a: {role?: unknown;roles?: unknown}): AccessRole[] {
+  return (Array.isArray(a.roles)?a.roles:[a.role]).filter((v):v is AccessRole=>roles.includes(v as AccessRole));
+}
+export const hasRole=(a:{role?:unknown;roles?:unknown},role:AccessRole)=>roleList(a).includes(role)||(role==='admin'&&roleList(a).includes('super_admin'));
+export const canPlan = (a: {role?:unknown;roles?:unknown}) => hasRole(a,'admin')||hasRole(a,'planner');
+export const canPartnerReview = (a: {role?:unknown;roles?:unknown}) => hasRole(a,'admin')||hasRole(a,'partner');
+export const roleLabel=(role:string)=>role==='super_admin'?'Super admin':role.charAt(0).toUpperCase()+role.slice(1);
 export function requireThat(
   condition: unknown,
   message: string,

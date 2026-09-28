@@ -6,7 +6,7 @@ import type {Member} from "./research";
 import {weekStart,weekDays} from './planning';
 import { workspaceSchema } from "./schema";
 import type { CRMJob } from './recruitcrm';
-import {
+import {hasRole,
   Actor,
   canPlan,
   canPartnerReview,
@@ -97,6 +97,9 @@ export class Workspace extends DurableObject {
   async candidateCode(b:any,ip:string){return requestCandidateCode(this,b,ip);}
   async candidateVerify(b:any,ip:string){return verifyCandidateCode(this,b,ip);}
   async candidatePage(session:string,token?:string){return candidatePage(this,session,token);}
+  assignmentHasWork(a:any) {
+    return !!(this.rows("SELECT id FROM research_records WHERE kind='mapping' AND role_id=? AND json_extract(data,'$.team_id')=? AND json_extract(data,'$.work_date')=?",a.search_id,a.team_id,a.work_date).length||this.rows("SELECT id FROM entries WHERE assignment_id=? AND (mapped IS NOT NULL OR peer IS NOT NULL OR partner IS NOT NULL OR notes<>'' OR flag IS NOT NULL OR source<>'manual')",a.id).length||this.rows('SELECT r.id FROM reviews r JOIN entries e ON e.id=r.entry_id WHERE e.assignment_id=?',a.id).length);
+  }
   async state(a: Actor) {
     const research=researchState(this);
     const result = {
@@ -109,7 +112,7 @@ export class Workspace extends DurableObject {
       teams: this.rows("SELECT t.*,COALESCE(r.version,0) roster_version FROM teams t LEFT JOIN team_rosters r ON r.team_id=t.id ORDER BY t.name"),
       team_members: this.rows('SELECT * FROM team_members'),
       priorities: this.rows('SELECT * FROM weekly_priorities ORDER BY week DESC'),
-      staff: this.rows("SELECT s.*,COALESCE(p.email,'') email,COALESCE(p.archived,0) archived,COALESCE(p.version,0) version FROM staff s LEFT JOIN staff_profiles p ON p.staff_id=s.id ORDER BY s.name").map(s=>a.role==='admin'?s:(({email,...rest})=>rest)(s)),
+      staff: this.rows("SELECT s.*,COALESCE(p.email,'') email,COALESCE(p.archived,0) archived,COALESCE(p.version,0) version FROM staff s LEFT JOIN staff_profiles p ON p.staff_id=s.id ORDER BY s.name").map(s=>hasRole(a,'admin')?s:(({email,...rest})=>rest)(s)),
       assignments: this.rows(
         "SELECT * FROM assignments ORDER BY work_date DESC",
       ),
@@ -120,26 +123,27 @@ export class Workspace extends DurableObject {
         "SELECT * FROM weekly_decisions ORDER BY created_at DESC",
       ),
       issues:
-        a.role === "admin"
+        hasRole(a,'admin')
           ? this.rows("SELECT * FROM issues WHERE resolved=0")
           : [],
-      audit: ["admin", "founder"].includes(a.role)
+      audit: (hasRole(a,'admin')||hasRole(a,'founder'))
         ? this.rows(
             "SELECT action,entity,created_at FROM audit ORDER BY created_at DESC LIMIT 30",
           )
         : [],
     };
+    result.assignments=result.assignments.map(a=>({...a,has_work:this.assignmentHasWork(a)}));
     const automated=new Set(research.records.filter(r=>r.kind==='strategy'&&r.active).map(r=>r.role_id));
     result.entries=result.entries.map(e=>({...e,automated:automated.has(e.search_id)}));
     result.entries.push(...derivedEntries(research.records,result.assignments));
     return result;
   }
   async crmState(a: Actor) {
-    requireThat(a.role === 'admin', 'Administrator permission required.',403);
+    requireThat(hasRole(a,'admin'), 'Administrator permission required.',403);
     return {jobs:this.rows('SELECT * FROM crm_jobs ORDER BY title'), runs:this.rows('SELECT * FROM integration_runs ORDER BY created_at DESC LIMIT 20')};
   }
   async stageCRM(a: Actor, jobs: CRMJob[]) {
-    requireThat(a.role === 'admin', 'Administrator permission required.',403);
+    requireThat(hasRole(a,'admin'), 'Administrator permission required.',403);
     return this.ctx.storage.transactionSync(() => {
       // Replace only the staging snapshot, never the operating records.
       this.rows('DELETE FROM crm_jobs');
@@ -150,7 +154,7 @@ export class Workspace extends DurableObject {
     });
   }
   async applyCRM(a: Actor, jobs: any[]) {
-    requireThat(a.role === 'admin','Administrator permission required.',403);
+    requireThat(hasRole(a,'admin'),'Administrator permission required.',403);
     requireThat(Array.isArray(jobs) && jobs.length > 0 && jobs.length <= 200,'Select 1–200 jobs.');
     requireThat(new Set(jobs.map(j=>j.external_id)).size === jobs.length,'Duplicate job selection.');
     return this.ctx.storage.transactionSync(() => {
@@ -174,6 +178,19 @@ export class Workspace extends DurableObject {
       return {count:jobs.length};
     });
   }
+  async ensureResearcher(a:Actor,b:any) {
+    requireThat(hasRole(a,'admin'),'Administrator permission required.',403);
+    return this.ctx.storage.transactionSync(()=>{
+      if(b.staff_id) {
+        const s=this.rows('SELECT s.*,COALESCE(p.archived,0) archived FROM staff s LEFT JOIN staff_profiles p ON p.staff_id=s.id WHERE s.id=?',b.staff_id)[0];
+        requireThat(s&&!s.archived,'Choose an active researcher record.');return {id:s.id};
+      }
+      const id='person:'+text(b.key,100),existing=this.rows('SELECT s.id,COALESCE(p.archived,0) archived FROM staff s LEFT JOIN staff_profiles p ON p.staff_id=s.id WHERE s.id=?',id)[0];if(existing){requireThat(!existing.archived,'Restore the researcher record before linking it.');return {id:existing.id};}
+      const name=text(b.name,100);requireThat(name,'Enter a name.');
+      requireThat(!this.rows('SELECT id FROM staff WHERE lower(trim(name))=lower(?)',name).length,'A researcher with this name already exists. Select the existing record instead.',409);
+      this.rows('INSERT INTO staff(id,name) VALUES(?,?)',id,name);this.audit(a,'staff',id,null,{name});return {id};
+    });
+  }
   async mutate(a: Actor, kind: string, b: any) {
     return this.ctx.storage.transactionSync(() => this.applyMutation(a, kind, b));
   }
@@ -195,7 +212,7 @@ export class Workspace extends DurableObject {
   }
   private applyMutation(a: Actor, kind: string, b: any): { id: string } {
       if(kind === 'staff-edit' || kind === 'staff-archive') {
-        requireThat(a.role==='admin','Administrator permission required.',403);
+        requireThat(hasRole(a,'admin'),'Administrator permission required.',403);
         const old=this.rows("SELECT s.*,COALESCE(p.email,'') email,COALESCE(p.archived,0) archived,COALESCE(p.version,0) version FROM staff s LEFT JOIN staff_profiles p ON p.staff_id=s.id WHERE s.id=?",b.id)[0];
         requireThat(old,'Researcher not found.',404);
         requireThat(Number(b.version)===old.version,'This researcher changed. Reload before editing.',409);
@@ -219,7 +236,7 @@ export class Workspace extends DurableObject {
         return {id:b.id};
       }
       if(kind === 'team-members') {
-        requireThat(a.role === 'admin','Administrator permission required.',403);
+        requireThat(canPlan(a),'Planning permission required.',403);
         requireThat(this.rows('SELECT id FROM teams WHERE id=?',b.id).length,'Team not found.',404);
         const version=this.rows('SELECT version FROM team_rosters WHERE team_id=?',b.id)[0]?.version || 0;
         requireThat(Number(b.version)===version,'The team roster changed. Reload before editing.',409);
@@ -241,6 +258,37 @@ export class Workspace extends DurableObject {
         this.rows('UPDATE searches SET partner_id=?,partner=?,version=version+1 WHERE id=?',text(b.partner_id),text(b.partner),b.id);
         this.audit(a,kind,b.id,old,{partner_id:text(b.partner_id),partner:text(b.partner)});
         return {id:b.id};
+      }
+      if(kind==='plan-transfer') {
+        requireThat(canPlan(a),'Planning permission required.',403);
+        requireThat(['move','unassign'].includes(b.operation),'Choose move or unassign.');
+        requireThat(Array.isArray(b.items)&&b.items.length>0&&b.items.length<=7&&new Set(b.items.map((i:any)=>i.id)).size===b.items.length,'Select 1–7 distinct daily assignments.');
+        const days=weekDays(b.week),destination=text(b.destination_team_id);
+        let members:string[]=[];
+        if(b.operation==='move') {
+          requireThat(destination&&destination!==b.team_id&&this.rows('SELECT id FROM teams WHERE id=?',destination).length,'Choose a different existing team.');
+          const roster=this.rows('SELECT version FROM team_rosters WHERE team_id=?',destination)[0]?.version||0;
+          requireThat(Number(b.roster_version)===roster,'The destination team roster changed. Reload before moving.',409);
+          members=this.rows('SELECT staff_id FROM team_members WHERE team_id=?',destination).map(r=>r.staff_id);
+          requireThat(members.length,'Add researchers to the destination team first.');
+        }
+        for(const item of b.items) {
+          const old=this.rows('SELECT * FROM assignments WHERE id=?',item.id)[0];
+          requireThat(old&&old.search_id===b.search_id&&old.team_id===b.team_id&&days.includes(old.work_date),'Assignment not found in this search, team and week.',404);
+          requireThat(Number(item.version)===old.version,'An assignment changed. Reload before moving or unassigning.',409);
+          requireThat(!this.assignmentHasWork(old),'Work is recorded on '+old.work_date+'. Keep its attribution and select unstarted days instead.',409);
+          const before={...old,staff_ids:this.rows('SELECT staff_id FROM entries WHERE assignment_id=?',old.id).map(r=>r.staff_id)};
+          if(b.operation==='move') {
+            requireThat(!this.rows('SELECT id FROM assignments WHERE search_id=? AND team_id=? AND work_date=?',old.search_id,destination,old.work_date).length,'The destination team already has this search on '+old.work_date+'. Edit that assignment instead; targets were not combined.',409);
+            this.rows('DELETE FROM entries WHERE assignment_id=?',old.id);
+            this.rows('UPDATE assignments SET team_id=?,version=version+1 WHERE id=?',destination,old.id);
+            for(const sid of members)this.rows('INSERT INTO entries(id,assignment_id,staff_id) VALUES(?,?,?)',uuid(),old.id,sid);
+            this.audit(a,'plan-move',old.id,before,{...old,team_id:destination,version:old.version+1,staff_ids:members});
+          } else {
+            this.rows('DELETE FROM entries WHERE assignment_id=?',old.id);this.rows('DELETE FROM assignments WHERE id=?',old.id);this.audit(a,'plan-remove',old.id,before,null);
+          }
+        }
+        return {id:b.search_id};
       }
       if(kind === 'week-plan') {
         requireThat(canPlan(a),'Planning permission required.',403);
@@ -273,7 +321,7 @@ export class Workspace extends DurableObject {
               this.audit(a,'plan-edit',old.id,old,{target,notes});
             }
           } else {
-            requireThat(members.length,'Add researchers to this team in Workspace before planning work.');
+            requireThat(members.length,'Add researchers to this team in Teams before planning work.');
             const id=uuid();
             this.rows('INSERT INTO assignments(id,search_id,team_id,work_date,target,notes) VALUES(?,?,?,?,?,?)',id,b.search_id,b.team_id,d.date,target,notes);
             for(const staffId of members) this.rows('INSERT INTO entries(id,assignment_id,staff_id) VALUES(?,?,?)',uuid(),id,staffId);
@@ -316,8 +364,8 @@ export class Workspace extends DurableObject {
       }
       if (kind === "staff" || kind === "team") {
         requireThat(
-          a.role === "admin",
-          "Administrator permission required.",
+          kind==='team'?canPlan(a):hasRole(a,'admin'),
+          "Administrator or team planning permission required.",
           403,
         );
         const name = text(b.name, 100);
@@ -377,8 +425,8 @@ export class Workspace extends DurableObject {
         const old = this.rows("SELECT * FROM entries WHERE id=?", b.id)[0];
         requireThat(old, "Entry not found.", 404);
         requireThat(
-          a.role === "admin" ||
-            (a.role === "researcher" && a.staffId === old.staff_id),
+          hasRole(a,'admin') ||
+            (hasRole(a,'researcher') && a.staffId === old.staff_id),
           "You may edit only your own sourcing output.",
           403,
         );
@@ -423,8 +471,8 @@ export class Workspace extends DurableObject {
           );
         else
           requireThat(
-            a.role === "admin" ||
-              (a.role === "researcher" &&
+            hasRole(a,'admin') ||
+              (hasRole(a,'researcher') &&
                 a.staffId &&
                 a.staffId !== old.staff_id),
             "A peer review must be performed by another researcher.",
@@ -463,7 +511,7 @@ export class Workspace extends DurableObject {
       }
       if (kind === "reopen") {
         requireThat(
-          a.role === "admin",
+          hasRole(a,'admin'),
           "Administrator permission required.",
           403,
         );

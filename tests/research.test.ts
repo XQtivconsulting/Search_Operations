@@ -12,7 +12,7 @@ const partner:any={...admin,id:'partner',role:'partner'};
 const members=[{id:'admin',role:'admin',status:'active',name:'Admin'},{id:'mapper',role:'researcher',status:'active',name:'Mapper',staff_id:'s'},{id:'peer',role:'researcher',status:'active',name:'Peer',staff_id:'p'},{id:'partner',role:'partner',status:'active',name:'Partner'}];
 function fixture(){const db=new DatabaseSync(':memory:');db.exec('PRAGMA foreign_keys=ON');const ctx:any={storage:{sql:{exec(q:string,...p:any[]){if(!p.length&&q.includes('CREATE TABLE')){db.exec(q);return {toArray:()=>[]};}return {toArray:()=>db.prepare(q).all(...p)};}},transactionSync(fn:any){db.exec('BEGIN');try{const v=fn();db.exec('COMMIT');return v;}catch(e){db.exec('ROLLBACK');throw e;}}}};const w=new Workspace(ctx,{});db.exec("INSERT INTO staff VALUES('s','Mapper'),('p','Peer');INSERT INTO teams VALUES('t','Blue');INSERT INTO team_members VALUES('t','s'),('t','p');INSERT INTO searches(id,client,title,partner_id) VALUES('r','Synthetic','One','partner'),('r2','Synthetic','Two','partner');");const run=(a:any,b:any)=>w.research(a,b,members);const state=()=>w.state(admin);const rec=async(id:string)=>(await state()).research.records.find(r=>r.id===id)!;return {db,w,run,state,rec};}
 async function setup(f:ReturnType<typeof fixture>,role='r'){if(role==='r')await f.run(admin,{action:'team-reviewer',team_id:'t',reviewer_id:'peer'});const d=await f.run(admin,{action:'strategy-save',role_id:role,content:'Synthetic strategy'});await f.run(admin,{action:'strategy-approve',...await f.rec(d.id!)});const t=await f.run(admin,{action:'company-save',role_id:role,name:'Synthetic Co',scope:'Relevant leaders',team_id:'t',owner_id:'mapper'});return t.id!;}
-const item={name:'Synthetic Person',title:'Leader',url:'https://www.linkedin.com/in/synthetic-person/?tracking=1',rationale:'Relevant leadership evidence'};
+const item={first_name:'Synthetic',last_name:'Person',name:'Synthetic Person',title:'Leader',url:'https://www.linkedin.com/in/synthetic-person/?tracking=1',rationale:'Relevant leadership evidence'};
 async function mapping(f:ReturnType<typeof fixture>,target:string,role='r'){const v=await f.run(mapper,{action:'mapping-add',role_id:role,target_id:target,items:[item]});return v.ids![0];}
 test('candidate shared across roles, mappings unique per role, failed batch fully rolls back',async()=>{const f=fixture(),t=await setup(f),id=await mapping(f,t);const t2=await setup(f,'r2');await mapping(f,t2,'r2');let s=await f.state();assert.equal(s.research.records.filter(r=>r.kind==='candidate').length,1);assert.equal(s.research.records.filter(r=>r.kind==='mapping').length,2);await assert.rejects(f.run(mapper,{action:'mapping-add',role_id:'r',target_id:t,items:[{...item,url:'https://www.linkedin.com/in/another-synthetic'},item]}),/already mapped/);s=await f.state();assert.equal(s.research.records.filter(r=>r.kind==='candidate').length,1);assert.equal(s.entries.length,0);assert.equal((await f.rec(id)).status,'Draft');f.db.close();});
 test('two-stage reviews enforce owner and order, derive results once, preserve history',async()=>{const f=fixture(),t=await setup(f),id=await mapping(f,t);await f.run(mapper,{action:'mapping-submit',...await f.rec(id)});let r=await f.rec(id);await assert.rejects(f.run(mapper,{...r,action:'mapping-review',decision:'Approve'}),/Self-review/);await assert.rejects(f.run(partner,{...r,action:'mapping-review',decision:'Approve'}),/another person/);await f.run(peer,{...r,action:'mapping-review',decision:'Approve'});await assert.rejects(f.run(peer,{...r,action:'mapping-review',decision:'Approve'}),/changed/);await f.run(partner,{...await f.rec(id),action:'mapping-review',decision:'Approve'});let s=await f.state();assert.deepEqual([s.entries[0].mapped,s.entries[0].peer,s.entries[0].partner],[1,1,1]);await f.run(admin,{...await f.rec(id),action:'mapping-reopen',notes:'New evidence'});await f.run(mapper,{...await f.rec(id),action:'mapping-edit',rationale:'Updated evidence'});await f.run(mapper,{...await f.rec(id),action:'mapping-submit'});s=await f.state();assert.equal(s.entries[0].mapped,1);assert.equal(s.entries[0].partner,0);assert.equal(s.research.events.filter(e=>e.action==='mapping-review').length,2);assert.equal((await f.rec(id)).cycle,2);f.db.close();});
@@ -105,4 +105,49 @@ test('unlinked teammates have an enabled reviewer selector and archive/edit acti
  const html=renderToStaticMarkup(React.createElement(PeerSetup,props));
  assert.match(html,/<select aria-label="Reviewer for Future Teammate in Blue"><option/);assert.ok(html.includes('Future Teammate (account not active)'));
  const staff=renderToStaticMarkup(React.createElement(StaffDirectory,{...props,onAdd:()=>{},onInvite:()=>{},onDirty:()=>{}}));assert.ok(staff.includes('Edit researcher'));assert.ok(staff.includes('Archive'));assert.ok(staff.includes('No account yet'));f.db.close();
+});
+
+test('candidate directory enforces LinkedIn uniqueness, requires both names and preserves mapping snapshots on contact edits',async()=>{
+ const f=fixture();const c=await f.run(mapper,{action:'candidate-save',first_name:'Alex',last_name:'Example',url:'https://linkedin.com/in/Alex-Example/?trk=synthetic',email:'alex@example.com',phone:'+1 555 0100'});
+ const candidate=await f.rec(c.id);assert.equal(candidate.url,'https://www.linkedin.com/in/alex-example');
+ await assert.rejects(f.run(mapper,{action:'candidate-save',first_name:'Different',last_name:'Spelling',url:'https://www.linkedin.com/in/alex-example'}),/already exists/);
+ await assert.rejects(f.run(mapper,{action:'candidate-save',first_name:'Missing',url:'https://www.linkedin.com/in/missing'}),/last name/);
+ const m=await f.run(mapper,{action:'mapping-add',role_id:'r',team_id:'t',items:[{candidate_id:c.id,rationale:'Evidence for role one'}]});
+ await f.run(mapper,{...candidate,action:'candidate-save',first_name:'Alexander',email:'updated@example.com'});
+ assert.equal((await f.rec(c.id)).email,'updated@example.com');assert.equal((await f.rec(m.ids[0])).name,'Alex Example');assert.equal((await f.rec(m.ids[0])).candidate_id,c.id);
+ await assert.rejects(f.run(mapper,{...candidate,action:'candidate-save',first_name:'Stale'}),/changed/);f.db.close();
+});
+test('one candidate links to multiple roles and researchers with independent mapping attribution and review state',async()=>{
+ const f=fixture();await setup(f);await setup(f,'r2');
+ const c=await f.run(mapper,{action:'candidate-save',first_name:'Shared',last_name:'Candidate',url:'https://www.linkedin.com/in/shared-person'});
+ const one=await f.run(mapper,{action:'mapping-add',role_id:'r',team_id:'t',items:[{candidate_id:c.id,rationale:'Role one fit'}]});
+ const two=await f.run(peer,{action:'mapping-add',role_id:'r2',team_id:'t',items:[{candidate_id:c.id,rationale:'Role two fit'}]});
+ await f.run(mapper,{...await f.rec(one.ids[0]),action:'mapping-submit'});
+ const m1=await f.rec(one.ids[0]),m2=await f.rec(two.ids[0]);assert.equal(m1.status,'Peer review');assert.equal(m2.status,'Draft');assert.equal(m1.candidate_id,m2.candidate_id);assert.equal(m1.mapper_id,'mapper');assert.equal(m2.mapper_id,'peer');assert.notEqual(m1.rationale,m2.rationale);
+ await assert.rejects(f.run(peer,{action:'mapping-add',role_id:'r',team_id:'t',items:[{candidate_id:c.id}]}),/already mapped/);
+ assert.equal((await f.state()).research.records.filter(r=>r.kind==='candidate').length,1);
+ const React=await import('react'),{renderToStaticMarkup}=await import('react-dom/server'),{Candidates}=await import('../src/Candidates');const html=renderToStaticMarkup(React.createElement(Candidates,{data:{...await f.state(),people:members},api:async()=>({}),reload:async()=>{},onDirty:()=>{}}));assert.ok(html.includes('Synthetic'));assert.ok(html.includes('One'));assert.ok(html.includes('Two'));assert.ok(html.includes('Mapped by Mapper'));assert.ok(html.includes('Mapped by Peer'));f.db.close();
+});
+test('admin plus researcher can map under their own identity; researcher permission and team membership are enforced',async()=>{
+ const f=fixture();await setup(f);const dual={...mapper,role:'admin',roles:['admin','researcher','partner']},ms=members.map(m=>m.id==='mapper'?{...m,role:'admin',roles:['admin','researcher','partner']}:m);
+ const added=await f.w.research(dual,{action:'mapping-add',role_id:'r',team_id:'t',items:[item]},ms);assert.equal((await f.rec(added.ids[0])).mapper_id,mapper.id);
+ await f.w.research(dual,{...await f.rec(added.ids[0]),action:'mapping-submit'},ms);assert.equal((await f.rec(added.ids[0])).reviewer_id,'peer');
+ await assert.rejects(f.w.research({...dual,roles:['admin']},{action:'mapping-add',role_id:'r2',team_id:'t',items:[item]},ms),/Researcher role/);
+ await assert.rejects(f.run(mapper,{action:'mapping-add',role_id:'r2',team_id:'foreign',items:[item]}),/team you belong/);
+ await assert.rejects(f.run({...admin,role:'founder'},{action:'candidate-save',...item}),/read-only/);f.db.close();
+});
+test('read-only candidate and people screens do not offer sourcing writes; teams are visible without duplicate directories',async()=>{
+ const f=fixture(),React=await import('react'),{renderToStaticMarkup}=await import('react-dom/server'),{Candidates}=await import('../src/Candidates'),{TeamsPanel}=await import('../src/TeamsPanel');
+ const shared={data:{...await f.state(),actor:{...admin,role:'founder'},people:members},api:async()=>({}),reload:async()=>{},onDirty:()=>{}};
+ assert.ok(!renderToStaticMarkup(React.createElement(Candidates,shared)).includes('>Add candidate<'));
+ const teams=renderToStaticMarkup(React.createElement(TeamsPanel,{...shared,onAdd:()=>{}}));assert.ok(teams.includes('Blue'));assert.ok(!teams.includes('Edit members'));assert.ok(!teams.includes('Edit researcher'));f.db.close();
+});
+
+test('explicit target assignment validates researcher team and preserves existing mappings and coverage',async()=>{
+ const f=fixture(),target=await setup(f),mid=await mapping(f,target),before=await f.rec(target);
+ await f.run(admin,{...before,action:'target-assign',team_id:'t',owner_id:'peer'});const after=await f.rec(target);
+ assert.equal(after.owner_id,'peer');assert.equal(after.company_id,before.company_id);assert.equal(after.scope,before.scope);assert.equal((await f.rec(mid)).mapper_id,'mapper');
+ await assert.rejects(f.run(admin,{...before,action:'target-assign',team_id:'t',owner_id:'mapper'}),/changed/);
+ await assert.rejects(f.run(mapper,{...after,action:'target-assign',team_id:'t',owner_id:'mapper'}),/permission/);
+ await assert.rejects(f.run(admin,{...after,action:'target-assign',team_id:'t',owner_id:'partner'}),/researcher linked/);f.db.close();
 });

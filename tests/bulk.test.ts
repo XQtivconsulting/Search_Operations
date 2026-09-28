@@ -138,7 +138,7 @@ test('weekly priorities update one current record, retain history, and reject st
 test('planning and team management enforce permissions and reject unknown records',async()=>{
  const {db,w}=fixture();await roster(w);const p=await plan(w);p.days[0].enabled=true;
  await assert.rejects(w.mutate({...actor,role:'researcher'},'week-plan',p),/permission/);
- await assert.rejects(w.mutate({...actor,role:'planner'},'team-members',{id:'t',version:1,staff_ids:['s']}),/permission/);
+ await assert.rejects(w.mutate({...actor,role:'researcher'},'team-members',{id:'t',version:1,staff_ids:['s']}),/permission/);
  await assert.rejects(w.mutate(actor,'week-plan',{...p,team_id:'foreign'}),/existing search and team/);
  await assert.rejects(w.mutate(actor,'team-members',{id:'t',version:1,staff_ids:['foreign']}),/Unknown researcher/);
  await assert.rejects(w.mutate(actor,'week-plan',{...p,days:p.days.slice(1)}),/seven days/);db.close();
@@ -192,3 +192,17 @@ test('archive removes future roster membership, bumps roster versions, preserves
  await assert.rejects(w.mutate(actor,'team-members',{id:'t',version:1,staff_ids:['s2']}),/roster changed/);
  await w.mutate(actor,'staff-archive',{id:'s',version:1,archived:false});state=await w.state(actor);assert.equal(state.staff.find((s:any)=>s.id==='s')?.archived,0);assert.equal(state.entries.length,2);db.close();
 });
+
+test('planners can maintain teams without gaining people administration',async()=>{
+ const {db,w}=fixture(),planner={...actor,role:'planner' as const};await w.mutate(planner,'team-members',{id:'t',version:0,staff_ids:['s']});
+ const added=await w.mutate(planner,'team',{name:'New planning team'});assert.ok(added.id);
+ await assert.rejects(w.mutate(planner,'staff',{name:'Unauthorized person'}),/permission/);
+ await assert.rejects(w.mutate(planner,'staff-edit',{id:'s',version:0,name:'Changed'}),/permission/);db.close();
+});
+
+function transferFixture(){const f=fixture();f.db.exec("INSERT INTO teams VALUES('red','Red'); INSERT INTO team_members(team_id,staff_id) VALUES('red','s2'); INSERT INTO assignments(id,search_id,team_id,work_date,target,notes) VALUES('b','r','t','2026-09-26',12,'Keep target'); INSERT INTO entries(id,assignment_id,staff_id) VALUES('eb','b','s');");return f;}
+const transferBody={operation:'move',week:'2026-09-21',search_id:'r',team_id:'t',destination_team_id:'red',roster_version:0,items:[{id:'a',version:1},{id:'b',version:1}]};
+test('weekly move preserves targets and notes, replaces blank roster and audits each day',async()=>{const {db,w}=transferFixture();await w.mutate(actor,'plan-transfer',transferBody);const rows=db.prepare('SELECT * FROM assignments ORDER BY id').all();assert.ok(rows.every(r=>r.team_id==='red'&&r.version===2));assert.equal(rows[1].target,12);assert.equal(rows[1].notes,'Keep target');assert.deepEqual(db.prepare('SELECT staff_id FROM entries').all().map(r=>r.staff_id),['s2','s2']);assert.equal(db.prepare("SELECT COUNT(*) n FROM audit WHERE action='plan-move'").get()?.n,2);db.close();});
+test('weekly unassign only removes selected unstarted days',async()=>{const {db,w}=transferFixture();await w.mutate(actor,'plan-transfer',{...transferBody,operation:'unassign',items:[{id:'b',version:1}]});assert.equal(db.prepare('SELECT id FROM assignments').get()?.id,'a');assert.equal(db.prepare("SELECT COUNT(*) n FROM entries WHERE assignment_id='a'").get()?.n,2);db.close();});
+test('weekly transfer rolls back all days on recorded zero, stale version or destination collision',async()=>{for(const failure of ['zero','version','collision']){const {db,w}=transferFixture();const body=structuredClone(transferBody);if(failure==='zero')db.exec("UPDATE entries SET mapped=0 WHERE id='eb'");if(failure==='version')body.items[1].version=9;if(failure==='collision')db.exec("INSERT INTO assignments(id,search_id,team_id,work_date) VALUES('conflict','r','red','2026-09-26')");await assert.rejects(w.mutate(actor,'plan-transfer',body));assert.equal(db.prepare("SELECT team_id FROM assignments WHERE id='a'").get()?.team_id,'t');assert.equal(db.prepare('SELECT COUNT(*) n FROM audit').get()?.n,0);db.close();}});
+test('weekly transfer checks permissions and destination roster version',async()=>{const {db,w}=transferFixture();await assert.rejects(w.mutate({...actor,role:'researcher'},'plan-transfer',transferBody),/permission/);await assert.rejects(w.mutate(actor,'plan-transfer',{...transferBody,roster_version:99}),/roster changed/);assert.equal(db.prepare('SELECT COUNT(*) n FROM audit').get()?.n,0);db.close();});

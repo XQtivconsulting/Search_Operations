@@ -3,7 +3,7 @@ import { Identity, digest } from "./identity";
 import { Workspace } from "./workspace";
 import { sendInvitationEmail,sendRoleEmail,sendAccountEmail } from './invitation-email';
 import { fetchJobs, readCRMToken } from './recruitcrm';
-import { requireThat, text, roles } from "./domain";
+import {hasRole,canPlan,canPartnerReview, requireThat, text, roles } from "./domain";
 export { Identity, Workspace };
 interface Env {
   IDENTITY: DurableObjectNamespace<Identity>;
@@ -51,6 +51,11 @@ export default {
             ?.match(/(?:^|; )search_session=([^;]*)/)?.[1] ?? "";
         const identity: any = env.IDENTITY.getByName("identity-v1");
         const ip = await digest(req.headers.get("CF-Connecting-IP") ?? "local");
+        const expected=req.headers.get('X-Expected-User');
+        if(expected) {
+          const current=await identity.sessionUser(rawCookie);
+          if(!current||current.id!==expected)throw Object.assign(new Error('The signed-in account changed in another tab. Reload before continuing.'),{status:409,code:'SESSION_CHANGED'});
+        }
         let body: any = {};
         if (req.method === "POST") {
           requireThat(
@@ -144,6 +149,8 @@ export default {
           requireThat(req.method === "POST", "Method not allowed.", 405);
           await identity.logout(rawCookie);
           res = json({ ok: true }, 200, { "Set-Cookie": cookie("", 0) });
+        } else if(url.pathname==='/api/session'&&req.method==='GET') {
+          const current=await identity.sessionUser(rawCookie);requireThat(current,'Please sign in again.',401);res=json(current);
         } else if (url.pathname === "/api/workspaces") {
           res = json({ memberships: await identity.list(rawCookie) });
         } else {
@@ -155,7 +162,7 @@ export default {
           requireThat(a, "Please sign in to this workspace.", 401);
           const workspace: any = env.WORKSPACE.getByName(a.tenant);
           if (url.pathname.startsWith('/api/crm/')) {
-            requireThat(a.role === 'admin','Administrator permission required.',403);
+            requireThat(hasRole(a,'admin'),'Administrator permission required.',403);
             const token = readCRMToken(env.RECRUITCRM_TOKENS,a.tenant);
             if(url.pathname === '/api/crm/status' && req.method === 'GET') {
               try {res = json({configured:!!token,...await workspace.crmState(a)});}
@@ -171,7 +178,7 @@ export default {
               const members=await identity.members(a.tenant);
               for(const item of body.jobs) {
                 if(Object.prototype.hasOwnProperty.call(item,'partner_id')) {
-                  const partner=item.partner_id?members.find((m:any)=>m.id===item.partner_id&&m.status==='active'&&['admin','founder','partner'].includes(m.role)):null;
+                  const partner=item.partner_id?members.find((m:any)=>m.id===item.partner_id&&m.status==='active'&&canPartnerReview(m)):null;
                   requireThat(!item.partner_id||partner,'Choose an active engagement partner.');
                   item.partner=partner?.name || '';
                 }
@@ -181,13 +188,13 @@ export default {
             else res = json({error:'Not found.'},404);
           }
           else if (url.pathname === "/api/state" && req.method === "GET") {
-            const partners=(await identity.members(a.tenant)).filter((m:any)=>m.status==='active' && ['admin','founder','partner'].includes(m.role)).map((m:any)=>({id:m.id,name:m.name}));
-            const people=(await identity.members(a.tenant)).filter((m:any)=>m.status==='active').map((m:any)=>({id:m.id,name:m.name,role:m.role,staff_id:m.staff_id,status:m.status}));
+            const partners=(await identity.members(a.tenant)).filter((m:any)=>m.status==='active' && canPartnerReview(m)).map((m:any)=>({id:m.id,name:m.name}));
+            const people=(await identity.members(a.tenant)).filter((m:any)=>m.status==='active').map((m:any)=>({id:m.id,name:m.name,role:m.role,roles:m.roles,staff_id:m.staff_id,status:m.status}));
             const state=await workspace.state(a);
-            res = json({...state,partners,people:people.map((p:any)=>({...p,name:state.staff?.find((s:any)=>s.id===p.staff_id)?.name||p.name}))});
+            res = json({...state,partners,people,staff:state.staff?.map((s:any)=>({...s,name:people.find((p:any)=>p.staff_id===s.id)?.name||s.name}))});
           }
           else if (url.pathname === '/api/company-lookup'&&req.method==='POST') {
-            requireThat(['admin','planner'].includes(a.role),'Planning permission required.',403);
+            requireThat(canPlan(a),'Planning permission required.',403);
             await identity.limit('company-lookup:'+a.id,30);
             res=json(await companySuggestions(text(body.name,200)));
           }
@@ -206,23 +213,49 @@ export default {
           else if (url.pathname === '/api/research' && req.method === 'POST') {
             res=json(await workspace.research(a,body,await identity.members(a.tenant)));
           }
+          else if(url.pathname==='/api/members/update'&&req.method==='POST') {
+            requireThat(hasRole(a,'admin'),'Administrator permission required.',403);
+            const members=await identity.members(a.tenant),old=members.find((m:any)=>m.id===body.id);
+            requireThat(old,'Account not found.',404);
+            requireThat(Array.isArray(body.roles)&&body.roles.length>0&&body.roles.every((r:any)=>roles.includes(r)),'Choose at least one valid role.');
+            requireThat(Number(body.version)===old.version,'This account changed. Reload before saving.',409);
+            requireThat(hasRole(a,'super_admin')||(!hasRole(old,'super_admin')&&!body.roles.includes('super_admin')),'Only a super admin can change a super admin account.',403);
+            if(body.roles.includes('researcher')) {
+              const desired=old.staff_id||text(body.staff_id);
+              requireThat(!desired||!members.some((m:any)=>m.id!==old.id&&m.staff_id===desired),'This researcher is already linked to another account.',409);
+              const staff=await workspace.ensureResearcher(a,{staff_id:desired,key:old.id,name:text(body.name,100)||old.name});body.staff_id=staff.id;
+            }
+            res=json(await identity.updateMember(a,body));
+          }
+          else if(url.pathname==='/api/invitations/cancel'&&req.method==='POST')res=json(await identity.cancelInvitation(a,text(body.id,100)));
           else if (url.pathname === "/api/mutate" && req.method === "POST") {
+            requireThat(!['entry','review','reopen'].includes(body.kind),'Manual count entry is retired. Add candidate mappings and use their review workflow.',410);
             if(['search','search-owner'].includes(body.kind)) {
-              const partner=body.partner_id ? (await identity.members(a.tenant)).find((m:any)=>m.id===body.partner_id && m.status==='active' && ['admin','founder','partner'].includes(m.role)) : null;
+              const partner=body.partner_id ? (await identity.members(a.tenant)).find((m:any)=>m.id===body.partner_id && m.status==='active' && canPartnerReview(m)) : null;
               requireThat(!body.partner_id || partner,'Choose an active engagement partner.');
               body.partner=partner?.name || '';
             }
             res = json(await workspace.mutate(a, body.kind, body));
           }
-          else if (url.pathname === "/api/bulk" && req.method === "POST")
+          else if (url.pathname === "/api/bulk" && req.method === "POST") {
+            requireThat(Array.isArray(body.changes)&&body.changes.every((b:any)=>b.kind==='assignment-edit'),'Manual count entry is retired. Add candidate mappings instead.',410);
             res = json({saved: await workspace.bulk(a, body.changes)});
+          }
           else if (url.pathname === "/api/invite" && req.method === "POST") {
             requireThat(
-              a.role === "admin",
+              hasRole(a,'admin'),
               "Administrator permission required.",
               403,
             );
-            requireThat(roles.includes(body.role), "Choose a permission role.");
+            const assigned=Array.isArray(body.roles)?body.roles:[body.role];
+            requireThat(assigned.length>0&&assigned.every((r:any)=>roles.includes(r)), "Choose a permission role.");
+            requireThat(!assigned.includes('super_admin')||hasRole(a,'super_admin'),'Only a super admin can grant super admin access.',403);
+            const members=await identity.members(a.tenant),email=text(body.email,254).toLowerCase();
+            requireThat(!members.some((m:any)=>m.email===email),'This person already has an account here. Edit their roles instead.',409);
+            if(assigned.includes('researcher')) {
+              requireThat(!body.staffId||!members.some((m:any)=>m.staff_id===body.staffId),'This researcher is already linked to another account.',409);
+              const staff=await workspace.ensureResearcher(a,{staff_id:body.staffId,key:await digest(email),name:text(body.name,100)});body.staffId=staff.id;
+            }
             const state = await workspace.state(a);
             requireThat(
               !body.staffId ||
@@ -233,25 +266,27 @@ export default {
               text(body.email, 254),
               text(body.name, 100),
               a.tenant,
-              body.role,
+              assigned[0],
               body.staffId || null,
+              false,
+              assigned,
             );
             const invitationUrl = `${url.origin}/join/${invite}`;
             const emailStatus = await sendInvitationEmail(env, text(body.email, 254).toLowerCase(), invitationUrl);
             res = json({ url: invitationUrl, emailStatus });
           } else if(url.pathname==='/api/staff-directory'&&req.method==='GET') {
-            requireThat(a.role==='admin','Administrator permission required.',403);
+            requireThat(hasRole(a,'admin'),'Administrator permission required.',403);
             res=json({members:await identity.members(a.tenant),invitations:await identity.pendingInvitations(a.tenant)});
           } else if (url.pathname === "/api/members" && req.method === "GET") {
             requireThat(
-              a.role === "admin",
+              hasRole(a,'admin'),
               "Administrator permission required.",
               403,
             );
             res = json(await identity.members(a.tenant));
           } else if (url.pathname === "/api/revoke" && req.method === "POST") {
             requireThat(
-              a.role === "admin",
+              hasRole(a,'admin'),
               "Administrator permission required.",
               403,
             );
@@ -263,6 +298,7 @@ export default {
     } catch (e: any) {
       res = json(
         {
+          code: e.code,
           error: e.status
             ? e.message
             : "The request could not be completed. Please check your input and try again.",

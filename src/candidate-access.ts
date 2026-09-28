@@ -1,5 +1,5 @@
 import {createHash,randomBytes,randomInt} from 'node:crypto';
-import {Actor,canPlan,requireThat,text} from './domain';
+import {hasRole,Actor,canPlan,requireThat,text} from './domain';
 type DB={rows:(q:string,...p:any[])=>any[];audit:(a:Actor,k:string,id:string,old:any,next:any)=>void};
 const hash=(s:string)=>createHash('sha256').update(s).digest('hex');
 const secret=()=>Buffer.from(randomBytes(32)).toString('hex');
@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS candidate_codes(invite_id TEXT PRIMARY KEY,code_hash 
 CREATE TABLE IF NOT EXISTS candidate_sessions(token_hash TEXT PRIMARY KEY,invite_id TEXT NOT NULL,expires INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS candidate_limits(key TEXT PRIMARY KEY,count INTEGER NOT NULL,expires INTEGER NOT NULL);
 `;
-export function manageRole(db:DB,a:Actor,role:string){const s=db.rows('SELECT * FROM searches WHERE id=?',role)[0];requireThat(s,'Role not found.',404);requireThat(canPlan(a)||a.role==='partner'&&s.partner_id===a.id,'Role management permission required.',403);return s;}
+export function manageRole(db:DB,a:Actor,role:string){const s=db.rows('SELECT * FROM searches WHERE id=?',role)[0];requireThat(s,'Role not found.',404);requireThat(canPlan(a)||hasRole(a,'partner')&&s.partner_id===a.id,'Role management permission required.',403);return s;}
 export function candidateLimit(db:DB,key:string,max:number){const now=Date.now(),r=db.rows('SELECT * FROM candidate_limits WHERE key=?',key)[0];if(!r||r.expires<now)db.rows('INSERT OR REPLACE INTO candidate_limits VALUES(?,?,?)',key,1,now+3600e3);else {requireThat(r.count<max,'Too many requests. Try again in an hour.',429);db.rows('UPDATE candidate_limits SET count=count+1 WHERE key=?',key);}db.rows('DELETE FROM candidate_limits WHERE expires<?',now);}
 function invitation(db:DB,token:string){const i=db.rows('SELECT * FROM candidate_invites WHERE token_hash=? AND revoked=0 AND expires>?',hash(token),Date.now())[0];requireThat(i&&db.rows('SELECT role_id FROM role_publications WHERE role_id=?',i.role_id).length,'This invitation is unavailable or expired. Contact your XQtiv partner.',404);return i;}
 export function createCandidateInvite(db:DB,a:Actor,b:any){manageRole(db,a,b.role_id);requireThat(db.rows('SELECT role_id FROM role_publications WHERE role_id=?',b.role_id).length,'Publish the approved page before inviting candidates.');const r=db.rows("SELECT data FROM research_records WHERE kind='mapping' AND role_id=? AND json_extract(data,'$.candidate_id')=?",b.role_id,b.candidate_id)[0];requireThat(r,'Select a candidate mapped to this role.');const email=text(b.email,254).toLowerCase();requireThat(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),'Enter the candidate’s email address.');const days=Number(b.days);requireThat(Number.isInteger(days)&&days>=1&&days<=30,'Choose an expiry from 1 to 30 days.');candidateLimit(db,'invite:'+a.id,100);const raw=secret(),id=crypto.randomUUID(),name=JSON.parse(r.data).name,expires=Date.now()+days*86400e3;
