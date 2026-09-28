@@ -2,6 +2,10 @@
 
 ## Completed
 
+- Document-only regression tests verify cross-role title/client isolation, clearing previous partner/link fields, source-text validation, multi-line titles, PDF line reconstruction, column reading order, visible save/publish controls, and atomic publication rollback. The downloadable XLSX was rendered, inspected and read through the same import library; all columns map and the Companies sheet contains no sample records.
+- The local page preview could not be opened by the cloud browser (ERR_BLOCKED_BY_CLIENT). No interactive visual pass is claimed. The supplied Evalueserve PDF is not accessible in this workspace; document tests use synthetic inputs. Exact conversion of that file still needs validation after re-upload.
+
+
 - Candidate-page tests cover approved/published snapshot separation, anonymous-link denial, mapped-candidate/manager authorization, secret exclusion, email-code attempts, single use, expiry, cross-invitation binding and immediate revocation. Password tests exercise current-password verification, attempt counters, new-password validation, session rotation and same-origin API enforcement.
 - Company-import tests cover repeated rows, tag union, protected scalar values, explicit replacement, ambiguous/conflicting identifiers, stale previews and permissions. Research-wave tests cover transactional rollback and role-specific identity.
 - Synthetic DOCX, PDF and XLSX files were processed with the installed parsers; no customer files or accounts were used. Rendering tests verify escaped document text and allowlisted video providers. Public lookup and candidate email tests use synthetic transports, never real recipients.
@@ -24,7 +28,7 @@
 
 - Compact workspace CSS reduces repeated row, card, form and section spacing. Fixed checkbox inputs inheriting the global 48px form minimum height. Typecheck, all tests and build passed after this CSS change; authenticated visual verification remains outstanding.
 
-- TypeScript checking, 71 automated tests and the Vite production build pass locally.
+- TypeScript checking, 78 automated tests and the Vite production build pass locally.
 - Bulk-write tests cover rollback, audit records, permissions, optimistic versions, review locks and clipboard handling.
 - CRM company tests cover paginated exact-slug name joins, hostile company pagination, automatic client creation/update, and preservation of existing client names when absent. Workspace fixtures exercise migration from the prior staging schema.
 - CRM tests cover configuration formats, tenant isolation for plain-token fallback, pagination, hostile URLs, access errors, timeouts, invalid responses, staging and selected apply.

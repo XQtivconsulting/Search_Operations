@@ -71,3 +71,16 @@ test('candidate code attempts are bounded, unpublish blocks sessions and publica
  await f.run(admin,{...await f.rec(d.id),action:'brief-save',page:{sections:[{heading:'Role',body:'Unapproved text'}]}});assert.equal((await f.w.candidatePage(s.token)).page.sections[0].body,'Approved text');
  await f.run(admin,{...await f.rec(d.id),action:'brief-unpublish'});await assert.rejects(f.w.candidatePage(s.token),/Verify/);f.db.close();
 });
+
+test('document publication never inherits the role title, client or earlier page fields',async()=>{
+ const {layoutDocument,freshDocumentPage}=await import('../src/document-layout');const f=fixture();
+ const d=layoutDocument([{text:'Synthetic Alpha role',x:50,y:740,width:400,size:30,bold:true,page:1},{text:'Source-only role requirements and responsibilities.',x:50,y:680,width:450,size:12,bold:false,page:1}]);
+ const page=freshDocumentPage(d,'synthetic-alpha.pdf','a'.repeat(64));
+ const first=await f.run(admin,{action:'brief-save',role_id:'r',content:'Old unrelated content',page:{sections:[{heading:'Old section',body:'Old unrelated content'}],partner_name:'Old partner'}});
+ await f.run(admin,{action:'brief-release',role_id:'r',...await f.rec(first.id),page});
+ const published=JSON.parse(f.db.prepare('SELECT data FROM role_publications WHERE role_id=?').get('r')!.data as string);
+ assert.equal(published.title,'Synthetic Alpha role');assert.equal(published.client,'');assert.equal(published.page.partner_name,'');assert.ok(!JSON.stringify(published).includes('Old unrelated'));assert.equal(published.page.source_text,undefined);assert.equal((await f.rec(first.id)).status,'Approved');assert.equal((await f.rec(first.id)).published_revision,1);
+ const before=await f.rec(first.id);await assert.rejects(f.run(mapper,{action:'brief-release',role_id:'r',...before,page}),/permission/);
+ await assert.rejects(f.run(admin,{action:'brief-release',role_id:'r',...before,page:{...page,title:'Unrelated company content'}}),/only wording/);
+ assert.equal((await f.rec(first.id)).version,before.version);assert.equal(JSON.parse(f.db.prepare('SELECT data FROM role_publications WHERE role_id=?').get('r')!.data as string).title,'Synthetic Alpha role');f.db.close();
+});

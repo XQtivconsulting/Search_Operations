@@ -54,6 +54,14 @@ export class Workspace extends DurableObject {
     );
   }
   async research(a: Actor,b:any,members:Member[]):Promise<any> {return this.ctx.storage.transactionSync(()=>{
+      if(b.action==='brief-release') {
+        requireThat(b.page?.origin==='document','Upload the original document before publishing this page.');
+        const saved=researchMutation(this,a,{...b,action:'brief-save'},members);
+        const read=()=>{const r=this.rows('SELECT * FROM research_records WHERE id=?',saved.id)[0];return {id:r.id,version:r.version};};
+        researchMutation(this,a,{...read(),action:'brief-approve'},members);
+        researchMutation(this,a,{...read(),action:'brief-publish'},members);
+        return saved;
+      }
       if(b.action==='company-import') {
         requireThat(canPlan(a),'Planning permission required.',403);
         const existing=researchState(this).records.filter(r=>r.kind==='company');

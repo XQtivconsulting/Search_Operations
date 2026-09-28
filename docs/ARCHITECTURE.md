@@ -86,3 +86,9 @@ DOCX/PDF/XLSX parsing is browser-side and loaded on demand. Only plain text and 
 Company imports are planned deterministically and applied atomically with a company-list version signature. Case-insensitive tags union across repeated rows. Identifier conflicts fail before writes. Lookup uses only a fixed Wikidata endpoint, bounded responses/timeouts and manual redirect rejection. A user confirms the suggested identity before filling missing fields. Revenue includes currency, reporting year where available, and source.
 
 Password changes verify the current credential, limit attempts by user and IP, write a credential-free account event, and atomically update the password and rotate all sessions. No administrator password-change shortcut or password recovery was added.
+
+## Document-only page correction
+
+The former upload handler merged new body sections into old page fields and used search title/client for the hero. The replacement upload handler constructs a fresh document object with no old page or role inputs. PDF geometry/font cues and Word heading/list structure drive formatting; this is deterministic layout extraction, not an external generative model. Every text field on a document-origin page is checked against extracted source text when saved. Publication uses the document's own title/client fields and excludes internal extracted-source text from candidate responses. The previous active/published snapshot remains until an explicit new publication.
+
+`brief-release` saves, approves and publishes a document-origin page within the existing single SQLite transaction; failures roll back all three actions. Preview, Save draft and Publish are visible in the editor's top action bar. Original file binaries are not retained, so earlier uploads require re-uploading. The company importer shares a header-definition module with template validation; a blank, branded XLSX is served as a static app asset.
