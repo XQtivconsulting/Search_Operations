@@ -130,10 +130,18 @@ export default {
             } else if(url.pathname === '/api/crm/apply' && req.method === 'POST') res = json(await workspace.applyCRM(a,body.jobs));
             else res = json({error:'Not found.'},404);
           }
-          else if (url.pathname === "/api/state" && req.method === "GET")
-            res = json(await workspace.state(a));
-          else if (url.pathname === "/api/mutate" && req.method === "POST")
+          else if (url.pathname === "/api/state" && req.method === "GET") {
+            const partners=(await identity.members(a.tenant)).filter((m:any)=>m.status==='active' && ['admin','founder','partner'].includes(m.role)).map((m:any)=>({id:m.id,name:m.name}));
+            res = json({...await workspace.state(a),partners});
+          }
+          else if (url.pathname === "/api/mutate" && req.method === "POST") {
+            if(['search','search-owner'].includes(body.kind)) {
+              const partner=body.partner_id ? (await identity.members(a.tenant)).find((m:any)=>m.id===body.partner_id && m.status==='active' && ['admin','founder','partner'].includes(m.role)) : null;
+              requireThat(!body.partner_id || partner,'Choose an active engagement partner.');
+              body.partner=partner?.name || '';
+            }
             res = json(await workspace.mutate(a, body.kind, body));
+          }
           else if (url.pathname === "/api/bulk" && req.method === "POST")
             res = json({saved: await workspace.bulk(a, body.changes)});
           else if (url.pathname === "/api/invite" && req.method === "POST") {

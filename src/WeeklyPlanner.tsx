@@ -1,0 +1,68 @@
+import React,{useEffect,useState} from 'react';
+import {addDays,weekStart,weekDays} from './planning';
+type Row=Record<string,any>;
+type Props={data:Row;api:(path:string,body?:unknown)=>Promise<any>;reload:()=>Promise<void>;initialSearch?:string;onDirty:(dirty:boolean)=>void;onTeams:()=>void};
+const label=(date:string)=>new Date(date+'T12:00:00').toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
+export function WeeklyPlanner({data,api,reload,initialSearch='',onDirty,onTeams}:Props) {
+ const [week,setWeek]=useState(()=>weekStart(new Date().toLocaleDateString('en-CA'))),[mode,setMode]=useState<'search'|'team'>('search');
+ const [filter,setFilter]=useState(initialSearch),[query,setQuery]=useState(''),[editor,setEditor]=useState<Row|null>(null),[priority,setPriority]=useState<Row|null>(null);
+ const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[dirty,setDirty]=useState(false);
+ const planner=['admin','planner'].includes(data.actor.role),dates=weekDays(week);
+ const searches=new Map<string,Row>(data.searches.map((s:Row)=>[s.id,s])),teams=new Map<string,Row>(data.teams.map((t:Row)=>[t.id,t]));
+ const assignments=data.assignments.filter((a:Row)=>dates.includes(a.work_date));
+ useEffect(()=>{onDirty(dirty);return()=>onDirty(false);},[dirty]);
+ useEffect(()=>{const warn=(e:BeforeUnloadEvent)=>{if(dirty){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[dirty]);
+ function close(){if(dirty&&!confirm('Discard unsaved planning changes?'))return;setEditor(null);setPriority(null);setDirty(false);setError('');}
+ function openPair(search_id='',team_id='',clickedDate='') {
+  setError('');setEditor(pair(search_id,team_id,clickedDate));setDirty(false);
+ }
+ function pair(search_id:string,team_id:string,clickedDate='') {
+  const days=dates.map(date=>{const old=assignments.find((a:Row)=>a.search_id===search_id&&a.team_id===team_id&&a.work_date===date);return {date,id:old?.id,version:old?.version,enabled:!!old||date===clickedDate,target:old?.target ?? '',notes:old?.notes || ''};});
+  return {search_id,team_id,clickedDate,days,roster_version:teams.get(team_id)?.roster_version || 0};
+ }
+ function choosePair(search_id:string,team_id:string){if(dirty&&!confirm('Discard edits before changing the search or team?'))return;setEditor(pair(search_id,team_id,editor?.clickedDate));setDirty(false);setError('');}
+ function changeDay(index:number,patch:Row){setEditor({...editor,days:editor!.days.map((d:Row,i:number)=>i===index?{...d,...patch}:d)});setDirty(true);}
+ async function savePlan(e:React.FormEvent){e.preventDefault();setBusy(true);setError('');try{await api('mutate',{kind:'week-plan',week,...editor});await reload();setEditor(null);setDirty(false);setNotice('Weekly assignments saved. Researchers can now log output in Daily work.');}catch(e:any){setError(e.message);}finally{setBusy(false);}}
+ async function savePriority(e:React.FormEvent){e.preventDefault();setBusy(true);setError('');try{await api('mutate',{kind:'decision',week,...priority});await reload();setPriority(null);setDirty(false);setNotice('Weekly priority saved. Previous decisions remain in history.');}catch(e:any){setError(e.message);}finally{setBusy(false);}}
+ const entities=(mode==='search'?data.searches:data.teams).filter((r:Row)=>(!filter||r.id===filter)&&`${r.client || ''} ${r.title || r.name}`.toLowerCase().includes(query.toLowerCase()));
+ const visible=assignments.filter((a:Row)=>entities.some((r:Row)=>r.id===(mode==='search'?a.search_id:a.team_id)));
+ function editPriority(s:Row){const p=data.priorities.find((p:Row)=>p.search_id===s.id&&p.week===week);setPriority({search_id:s.id,disposition:p?.disposition || 'Start',notes:p?.notes || '',version:p?.version || 0});setError('');setDirty(false);}
+ return <section className="panel weekly-planner">
+  <div className="plan-toolbar">
+   <button aria-label="Previous week" onClick={()=>setWeek(addDays(week,-7))}>←</button>
+   <label>Week of Monday<input type="date" value={week} onChange={e=>{if(e.target.value)setWeek(weekStart(e.target.value));}}/></label>
+   <button aria-label="Next week" onClick={()=>setWeek(addDays(week,7))}>→</button>
+   <button onClick={()=>setWeek(weekStart(new Date().toLocaleDateString('en-CA')))}>This week</button>
+   <label>View<select value={mode} onChange={e=>{setMode(e.target.value as 'search'|'team');setFilter('');}}><option value="search">By search</option><option value="team">By team</option></select></label>
+   <label>{mode==='search'?'Search':'Team'}<select value={filter} onChange={e=>setFilter(e.target.value)}><option value="">All {mode==='search'?'searches':'teams'}</option>{(mode==='search'?data.searches:data.teams).map((r:Row)=><option key={r.id} value={r.id}>{mode==='search'?`${r.client} · ${r.title}`:r.name}</option>)}</select></label>
+   <label>Find<input value={query} onChange={e=>setQuery(e.target.value)} placeholder={mode==='search'?'Client or role':'Team name'}/></label>
+   {planner&&<button className="primary" onClick={()=>openPair(mode==='search'?filter:'',mode==='team'?filter:'')}>Plan week</button>}
+  </div>
+  <p className="fine">{label(dates[0])} – {label(dates[6])}. Targets are partner-approved profiles per team, per day. Click an assignment to edit its week.</p>
+  {notice&&<p className="notice" role="status">{notice}</p>}
+  {!editor&&!priority&&error&&<p className="error" role="alert">{error}</p>}
+  {!data.teams.length&&<p className="source-note">Create teams and add their researchers in Workspace before allocating work.</p>}
+  <div className="plan-scroll"><table className="plan-grid"><thead><tr><th>{mode==='search'?'Search / weekly priority':'Team / researchers'}</th>{dates.map(d=><th key={d}>{label(d)}</th>)}<th>Week target</th></tr></thead><tbody>
+   {entities.map((r:Row)=>{const row=visible.filter((a:Row)=>(mode==='search'?a.search_id:a.team_id)===r.id),p=data.priorities.find((p:Row)=>p.search_id===r.id&&p.week===week);return <tr key={r.id}>
+    <th scope="row">{mode==='search'?<><strong>{r.client}</strong><span>{r.title}</span><small>Partner: {r.partner || 'Not assigned'}</small><div className="priority-line"><span className="badge">{p?.disposition || 'No priority'}</span>{planner&&<button onClick={()=>editPriority(r)}>{p?'Edit':'Set'}</button>}</div>{p?.notes&&<small>{p.notes}</small>}</>:<><strong>{r.name}</strong><small>{data.team_members.filter((m:Row)=>m.team_id===r.id).map((m:Row)=>data.staff.find((s:Row)=>s.id===m.staff_id)?.name).join(', ')||'No members configured'}</small>{data.actor.role==='admin'&&<button onClick={onTeams}>Edit team</button>}</>}</th>
+    {dates.map(date=>{const cell=row.filter((a:Row)=>a.work_date===date);return <td key={date}>
+     {cell.map((a:Row)=>{const other=mode==='search'?teams.get(a.team_id)?.name:`${searches.get(a.search_id)?.client} · ${searches.get(a.search_id)?.title}`;const clash=assignments.filter((b:Row)=>b.team_id===a.team_id&&b.work_date===date).length>1;return <button className="plan-slot" key={a.id} disabled={!planner} onClick={()=>{setEditor(pair(a.search_id,a.team_id));setError('');setDirty(false);}}><span>{other}</span><strong>{a.target??'—'} <small>target</small></strong>{clash&&<small className="plan-warning">Team has multiple searches today</small>}</button>;})}
+     {planner&&<button className="plan-add" aria-label={`Plan ${mode==='search'?r.title:r.name} on ${label(date)}`} onClick={()=>openPair(mode==='search'?r.id:'',mode==='team'?r.id:'',date)}>+ Assign</button>}
+     {!cell.length&&!planner&&<span className="fine">—</span>}
+    </td>;})}<td><strong>{row.reduce((n:number,a:Row)=>n+(a.target||0),0)}</strong>{row.some((a:Row)=>a.target===null)&&<small>Some targets unset</small>}</td></tr>;})}
+   {!entities.length&&<tr><td colSpan={9}>No {mode==='search'?'searches':'teams'} match this view.</td></tr>}
+  </tbody><tfoot><tr><th>Visible target total</th>{dates.map(date=><td key={date}>{visible.filter((a:Row)=>a.work_date===date).reduce((n:number,a:Row)=>n+(a.target||0),0)}</td>)}<td>{visible.reduce((n:number,a:Row)=>n+(a.target||0),0)}</td></tr></tfoot></table></div>
+  {(editor||priority)&&<div className="modal-backdrop"><section className="modal plan-modal" role="dialog" aria-modal="true" aria-labelledby="plan-title"><div className="section-head"><h2 id="plan-title">{editor?'Plan the week':'Weekly priority'}</h2><button disabled={busy} onClick={close}>Close</button></div>
+   {error&&<p className="error" role="alert">{error}</p>}
+   {editor?<form onSubmit={savePlan}>
+    <div className="plan-selectors"><label>Search<select required disabled={busy} value={editor.search_id} onChange={e=>choosePair(e.target.value,editor.team_id)}><option value="">Choose search</option>{data.searches.map((s:Row)=><option key={s.id} value={s.id}>{s.client} · {s.title}</option>)}</select></label>
+    <label>Team<select required disabled={busy} value={editor.team_id} onChange={e=>choosePair(editor.search_id,e.target.value)}><option value="">Choose team</option>{data.teams.map((t:Row)=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label></div>
+    <p className="fine">Partner: {searches.get(editor.search_id)?.partner || 'Not assigned — set on the search'}. Team researchers: {data.team_members.filter((m:Row)=>m.team_id===editor.team_id).map((m:Row)=>data.staff.find((s:Row)=>s.id===m.staff_id)?.name).join(', ')||'none configured'}.</p>
+
+    {editor.days.length>0&&<><div className="row-actions"><button type="button" disabled={busy||!editor.search_id||!editor.team_id} onClick={()=>{setEditor({...editor,days:editor.days.map((d:Row,i:number)=>({...d,enabled:d.enabled||i<5}))});setDirty(true);}}>Select Mon–Fri</button><label>Target to repeat<input type="number" min="0" max="100000" step="1" value={editor.fillTarget ?? ''} disabled={busy} onChange={e=>setEditor({...editor,fillTarget:e.target.value})}/></label><button type="button" disabled={busy||editor.fillTarget===undefined||editor.fillTarget===''||!editor.days.some((d:Row)=>d.enabled)} onClick={()=>{setEditor({...editor,days:editor.days.map((d:Row)=>d.enabled?{...d,target:editor.fillTarget}:d)});setDirty(true);}}>Fill selected days</button></div><p className="fine">Uncheck a day to remove unstarted work. Existing assignments keep their researcher roster.</p>
+    <div className="table-scroll"><table className="plan-editor"><thead><tr><th>Work?</th><th>Day</th><th>Daily approval target</th><th>Notes</th></tr></thead><tbody>{editor.days.map((d:Row,i:number)=><tr key={d.date}><td><input type="checkbox" aria-label={`Work on ${label(d.date)}`} checked={d.enabled} disabled={busy||!editor.search_id||!editor.team_id} onChange={e=>changeDay(i,{enabled:e.target.checked})}/></td><th>{label(d.date)}{d.id&&<small>Existing · {data.entries.filter((e:Row)=>e.assignment_id===d.id).map((e:Row)=>data.staff.find((s:Row)=>s.id===e.staff_id)?.name).join(', ')||'no researchers'}</small>}</th><td><input aria-label={`Target for ${label(d.date)}`} type="number" min="0" max="100000" step="1" required={d.enabled} disabled={!d.enabled||busy||!editor.search_id||!editor.team_id} value={d.target} onChange={e=>changeDay(i,{target:e.target.value})}/></td><td><input aria-label={`Notes for ${label(d.date)}`} disabled={!d.enabled||busy||!editor.search_id||!editor.team_id} value={d.notes} onChange={e=>changeDay(i,{notes:e.target.value})}/></td></tr>)}</tbody></table></div></>}
+    <button className="primary" disabled={busy||editor.days.length!==7||!editor.search_id||!editor.team_id}>{busy?'Saving…':'Save week'}</button>
+   </form>:<form onSubmit={savePriority}><p>{searches.get(priority!.search_id)?.client} · {searches.get(priority!.search_id)?.title}</p><p>{label(dates[0])} – {label(dates[6])}</p><label>Priority / decision<select value={priority!.disposition} disabled={busy} onChange={e=>{setPriority({...priority,disposition:e.target.value});setDirty(true);}}>{['Start','Continue','Recalibrate','Pause','Stop'].map(s=><option key={s}>{s}</option>)}</select></label><label>Reason / notes<textarea value={priority!.notes} disabled={busy} onChange={e=>{setPriority({...priority,notes:e.target.value});setDirty(true);}}/></label><p className="fine">Pause and Stop change the weekly priority. Review the grid to remove any unstarted daily assignments separately.</p><button className="primary" disabled={busy}>{busy?'Saving…':'Save priority'}</button></form>}
+  </section></div>}
+ </section>;
+}

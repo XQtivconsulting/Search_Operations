@@ -20,7 +20,7 @@ function fixture() {
   }}, transactionSync(fn:()=>any) {db.exec('BEGIN');try {const result=fn();db.exec('COMMIT');return result;}catch(e){db.exec('ROLLBACK');throw e;}}}};
   const w = new Workspace(ctx as any, {});
   db.exec("INSERT INTO teams VALUES('t','Blue'); INSERT INTO staff VALUES('s','Researcher'); INSERT INTO searches(id,client,title) VALUES('r','Synthetic','Test role'); INSERT INTO assignments(id,search_id,team_id,work_date) VALUES('a','r','t','2026-09-27'); INSERT INTO entries(id,assignment_id,staff_id) VALUES('e','a','s'); INSERT INTO staff VALUES('s2','Other'); INSERT INTO entries(id,assignment_id,staff_id) VALUES('e2','a','s2');");
-  return {db,w};
+  return {db,w,ctx};
 }
 test('Excel clipboard preserves quoted tabs, newlines and empty cells',()=>{
   assert.deepEqual(parseClipboard('10\t"two\twords"\r\n0\t"line\none"\r\n'),[['10','two\twords'],['0','line\none']]);
@@ -84,4 +84,78 @@ test('CRM company names create clients and missing names preserve existing clien
  job=(await w.crmState(actor)).jobs[0];await w.applyCRM(actor,[{...job,search_id:search.id,version:search.version}]);
  assert.equal(db.prepare("SELECT client FROM searches WHERE external_id='new'").get()?.client,'Imported Company');
  db.close();
+});
+
+const {weekDays,weekStart}=await import('../src/planning');
+async function roster(w:any,ids=['s','s2'],version=0) {await w.mutate(actor,'team-members',{id:'t',version,staff_ids:ids});}
+async function plan(w:any,overrides:any={}) {
+ const state=await w.state(actor),week='2026-09-28';
+ return {week,search_id:'r',team_id:'t',roster_version:state.teams[0].roster_version,
+  days:weekDays(week).map(date=>{const old=state.assignments.find((a:any)=>a.search_id==='r'&&a.team_id==='t'&&a.work_date===date);return {date,id:old?.id,version:old?.version,enabled:!!old,target:old?.target??10,notes:old?.notes||''};}),...overrides};
+}
+test('seven-day plans include weekends, use team members, and reject duplicate submissions',async()=>{
+ const {db,w}=fixture();await roster(w);
+ const p=await plan(w);p.days.forEach((d:any)=>d.enabled=true);
+ await w.mutate(actor,'week-plan',p);
+ assert.equal(db.prepare("SELECT COUNT(*) n FROM assignments WHERE work_date>='2026-09-28'").get()?.n,7);
+ assert.equal(db.prepare('SELECT COUNT(*) n FROM entries').get()?.n,16);
+ await assert.rejects(w.mutate(actor,'week-plan',p),/plan changed/);
+ assert.equal(db.prepare("SELECT COUNT(*) n FROM assignments WHERE work_date>='2026-09-28'").get()?.n,7);
+ assert.equal(weekStart('2026-10-04'),'2026-09-28');db.close();
+});
+test('planning rolls back earlier days and audits when a later day is invalid',async()=>{
+ const {db,w}=fixture();await roster(w);const p=await plan(w);p.days.forEach((d:any)=>d.enabled=true);p.days[6].target=-1;
+ const audit=db.prepare('SELECT COUNT(*) n FROM audit').get()?.n;
+ await assert.rejects(w.mutate(actor,'week-plan',p),/whole number/);
+ assert.equal(db.prepare('SELECT COUNT(*) n FROM assignments').get()?.n,1);
+ assert.equal(db.prepare('SELECT COUNT(*) n FROM audit').get()?.n,audit);db.close();
+});
+test('roster changes preserve old assignment members and stale roster writes fail',async()=>{
+ const {db,w}=fixture();await roster(w);const p=await plan(w);p.days[0].enabled=true;await w.mutate(actor,'week-plan',p);
+ await roster(w,['s2'],1);await assert.rejects(roster(w,['s'],1),/roster changed/);
+ await assert.rejects(w.mutate(actor,'week-plan',p),/roster changed/);
+ const next=await plan(w);next.days[0].target=20;next.days[1].enabled=true;await w.mutate(actor,'week-plan',next);
+ const rows=db.prepare("SELECT a.work_date,COUNT(e.id) n FROM assignments a JOIN entries e ON e.assignment_id=a.id WHERE a.work_date>='2026-09-28' GROUP BY a.id ORDER BY a.work_date").all();
+ assert.deepEqual(rows.map(r=>r.n),[2,1]);db.close();
+});
+test('plans can remove unstarted work but cannot erase recorded zero output',async()=>{
+ const {db,w}=fixture();await roster(w);const p=await plan(w);p.days[0].enabled=true;p.days[1].enabled=true;await w.mutate(actor,'week-plan',p);
+ const next=await plan(w);const id=next.days[1].id;
+ db.prepare('UPDATE entries SET mapped=0 WHERE assignment_id=?').run(id);
+ next.days[0].enabled=false;next.days[1].enabled=false;
+ await assert.rejects(w.mutate(actor,'week-plan',next),/already been recorded/);
+ assert.equal(db.prepare("SELECT COUNT(*) n FROM assignments WHERE work_date>='2026-09-28'").get()?.n,2);
+ next.days[1].enabled=true;await w.mutate(actor,'week-plan',next);
+ assert.equal(db.prepare("SELECT COUNT(*) n FROM assignments WHERE work_date>='2026-09-28'").get()?.n,1);db.close();
+});
+test('weekly priorities update one current record, retain history, and reject stale writes',async()=>{
+ const {db,w}=fixture();const p={search_id:'r',week:'2026-09-30',disposition:'Start',version:0,notes:'Initial'};
+ await w.mutate(actor,'decision',p);await assert.rejects(w.mutate(actor,'decision',p),/already exists/);
+ await w.mutate(actor,'decision',{...p,week:'2026-10-04',version:1,disposition:'Pause'});
+ const rows=db.prepare('SELECT * FROM weekly_priorities').all();assert.equal(rows.length,1);assert.equal(rows[0].week,'2026-09-28');assert.equal(rows[0].disposition,'Pause');assert.equal(rows[0].version,2);
+ assert.equal(db.prepare('SELECT COUNT(*) n FROM weekly_decisions').get()?.n,2);db.close();
+});
+test('planning and team management enforce permissions and reject unknown records',async()=>{
+ const {db,w}=fixture();await roster(w);const p=await plan(w);p.days[0].enabled=true;
+ await assert.rejects(w.mutate({...actor,role:'researcher'},'week-plan',p),/permission/);
+ await assert.rejects(w.mutate({...actor,role:'planner'},'team-members',{id:'t',version:1,staff_ids:['s']}),/permission/);
+ await assert.rejects(w.mutate(actor,'week-plan',{...p,team_id:'foreign'}),/existing search and team/);
+ await assert.rejects(w.mutate(actor,'team-members',{id:'t',version:1,staff_ids:['foreign']}),/Unknown researcher/);
+ await assert.rejects(w.mutate(actor,'week-plan',{...p,days:p.days.slice(1)}),/seven days/);db.close();
+});
+test('role partner edits use versions and do not change daily assignments',async()=>{
+ const {db,w}=fixture();await w.mutate(actor,'search-owner',{id:'r',version:1,partner_id:'synthetic-partner',partner:'Synthetic Partner'});
+ assert.equal(db.prepare("SELECT partner FROM searches WHERE id='r'").get()?.partner,'Synthetic Partner');
+ await assert.rejects(w.mutate(actor,'search-owner',{id:'r',version:1,partner_id:''}),/search changed/);
+ assert.equal(db.prepare("SELECT partner FROM assignments WHERE id='a'").get()?.partner,null);db.close();
+});
+
+test('legacy duplicate decisions migrate to one current weekly priority without deleting history',async()=>{
+ const {db,ctx}=fixture();
+ db.exec("DELETE FROM settings WHERE key='planning_v2'; INSERT INTO weekly_decisions VALUES('d1','r','2026-09-28','Start','First','admin','2026-09-28T00:00:00Z'); INSERT INTO weekly_decisions VALUES('d2','r','2026-09-28','Continue','Latest','admin','2026-09-28T01:00:00Z'); INSERT INTO weekly_decisions VALUES('d3','r','2026-09-30','Pause','Wednesday','admin','2026-09-28T02:00:00Z');");
+ const w=new Workspace(ctx as any,{});
+ const state=await w.state(actor);assert.equal(state.priorities.length,1);assert.equal(state.priorities[0].disposition,'Pause');assert.equal(state.priorities[0].week,'2026-09-28');assert.equal(state.decisions.length,3);
+ await w.mutate(actor,'decision',{search_id:'r',week:'2026-09-28',disposition:'Continue',version:1});
+ const again=new Workspace(ctx as any,{});assert.equal((await again.state(actor)).priorities[0].version,2);
+ assert.equal(db.prepare('SELECT COUNT(*) n FROM assignments').get()?.n,1);db.close();
 });

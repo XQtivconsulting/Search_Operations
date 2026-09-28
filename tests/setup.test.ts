@@ -39,3 +39,14 @@ test('first-admin setup cannot grant access once a workspace has a member', asyn
   await assert.rejects(identity.invite('other@example.com','Other','test','admin',null,true),/already set up/);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM invites').get()?.n,0);
 });
+
+test('search partner API accepts only active workspace partners and never trusts supplied names',async()=>{
+ const members=[{id:'p',name:'Actual Partner',role:'partner',status:'active',email:'private@example.com'},{id:'r',name:'Researcher',role:'researcher',status:'active'},{id:'old',name:'Inactive',role:'partner',status:'revoked'}];
+ let saved:any=null;
+ const env:any={IDENTITY:{getByName:()=>({authenticate:async()=>({tenant:'test',role:'admin'}),members:async(tenant:string)=>{assert.equal(tenant,'test');return members;}})},WORKSPACE:{getByName:(tenant:string)=>{assert.equal(tenant,'test');return {state:async()=>({}),mutate:async(a:any,k:string,b:any)=>{saved=b;return {id:'r'};}};}}};
+ const send=(partner_id:string)=>worker.fetch(new Request('https://app.example.com/api/mutate',{method:'POST',headers:{Origin:'https://app.example.com'},body:JSON.stringify({kind:'search-owner',id:'r',partner_id,partner:'Spoofed'})}),env);
+ for(const id of ['r','old','foreign']) assert.equal((await send(id)).status,400);
+ assert.equal(saved,null);assert.equal((await send('p')).status,200);assert.equal((saved as any).partner,'Actual Partner');
+ const state=await worker.fetch(new Request('https://app.example.com/api/state'),env);
+ assert.deepEqual((await state.json() as any).partners,[{id:'p',name:'Actual Partner'}]);
+});

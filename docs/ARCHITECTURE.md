@@ -48,3 +48,9 @@ Partner approval rate = summed partner approvals / summed mapped output in the s
 ## Security and operational limits
 
 Invitation membership, Secure/HttpOnly/SameSite cookies, same-origin writes, action authorization, version checks and transactional audits are implemented. Password recovery, SSO/MFA, device/session management, independent security assessment, authenticated accessibility walkthrough, restore drills and load testing remain release gates before wider use. Pilot queries load the authorized tenant dataset into the client; server paging is required before larger deployments.
+
+## Weekly planning
+
+See [Weekly planning](WEEKLY-PLANNING.md). `team_members` and versioned `team_rosters` define research teams. New assignments snapshot members into entries. `weekly_priorities` provides a unique current record per search/Monday week; legacy `weekly_decisions` stays append-only. Startup migration retains all historical events and materializes the latest per calendar week. `searches.partner_id` stores the selected account; the API validates active eligible membership in the authenticated tenant and stores its name for display.
+
+The `week-plan` mutation saves seven days atomically, with assignment and roster versions, duplicate checks, and protection of recorded output. The planner displays these same assignments by search or team. Roster changes do not rewrite existing work.

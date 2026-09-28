@@ -1,4 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
+import {weekStart,weekDays} from './planning';
 import { workspaceSchema } from "./schema";
 import type { CRMJob } from './recruitcrm';
 import {
@@ -20,6 +21,16 @@ export class Workspace extends DurableObject {
     ctx.storage.sql.exec(workspaceSchema);
     if(!this.rows('PRAGMA table_info(crm_jobs)').some(c=>c.name === 'company_name'))
       this.rows("ALTER TABLE crm_jobs ADD COLUMN company_name TEXT NOT NULL DEFAULT ''");
+    if(!this.rows('PRAGMA table_info(searches)').some(c=>c.name === 'partner_id'))
+      this.rows("ALTER TABLE searches ADD COLUMN partner_id TEXT NOT NULL DEFAULT ''");
+    if(!this.rows("SELECT value FROM settings WHERE key='planning_v2'").length) {
+      ctx.storage.transactionSync(()=>{
+        // Keep the original events; materialize only the latest decision for each calendar week.
+        for(const d of this.rows('SELECT * FROM weekly_decisions ORDER BY created_at, rowid'))
+          this.rows('INSERT INTO weekly_priorities(search_id,week,disposition,notes) VALUES(?,?,?,?) ON CONFLICT(search_id,week) DO UPDATE SET disposition=excluded.disposition,notes=excluded.notes',d.search_id,weekStart(d.week),d.disposition,d.notes);
+        this.rows("INSERT INTO settings(key,value) VALUES('planning_v2','1')");
+      });
+    }
   }
   rows(q: string, ...p: any[]): any[] {
     return this.ctx.storage.sql.exec(q, ...p).toArray();
@@ -43,7 +54,9 @@ export class Workspace extends DurableObject {
         this.rows("SELECT value FROM settings WHERE key=?", "name")[0]?.value ??
         "Workspace",
       searches: this.rows("SELECT * FROM searches ORDER BY client,title"),
-      teams: this.rows("SELECT * FROM teams ORDER BY name"),
+      teams: this.rows("SELECT t.*,COALESCE(r.version,0) roster_version FROM teams t LEFT JOIN team_rosters r ON r.team_id=t.id ORDER BY t.name"),
+      team_members: this.rows('SELECT * FROM team_members'),
+      priorities: this.rows('SELECT * FROM weekly_priorities ORDER BY week DESC'),
       staff: this.rows("SELECT * FROM staff ORDER BY name"),
       assignments: this.rows(
         "SELECT * FROM assignments ORDER BY work_date DESC",
@@ -123,6 +136,69 @@ export class Workspace extends DurableObject {
     });
   }
   private applyMutation(a: Actor, kind: string, b: any): { id: string } {
+      if(kind === 'team-members') {
+        requireThat(a.role === 'admin','Administrator permission required.',403);
+        requireThat(this.rows('SELECT id FROM teams WHERE id=?',b.id).length,'Team not found.',404);
+        const version=this.rows('SELECT version FROM team_rosters WHERE team_id=?',b.id)[0]?.version || 0;
+        requireThat(Number(b.version)===version,'The team roster changed. Reload before editing.',409);
+        requireThat(Array.isArray(b.staff_ids),'Select team members.');
+        const ids=[...new Set<string>(b.staff_ids)];
+        for(const id of ids) requireThat(this.rows('SELECT id FROM staff WHERE id=?',id).length,'Unknown researcher.');
+        const before=this.rows('SELECT staff_id FROM team_members WHERE team_id=?',b.id);
+        this.rows('DELETE FROM team_members WHERE team_id=?',b.id);
+        for(const id of ids) this.rows('INSERT INTO team_members VALUES(?,?)',b.id,id);
+        this.rows('INSERT INTO team_rosters VALUES(?,?) ON CONFLICT(team_id) DO UPDATE SET version=excluded.version',b.id,version+1);
+        this.audit(a,kind,b.id,before,{staff_ids:ids,version:version+1});
+        return {id:b.id};
+      }
+      if(kind === 'search-owner') {
+        requireThat(canPlan(a),'Planning permission required.',403);
+        const old=this.rows('SELECT * FROM searches WHERE id=?',b.id)[0];
+        requireThat(old,'Search not found.',404);
+        requireThat(Number(b.version)===old.version,'The search changed. Reload before editing.',409);
+        this.rows('UPDATE searches SET partner_id=?,partner=?,version=version+1 WHERE id=?',text(b.partner_id),text(b.partner),b.id);
+        this.audit(a,kind,b.id,old,{partner_id:text(b.partner_id),partner:text(b.partner)});
+        return {id:b.id};
+      }
+      if(kind === 'week-plan') {
+        requireThat(canPlan(a),'Planning permission required.',403);
+        const dates=weekDays(b.week);
+        requireThat(this.rows('SELECT id FROM searches WHERE id=?',b.search_id).length && this.rows('SELECT id FROM teams WHERE id=?',b.team_id).length,'Choose an existing search and team.');
+        requireThat(Array.isArray(b.days) && b.days.length===7 && new Set(b.days.map((d:any)=>d.date)).size===7 && b.days.every((d:any)=>dates.includes(d.date)),'Submit all seven days of this week.');
+        const members=this.rows('SELECT staff_id FROM team_members WHERE team_id=?',b.team_id).map(r=>r.staff_id);
+        const rosterVersion=this.rows('SELECT version FROM team_rosters WHERE team_id=?',b.team_id)[0]?.version || 0;
+        requireThat(Number(b.roster_version)===rosterVersion,'The team roster changed. Reload before planning.',409);
+        for(const d of b.days) {
+          requireThat(typeof d.enabled==='boolean','Choose which days to plan.');
+          const matches=this.rows('SELECT * FROM assignments WHERE search_id=? AND team_id=? AND work_date=?',b.search_id,b.team_id,d.date);
+          requireThat(matches.length<=1,'This team and search have duplicate assignments on '+d.date+'. Reconcile them before editing.',409);
+          const old=matches[0];
+          requireThat(old ? old.id===d.id && old.version===Number(d.version) : !d.id,'The plan changed. Reload before saving.',409);
+          if(!d.enabled) {
+            if(old) {
+              requireThat(!this.rows("SELECT id FROM entries WHERE assignment_id=? AND (mapped IS NOT NULL OR peer IS NOT NULL OR partner IS NOT NULL OR notes<>'' OR flag IS NOT NULL OR source<>'manual')",old.id).length && !this.rows('SELECT r.id FROM reviews r JOIN entries e ON e.id=r.entry_id WHERE e.assignment_id=?',old.id).length,'Work has already been recorded on '+d.date+'. Keep this assignment and edit its target instead.',409);
+              this.rows('DELETE FROM entries WHERE assignment_id=?',old.id);
+              this.rows('DELETE FROM assignments WHERE id=?',old.id);
+              this.audit(a,'plan-remove',old.id,old,null);
+            }
+            continue;
+          }
+          const target=count(d.target,'Daily target',false),notes=text(d.notes,5000);
+          if(old) {
+            if(old.target!==target || old.notes!==notes) {
+              this.rows('UPDATE assignments SET target=?,notes=?,version=version+1 WHERE id=?',target,notes,old.id);
+              this.audit(a,'plan-edit',old.id,old,{target,notes});
+            }
+          } else {
+            requireThat(members.length,'Add researchers to this team in Workspace before planning work.');
+            const id=uuid();
+            this.rows('INSERT INTO assignments(id,search_id,team_id,work_date,target,notes) VALUES(?,?,?,?,?,?)',id,b.search_id,b.team_id,d.date,target,notes);
+            for(const staffId of members) this.rows('INSERT INTO entries(id,assignment_id,staff_id) VALUES(?,?,?)',uuid(),id,staffId);
+            this.audit(a,'plan-create',id,null,{search_id:b.search_id,team_id:b.team_id,work_date:d.date,target,notes,staff_ids:members});
+          }
+        }
+        return {id:b.search_id};
+      }
       if (kind === "assignment-edit") {
         requireThat(canPlan(a), "Planning permission required.", 403);
         const old = this.rows("SELECT * FROM assignments WHERE id=?", b.id)[0];
@@ -151,6 +227,7 @@ export class Workspace extends DurableObject {
           text(b.partner),
           text(b.notes, 5000),
         );
+        this.rows('UPDATE searches SET partner_id=? WHERE id=?',text(b.partner_id),id);
         this.audit(a, kind, id, null, b);
         return { id };
       }
@@ -181,6 +258,7 @@ export class Workspace extends DurableObject {
         const id = uuid(),
           date = day(b.work_date),
           target = count(b.target, "Target");
+        requireThat(!this.rows('SELECT id FROM assignments WHERE search_id=? AND team_id=? AND work_date=?',b.search_id,b.team_id,date).length,'This search and team are already planned for this day. Edit the weekly plan.',409);
         this.rows(
           "INSERT INTO assignments(id,search_id,team_id,work_date,target,partner,link,notes) VALUES(?,?,?,?,?,?,?,?)",
           id,
@@ -329,19 +407,13 @@ export class Workspace extends DurableObject {
           "Search not found.",
           404,
         );
-        const id = uuid();
-        this.rows(
-          "INSERT INTO weekly_decisions VALUES(?,?,?,?,?,?,?)",
-          id,
-          b.search_id,
-          day(b.week),
-          b.disposition,
-          text(b.notes, 5000),
-          a.id,
-          now(),
-        );
-        this.audit(a, kind, id, null, b);
-        return { id };
+        const week=weekStart(b.week),old=this.rows('SELECT * FROM weekly_priorities WHERE search_id=? AND week=?',b.search_id,week)[0];
+        requireThat(Number(b.version) === (old?.version || 0),'A priority already exists or has changed for this search and week. Reload and edit it.',409);
+        const notes=text(b.notes,5000),id=uuid();
+        this.rows('INSERT INTO weekly_priorities(search_id,week,disposition,notes,version) VALUES(?,?,?,?,?) ON CONFLICT(search_id,week) DO UPDATE SET disposition=excluded.disposition,notes=excluded.notes,version=excluded.version',b.search_id,week,b.disposition,notes,(old?.version || 0)+1);
+        this.rows('INSERT INTO weekly_decisions VALUES(?,?,?,?,?,?,?)',id,b.search_id,week,b.disposition,notes,a.id,now());
+        this.audit(a,kind,id,old || null,{search_id:b.search_id,week,disposition:b.disposition,notes});
+        return {id};
       }
       throw Object.assign(new Error("Unknown operation."), { status: 404 });
   }
@@ -494,7 +566,7 @@ export class Workspace extends DurableObject {
           )
             continue;
           const header = data.raw_rows["Master List"][0].cells[column + "1"];
-          if (header?.cached && /^\d{4}-\d{2}-\d{2}$/.test(header.cached))
+          if (header?.cached && /^\d{4}-\d{2}-\d{2}$/.test(header.cached)) {
             this.rows(
               "INSERT INTO weekly_decisions VALUES(?,?,?,?,?,?,?)",
               uuid(),
@@ -505,6 +577,8 @@ export class Workspace extends DurableObject {
               "workbook",
               now(),
             );
+            this.rows('INSERT INTO weekly_priorities(search_id,week,disposition,notes) VALUES(?,?,?,?) ON CONFLICT(search_id,week) DO UPDATE SET disposition=excluded.disposition,notes=excluded.notes,version=weekly_priorities.version+1',search,weekStart(header.cached),cell.cached,'Imported weekly decision');
+          }
         }
       }
       this.rows(

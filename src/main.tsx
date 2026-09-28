@@ -17,6 +17,8 @@ import {
 } from "@phosphor-icons/react";
 import { aggregate } from "./domain";
 import { BulkSheet } from "./BulkSheet";
+import {WeeklyPlanner} from './WeeklyPlanner';
+import {TeamsPanel} from './TeamsPanel';
 import { CRMPanel } from "./CRMPanel";
 import { Setup } from './Setup';
 import "./style.css";
@@ -96,8 +98,6 @@ function App() {
         await load();
       } else {
         const body = { ...modal, ...b };
-        if (modal?.kind === "assignment")
-          body.staff_ids = new FormData(e.currentTarget).getAll("staff_ids");
         if (modal?.kind === "invite") {
           const result = await api("invite", body);
           setModal({ kind: "invitation", url: result.url, emailStatus: result.emailStatus });
@@ -331,7 +331,7 @@ function App() {
               key={label}
               className={page === label ? "active" : ""}
               onClick={() => {
-                if (sheetDirty && !confirm("Discard unsaved spreadsheet changes?")) return;
+                if (sheetDirty && !confirm("Discard unsaved changes?")) return;
                 setSheetDirty(false);
                 setPage(label);
                 setNotice("");
@@ -350,7 +350,7 @@ function App() {
           <small>{actor.role}</small>
           <button
             onClick={async () => {
-              if (sheetDirty && !confirm("Discard unsaved spreadsheet changes and sign out?")) return;
+              if (sheetDirty && !confirm("Discard unsaved changes and sign out?")) return;
               setSheetDirty(false);
               await api("logout", {});
               setData(null);
@@ -373,7 +373,7 @@ function App() {
                   Searches:
                     "The complete search portfolio, with the details one click away.",
                   "Weekly plan":
-                    "Choose what matters this week. Keep every decision in context.",
+                    "Set priorities and allocate teams across all seven days.",
                   "Daily work":
                     "Team assignments and individual contributions, together.",
                   Spreadsheet: "Update many records on one screen, then save them together.",
@@ -384,15 +384,15 @@ function App() {
               }
             </p>
           </div>
-          {planner && page !== "Integrations" && page !== "Spreadsheet" && (
+          {planner && ["Overview","Searches","Daily work"].includes(page) && (
             <button
               className="primary"
               onClick={() =>
-                open({ kind: page === "Searches" ? "search" : "assignment" })
+                page === "Searches" ? open({kind:"search"}) : setPage("Weekly plan")
               }
             >
               <Plus />
-              {page === "Searches" ? "New search" : "Plan work"}
+              {page === "Searches" ? "New search" : "Plan week"}
             </button>
           )}
         </header>
@@ -406,7 +406,7 @@ function App() {
             {error}
           </div>
         )}
-        {page !== "Workspace" && page !== "Integrations" && (
+        {page !== "Workspace" && page !== "Integrations" && page !== "Weekly plan" && (
           <div className="filters">
             <label>
               From
@@ -617,41 +617,15 @@ function App() {
                           {planner && (
                             <button
                               onClick={() =>
-                                open({ kind: "decision", search_id: s.id })
+                                (setSelected(s.id), setPage("Weekly plan"))
                               }
                             >
-                              Set weekly priority
+                              Plan this search
                             </button>
                           )}
                         </div>
-                        <h3>Candidate breakdowns</h3>
-                        {Array.from(
-                          new Set<string>(
-                            data.assignments
-                              .filter(
-                                (a: Row) => a.search_id === s.id && a.link,
-                              )
-                              .map((a: Row) => a.link),
-                          ),
-                        ).map((link, i) => (
-                          <a
-                            className="external-link"
-                            key={link}
-                            href={link}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            Open source breakdown {i + 1}
-                            <ArrowSquareOut />
-                          </a>
-                        ))}
-                        {!data.assignments.some(
-                          (a: Row) => a.search_id === s.id && a.link,
-                        ) && (
-                          <p className="fine">
-                            No candidate breakdown linked yet.
-                          </p>
-                        )}
+                        {planner&&<button onClick={()=>open({kind:'search-owner',...s})}>{s.partner?'Edit engagement partner':'Set engagement partner'}</button>}
+                        {data.assignments.some((a:Row)=>a.search_id===s.id&&a.link)&&<details><summary>Reference links</summary><p className="fine">Legacy links to external candidate lists; not required for planning.</p>{Array.from(new Set<string>(data.assignments.filter((a:Row)=>a.search_id===s.id&&a.link).map((a:Row)=>a.link))).map(link=><a className="external-link" key={link} href={link} target="_blank" rel="noreferrer">Open candidate reference <ArrowSquareOut/></a>)}</details>}
                       </div>
                     </details>
                   );
@@ -659,53 +633,7 @@ function App() {
             </div>
           </>
         )}
-        {page === "Weekly plan" && (
-          <section className="panel">
-            <div className="section-head">
-              <h2>Weekly search decisions</h2>
-              {planner && (
-                <button
-                  className="primary"
-                  onClick={() =>
-                    open({ kind: "decision", search_id: selected })
-                  }
-                >
-                  <Plus />
-                  Set priority
-                </button>
-              )}
-            </div>
-            <p className="fine">
-              The source workbook uses Wednesday periods. Choose the exact week
-              date you intend; previous decisions remain in the history.
-            </p>
-            {data.decisions
-              .filter(
-                (d: Row) =>
-                  (!selected || d.search_id === selected) &&
-                  (!from || d.week >= from) &&
-                  (!to || d.week <= to),
-              )
-              .slice(0, 150)
-              .map((d: Row) => (
-                <div className="work-row" key={d.id}>
-                  <span className="date-tile">{dateLabel(d.week)}</span>
-                  <span>
-                    <strong>{sBy[d.search_id]?.client}</strong>
-                    <small>{sBy[d.search_id]?.title}</small>
-                    {d.notes && <small>{d.notes}</small>}
-                  </span>
-                  <span className="badge">{d.disposition}</span>
-                </div>
-              ))}
-            {!data.decisions.length && (
-              <Empty
-                title="Give the week a clear focus"
-                body="Set a priority for each active search, then allocate the team's daily work."
-              />
-            )}
-          </section>
-        )}
+        {page === "Weekly plan" && <WeeklyPlanner data={data} api={api} reload={load} initialSearch={selected} onDirty={setSheetDirty} onTeams={()=>setPage('Workspace')}/>}
         {page === "Spreadsheet" && <BulkSheet data={data} entries={filtered} assignments={assignments} api={api} reload={load} onDirty={setSheetDirty} />}
         {page === "Daily work" && (
           <div className="assignment-list">
@@ -725,10 +653,10 @@ function App() {
                   </span>
                 </div>
                 <div className="assignment-meta">
-                  {a.partner && <span>Partner: {a.partner}</span>}
+                  {sBy[a.search_id]?.partner && <span>Partner: {sBy[a.search_id].partner}</span>}
                   {a.link && (
                     <a href={a.link} target="_blank" rel="noreferrer">
-                      Candidate breakdown <ArrowSquareOut />
+                      Candidate reference <ArrowSquareOut />
                     </a>
                   )}
                   {a.source_row && <span>Workbook row {a.source_row}</span>}
@@ -902,7 +830,7 @@ function App() {
                 <button onClick={() => open({ kind: "staff" })}>
                   Add researcher
                 </button>
-                <button onClick={() => open({ kind: "team" })}>Add team</button>
+
                 <button
                   onClick={async () =>
                     open({ kind: "members", members: await api("members") })
@@ -921,6 +849,7 @@ function App() {
                 and review permissions depend on their assigned access role.
               </p>
             </section>
+            <TeamsPanel data={data} api={api} reload={load} onAdd={()=>open({kind:'team'})}/>
             <section className="panel">
               <h2>Import reconciliation</h2>
               <p>
@@ -965,14 +894,13 @@ function App() {
                   (
                     {
                       search: "Create a search",
-                      assignment: "Plan daily work",
+                      "search-owner": "Search engagement partner",
                       entry: "Log sourcing output",
                       review:
                         modal.stage === "peer"
                           ? "Peer review"
                           : "Partner review",
                       reopen: "Reopen reviewed output",
-                      decision: "Set weekly priority",
                       invite: "Invite a colleague",
                       invitation: "Invitation ready",
                       staff: "Add a researcher",
@@ -1049,59 +977,10 @@ function App() {
                       label="Recruit CRM job ID (optional)"
                     />
                     <Field name="start_date" label="Start date" type="date" />
-                    <Field name="partner" label="Engagement partner" />
+                    <Select name="partner_id" label="Engagement partner" values={[["","Not assigned"],...(data.partners || []).map((p:Row)=>[p.id,p.name])]}/>
                   </>
                 )}
-                {modal.kind === "assignment" && (
-                  <>
-                    <Select
-                      name="search_id"
-                      label="Search"
-                      values={data.searches.map((s: Row) => [
-                        s.id,
-                        s.client + " · " + s.title,
-                      ])}
-                      initial={selected}
-                    />
-                    <Select
-                      name="team_id"
-                      label="Team"
-                      values={data.teams.map((t: Row) => [t.id, t.name])}
-                    />
-                    <Field
-                      name="work_date"
-                      label="Work date"
-                      type="date"
-                      initial={today()}
-                      required
-                    />
-                    <Field
-                      name="target"
-                      label="Partner-approved target"
-                      type="number"
-                      min={0}
-                    />
-                    <Field name="partner" label="Engagement partner" />
-                    <Field
-                      name="link"
-                      label="Candidate breakdown link"
-                      type="url"
-                    />
-                    <fieldset>
-                      <legend>Researchers</legend>
-                      {data.staff.map((p: Row) => (
-                        <label className="checkbox" key={p.id}>
-                          <input
-                            type="checkbox"
-                            name="staff_ids"
-                            value={p.id}
-                          />
-                          {p.name}
-                        </label>
-                      ))}
-                    </fieldset>
-                  </>
-                )}
+                {modal.kind === 'search-owner' && <><p>{modal.client} · {modal.title}</p>{modal.partner&&!modal.partner_id&&<p className="fine">Previously recorded: {modal.partner}. Select the partner’s account below.</p>}<Select name="partner_id" label="Engagement partner" initial={modal.partner_id || ''} values={[["","Not assigned"],...(data.partners || []).map((p:Row)=>[p.id,p.name])]}/><p className="fine">Set once for this search. Available partners are active Admin, Founder and Partner accounts. Invite any missing partner from Workspace.</p></>}
                 {modal.kind === "entry" && (
                   <Field
                     name="mapped"
@@ -1129,37 +1008,6 @@ function App() {
                       min={0}
                       initial={modal[modal.stage] ?? ""}
                       required
-                    />
-                  </>
-                )}
-                {modal.kind === "decision" && (
-                  <>
-                    <Select
-                      name="search_id"
-                      label="Search"
-                      values={data.searches.map((s: Row) => [
-                        s.id,
-                        s.client + " · " + s.title,
-                      ])}
-                      initial={modal.search_id}
-                    />
-                    <Field
-                      name="week"
-                      label="Week date"
-                      type="date"
-                      initial={today()}
-                      required
-                    />
-                    <Select
-                      name="disposition"
-                      label="Decision"
-                      values={[
-                        "Start",
-                        "Continue",
-                        "Recalibrate",
-                        "Pause",
-                        "Stop",
-                      ].map((s) => [s, s])}
                     />
                   </>
                 )}
@@ -1201,7 +1049,7 @@ function App() {
                 {["staff", "team"].includes(modal.kind) && (
                   <Field name="name" label="Name" required />
                 )}
-                {!["invite", "staff", "team"].includes(modal.kind) && (
+                {!["invite", "staff", "team", "search-owner"].includes(modal.kind) && (
                   <label>
                     Notes{" "}
                     {modal.kind === "reopen" ? "(required)" : "(optional)"}
