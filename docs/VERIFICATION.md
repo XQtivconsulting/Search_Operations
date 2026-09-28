@@ -63,3 +63,9 @@ The runtime tests use synthetic provider responses and do not claim live API suc
 ## People, candidate workflow and assignment release — 2026-09-28
 
 Local verification: TypeScript passed, all 106 Node tests passed, Vite production build passed, and Wrangler deployment dry-run passed. Added coverage for owner migration, multiple roles, stale account sessions, candidate uniqueness and multi-role relationships, permissions, target assignment, company keyword matching, workflow summary rendering, and atomic weekly move/unassign (targets/notes/rosters, recorded-zero protection, collisions, stale versions and authorization). Existing data is retained; manual count write endpoints are retired. No real accounts, customer records or outbound invitations were used in tests. Authenticated browser interactions and actual customer account records were not inspected. Deployment must additionally be confirmed by the GitHub Actions result.
+
+## Candidate bulk import — 2026-09-28
+
+Typecheck, all 110 tests, and production build passed locally. New tests cover header/row validation, canonical duplicate reuse, repeated-import idempotency, independent mappings by different researchers, permission checks, stale previews and atomic rollback. No live candidate data was imported and authenticated browser interaction was not tested. GitHub Actions independently runs the gates before Cloudflare deployment.
+
+Individual researcher selection was also verified: new allocations snapshot only selected researchers, unstarted selections can change, outsiders are rejected, and recorded zero output protects existing allocation.

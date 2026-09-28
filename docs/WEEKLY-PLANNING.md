@@ -24,3 +24,7 @@ Candidate breakdown links were optional external URLs to candidate spreadsheets.
 ## Move or unassign
 
 Click **Move / unassign** on an allocation, or open its editor and choose **Move / unassign this week’s assignments**. Select one or several unstarted days, then choose **Move to another team** and the destination, or **Unassign selected days**. Moving preserves dates, targets and notes and snapshots the destination roster. Recorded candidate work, counts (including zero), notes or reviews protect a day from removal or transfer. A conflicting destination allocation is rejected without merging targets. The operation is atomic and version checked. Company ownership is separately managed in the role’s Target companies.
+
+## Select individual researchers
+
+Open a role/team allocation in Weekly Assignment. Each working day has Researcher checkboxes; select one or more members of that team and Save week. New plans initially select the team roster. Unstarted allocations can change researchers; recorded work protects the allocation. Daily targets remain team totals. Candidate mappings independently store actual mapper account, staff ID, team, role and review history; plan changes never rewrite mapping attribution. Role Candidate mappings displays Mapped by / team, and submitted/approved work drives researcher/team/role metrics.

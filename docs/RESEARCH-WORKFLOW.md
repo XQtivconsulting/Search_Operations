@@ -82,3 +82,11 @@ The current multi-role access and account-switching rules are documented in [Peo
 Company universe supports keyword phrases over stored names, industries, offerings, specialties and tags, with a small explicit synonym dictionary. This is local metadata matching, not external AI enrichment. Check companies across filtered results and add up to 100 to a selected role. Existing role targets are excluded. Role Target companies separates Team from Researcher and provides Assign researcher with active roster validation.
 
 Workflow Monitor summarizes each search: submitted and approved mappings, completed company scope, companies with submitted mappings, review queues and bottlenecks. Direct mappings without a target are identified separately. Links open detailed coverage/assignments or candidate mappings in the role repository.
+
+## Candidate spreadsheet import and mass role assignment
+
+Candidates → Import Excel accepts the first worksheet of .xlsx files, up to 500 data rows and 5 MB. Required headers: First Name, Last Name, LinkedIn URL. Optional: Email, Phone, Title, Company, Rationale. A downloadable CSV header template can be filled in Excel and saved as .xlsx; phone columns should be text.
+
+Preview lists new candidates, reused canonical LinkedIn profiles and duplicate file rows. Existing profile details are not overwritten. Optionally select a role and your research team to create direct mapping drafts; no target-company coverage is inferred from company names. Alternatively select candidates in the directory (or select filtered results) and Assign selected to role. Mapping requires Researcher access and active membership in the selected team, and is attributed to the current user. Existing mappings to that role are skipped, while other role relationships are retained. Drafts still require fit evidence and normal peer/partner review.
+
+All writes and audit records are atomic. A stale preview requires a fresh preview; validation failures leave no partial imports or mappings. Candidate contact corrections remain in Edit candidate.

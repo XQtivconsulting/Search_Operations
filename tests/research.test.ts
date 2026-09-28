@@ -151,3 +151,21 @@ test('explicit target assignment validates researcher team and preserves existin
  await assert.rejects(f.run(mapper,{...after,action:'target-assign',team_id:'t',owner_id:'mapper'}),/permission/);
  await assert.rejects(f.run(admin,{...after,action:'target-assign',team_id:'t',owner_id:'partner'}),/researcher linked/);f.db.close();
 });
+
+test('candidate spreadsheet import previews and reuses canonical profiles, with idempotent role mapping',async()=>{
+ const f=fixture();const rows=[{first_name:'Test',last_name:'Person',url:'https://linkedin.com/in/bulk-person?trk=x',email:'test@example.com'},{first_name:'Duplicate',last_name:'Person',url:'https://www.linkedin.com/in/bulk-person/'}];
+ const b={action:'candidate-import',rows,role_id:'r',team_id:'t'};const p=await f.run(mapper,{...b,preview:true});assert.equal(p.plan[1].status,'Duplicate in file');assert.equal((await f.state()).research.records.length,0);
+ const result=await f.run(mapper,{...b,signature:p.signature});assert.deepEqual(result,{created:1,reused:0,mapped:1,skipped:1});
+ const c=(await f.state()).research.records.find(r=>r.kind==='candidate')!;assert.equal(c.first_name,'Test');const again=await f.run(mapper,{...b,preview:true});assert.equal(again.plan[0].mapping,'Already mapped');assert.equal((await f.run(mapper,{...b,signature:again.signature})).mapped,0);
+ const assign={action:'candidate-assign',candidate_ids:[c.id],role_id:'r2',team_id:'t'};const ap=await f.run(peer,{...assign,preview:true});await f.run(peer,{...assign,signature:ap.signature});const maps=(await f.state()).research.records.filter(r=>r.kind==='mapping');assert.equal(maps.length,2);assert.ok(maps.every(m=>m.status==='Draft'));assert.equal(maps.find(m=>m.role_id==='r2')?.mapper_id,'peer');f.db.close();
+});
+test('candidate import validates rows, stale previews, permissions and atomic rollback',async()=>{
+ const f=fixture(),rows=[{first_name:'New',last_name:'Person',url:'https://linkedin.com/in/new-bulk'}],b={action:'candidate-import',rows};
+ await assert.rejects(f.run(admin,{...b,preview:true,rows:[...rows,{...rows[0],url:'bad'}]}),/Row 3/);
+ await assert.rejects(f.run({...admin,role:'founder'},{...b,preview:true}),/permission/);
+ await assert.rejects(f.run(admin,{...b,role_id:'r',team_id:'t',preview:true}),/Researcher/);
+ const p=await f.run(admin,{...b,preview:true});await f.run(admin,{action:'candidate-save',...rows[0]});await assert.rejects(f.run(admin,{...b,signature:p.signature}),/changed/);
+ await assert.rejects(f.run(mapper,{action:'candidate-assign',candidate_ids:['foreign'],role_id:'r',team_id:'t',preview:true}),/not found/);
+ const old=await f.run(admin,{action:'candidate-save',first_name:'Old',last_name:'Name',url:'https://linkedin.com/in/legacy-bulk'});const raw=f.db.prepare('SELECT data FROM research_records WHERE id=?').get(old.id)!.data as string;const data=JSON.parse(raw);delete data.first_name;f.db.prepare('UPDATE research_records SET data=? WHERE id=?').run(JSON.stringify(data),old.id);
+ const batch={action:'candidate-import',rows:[{...rows[0],url:'https://linkedin.com/in/rollback-new'},{first_name:'Old',last_name:'Name',url:data.url}],role_id:'r',team_id:'t'};const pre=await f.run(mapper,{...batch,preview:true});await assert.rejects(f.run(mapper,{...batch,signature:pre.signature}),/first name|First name/);assert.ok(!(await f.state()).research.records.some(r=>r.url==='https://www.linkedin.com/in/rollback-new'));f.db.close();
+});

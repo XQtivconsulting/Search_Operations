@@ -1,3 +1,4 @@
+import {planCandidates} from './candidate-import';
 import {candidateSchema,createCandidateInvite,listCandidateInvites,revokeCandidateInvite,requestCandidateCode,verifyCandidateCode,candidatePage} from './candidate-access';
 import {planCompanyImport} from './company-import';
 import { DurableObject } from "cloudflare:workers";
@@ -54,6 +55,25 @@ export class Workspace extends DurableObject {
     );
   }
   async research(a: Actor,b:any,members:Member[]):Promise<any> {return this.ctx.storage.transactionSync(()=>{
+      if(b.action==='candidate-import'||b.action==='candidate-assign') {
+        requireThat(canPlan(a)||hasRole(a,'researcher')||hasRole(a,'partner'),'Candidate editing permission required.',403);
+        const records=researchState(this).records,candidates=records.filter(r=>r.kind==='candidate');
+        const assigning=b.action==='candidate-assign';
+        if(assigning)requireThat(Array.isArray(b.candidate_ids)&&b.candidate_ids.length>0&&b.candidate_ids.length<=500&&new Set(b.candidate_ids).size===b.candidate_ids.length,'Select 1–500 distinct candidates.');
+        const rows=assigning?b.candidate_ids.map((id:string)=>{const c=candidates.find(c=>c.id===id);requireThat(c,'Candidate not found.',404);return c;}):b.rows;
+        const plan=planCandidates(rows,candidates),role=text(b.role_id);
+        if(assigning)requireThat(role,'Choose a role.');
+        if(role){requireThat(hasRole(a,'researcher'),'Enable the Researcher role before recording mappings.',403);requireThat(this.rows('SELECT id FROM searches WHERE id=?',role).length,'Role not found.',404);const me=members.find(m=>m.id===a.id&&m.status==='active'&&hasRole(m,'researcher'));requireThat(me&&this.rows('SELECT staff_id FROM team_members WHERE team_id=? AND staff_id=?',b.team_id,me.staff_id||me.staffId||'').length,'Choose a team you belong to.');}
+        const preview=plan.map(c=>({...c,mapping:!role?'Not requested':c.status==='Duplicate in file'?'Skip duplicate':records.some(m=>m.kind==='mapping'&&m.role_id===role&&m.candidate_id===c.existingId)?'Already mapped':'Create draft'}));
+        const signature=JSON.stringify({plan:preview,versions:records.filter(r=>r.kind==='candidate'||r.kind==='mapping').map(r=>[r.id,r.version]).sort(),role,team:b.team_id||''});
+        if(b.preview)return {plan:preview,signature};
+        requireThat(signature===b.signature,'Candidate data changed. Preview again before saving.',409);
+        let created=0,reused=0,mapped=0,skipped=0;
+        for(const c of preview){if(c.status==='Duplicate in file'){skipped++;continue;}const id=c.existingId||researchMutation(this,a,{first_name:c.first_name,last_name:c.last_name,url:c.url,email:c.email,phone:c.phone,title:c.title,company:c.company,action:'candidate-save'},members).id;if(c.existingId)reused++;else created++;
+          if(c.mapping==='Create draft'){researchMutation(this,a,{action:'mapping-add',role_id:role,team_id:b.team_id,items:[{candidate_id:id,rationale:c.rationale||''}]},members);mapped++;}
+        }
+        return {created,reused,mapped,skipped};
+      }
       if(b.action==='brief-release') {
         requireThat(b.page?.origin==='document','Upload the original document before publishing this page.');
         const saved=researchMutation(this,a,{...b,action:'brief-save'},members);
@@ -315,17 +335,23 @@ export class Workspace extends DurableObject {
             continue;
           }
           const target=count(d.target,'Daily target',false),notes=text(d.notes,5000);
+          const prior=old?this.rows('SELECT staff_id FROM entries WHERE assignment_id=?',old.id).map(r=>r.staff_id):[];
+          const selected=d.staff_ids===undefined?(old?prior:members):d.staff_ids;
+          requireThat(Array.isArray(selected)&&selected.length>0&&new Set(selected).size===selected.length,'Select at least one researcher for each working day.');
+          const changed=JSON.stringify([...selected].sort())!==JSON.stringify([...prior].sort());
+          requireThat(selected.every((sid:string)=>members.includes(sid)||old&&prior.includes(sid)),'Choose researchers from the selected team.');
           if(old) {
-            if(old.target!==target || old.notes!==notes) {
+            if(changed){requireThat(!this.assignmentHasWork(old),'Recorded work protects this day’s researcher allocation. Change an unstarted day instead.',409);this.rows('DELETE FROM entries WHERE assignment_id=?',old.id);for(const sid of selected)this.rows('INSERT INTO entries(id,assignment_id,staff_id) VALUES(?,?,?)',uuid(),old.id,sid);}
+            if(old.target!==target || old.notes!==notes || changed) {
               this.rows('UPDATE assignments SET target=?,notes=?,version=version+1 WHERE id=?',target,notes,old.id);
-              this.audit(a,'plan-edit',old.id,old,{target,notes});
+              this.audit(a,'plan-edit',old.id,{...old,staff_ids:prior},{target,notes,staff_ids:selected});
             }
           } else {
             requireThat(members.length,'Add researchers to this team in Teams before planning work.');
             const id=uuid();
             this.rows('INSERT INTO assignments(id,search_id,team_id,work_date,target,notes) VALUES(?,?,?,?,?,?)',id,b.search_id,b.team_id,d.date,target,notes);
-            for(const staffId of members) this.rows('INSERT INTO entries(id,assignment_id,staff_id) VALUES(?,?,?)',uuid(),id,staffId);
-            this.audit(a,'plan-create',id,null,{search_id:b.search_id,team_id:b.team_id,work_date:d.date,target,notes,staff_ids:members});
+            for(const staffId of selected) this.rows('INSERT INTO entries(id,assignment_id,staff_id) VALUES(?,?,?)',uuid(),id,staffId);
+            this.audit(a,'plan-create',id,null,{search_id:b.search_id,team_id:b.team_id,work_date:d.date,target,notes,staff_ids:selected});
           }
         }
         return {id:b.search_id};
