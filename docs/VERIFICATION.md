@@ -1,18 +1,20 @@
-# Verification for the current build
+# Verification status
 
-## Completed locally
+## Completed
 
-- TypeScript checking, 14 automated tests and Vite production build passed.
-- Tests cover clipboard parsing, missing versus zero counts, atomic bulk persistence, rollback of data and audits on stale rows, output ownership, planning permissions, unknown IDs, reviewed-output locks, immutable review events, target versions and duplicate batch rejection.
-- Existing domain tests cover weighted approval ratios, person-day deduplication, safe breakdown URLs and SQLite foreign keys.
-- CRM tests cover pagination, field projection, hostile pagination URLs, rate limits, malformed responses, staging without overwriting searches, selected apply and stale local versions.
-- Workbook extraction completed without saving changes to the workbook.
+- TypeScript checking, 23 automated tests and the Vite production build pass locally.
+- Bulk-write tests cover rollback, audit records, permissions, optimistic versions, review locks and clipboard handling.
+- CRM tests cover configuration formats, tenant isolation for plain-token fallback, pagination, hostile URLs, access errors, timeouts, invalid responses, staging and selected apply.
+- The edge transport regression test executes the actual CRM and email adapters inside workerd via Miniflare. Synthetic responses avoid external traffic and real credentials. It verifies supported Request options and rejection of redirects without forwarding credentials.
+- Root cause reproduced: workerd rejects redirect mode `error` before network dispatch. Both adapters now use `manual` and reject redirect responses.
+- The application has been deployed to the owner's Cloudflare account through GitHub Actions. The first-administrator setup page was checked in the browser, and the owner confirmed signing in.
+- Setup tests cover secret rejection, concurrent first-admin invitation prevention and denial after an existing membership.
 
-## Not completed
+## Still unverified
 
-- Browser UI automation was attempted but the environment lacks the Playwright Chromium executable. The script is included, but its UI assertions did not execute. No visual QA is claimed.
-- Workspace tests execute actual application methods against Node SQLite, substituting only the Cloudflare base class. They do not replace a real Worker deployment test or prove cross-tenant HTTP routing.
-- No access to the owner’s Cloudflare account, live deployment, live RecruitCRM test, authenticated persona walkthrough, backup restore drill, load test or independent security review.
-- No customer data was migrated in this task.
+- A successful live RecruitCRM import after the transport fix; no authenticated session or RecruitCRM secret was read from the user's browser.
+- Invitation inbox delivery after the transport fix.
+- Full authenticated persona walkthrough, backup restoration, load testing and independent security review.
+- Historical workbook migration: source inspection is complete, but no spreadsheet data was imported by this build.
 
-Treat this as a tested local pilot implementation awaiting deployment and operational verification, not a production-certified ERP.
+The runtime tests use synthetic provider responses and do not claim live API success.

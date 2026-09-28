@@ -37,13 +37,14 @@ export async function fetchJobs(token:string, transport:typeof fetch = fetch):Pr
     seen.add(url);
     let response: Response;
     try {
-      response = await transport(url,{headers:{Authorization:`Bearer ${token}`,Accept:'application/json'},redirect:'error',signal:AbortSignal.timeout(30000)});
+      response = await transport(url,{headers:{Authorization:`Bearer ${token}`,Accept:'application/json'},redirect:'manual',signal:AbortSignal.timeout(30000)});
     } catch (error: any) {
       const timeout = ['TimeoutError','AbortError'].includes(error?.name);
       throw Object.assign(new Error(timeout
         ? 'RecruitCRM did not respond within 30 seconds. No searches were imported. Please retry.'
         : 'The server could not reach RecruitCRM. No searches were imported. Please retry; if this persists, report connection error CRM_NETWORK.'), {status:502});
     }
+    requireThat(response.status < 300 || response.status >= 400, 'RecruitCRM returned a redirect. The app did not follow it or forward your token. Report connection error CRM_REDIRECT.',502);
     requireThat(response.status !== 401 && response.status !== 403, 'RecruitCRM rejected access. Check that the API token is active and your RecruitCRM plan permits public API access.',502);
     requireThat(response.status !== 429, 'RecruitCRM rate limit reached. Wait and retry the sync.',429);
     requireThat(response.ok, `RecruitCRM request failed (${response.status}). Check the connection and retry.`,502);

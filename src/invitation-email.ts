@@ -17,7 +17,7 @@ export async function sendInvitationEmail(
   try {
     const response = await transport('https://api.resend.com/emails', {
       method: 'POST',
-      redirect: 'error',
+      redirect: 'manual',
       signal: AbortSignal.timeout(10000),
       headers: {
         Authorization: `Bearer ${config.RESEND_API_KEY}`,

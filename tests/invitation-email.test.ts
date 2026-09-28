@@ -16,7 +16,7 @@ test('invitation email uses the fixed provider endpoint and intended recipient',
   const transport = (async (endpoint: any, init: any) => {
     called = true;
     assert.equal(endpoint, 'https://api.resend.com/emails');
-    assert.equal(init.redirect, 'error');
+    assert.equal(init.redirect, 'manual');
     assert.equal(init.headers.Authorization, 'Bearer synthetic');
     const body = JSON.parse(init.body);
     assert.deepEqual(body.to, ['user@example.com']);
