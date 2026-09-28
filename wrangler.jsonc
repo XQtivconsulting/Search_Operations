@@ -18,6 +18,6 @@
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["Identity", "Workspace"] },
   ],
-  "vars": { "APP_ORIGIN": "http://localhost:8787" },
+  "vars": { "APP_ORIGIN": "https://xqtiv-search-operations.xqtiv.workers.dev", "INVITATION_FROM": "XQtiv Search Operations <invites@xyrus.ai>" },
 }
 
