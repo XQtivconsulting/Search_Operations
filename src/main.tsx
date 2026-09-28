@@ -1,3 +1,6 @@
+import './role-page.css';
+import {CandidateRolePage} from './RolePageView';
+import {AccountSettings} from './AccountSettings';
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -223,6 +226,7 @@ function App() {
   );
   const nav: [string, React.ElementType][] = [
     ["Overview", SquaresFour],
+    ["Account settings", Users],
     ["Searches", Briefcase],
     ["Role repository",Briefcase],
     ["Company universe",Briefcase],
@@ -417,7 +421,7 @@ function App() {
             {error}
           </div>
         )}
-        {!["Role repository","My Work","Workflow Monitor","Company universe","Teams"].includes(page) && page !== "Workspace" && page !== "Integrations" && page !== "Weekly plan" && (
+        {!["Account settings","Role repository","My Work","Workflow Monitor","Company universe","Teams"].includes(page) && page !== "Workspace" && page !== "Integrations" && page !== "Weekly plan" && (
           <div className="filters">
             <label>
               From
@@ -464,7 +468,7 @@ function App() {
             </button>
           </div>
         )}
-        {flagged > 0 && page !== "Workspace" && (
+        {flagged > 0 && page !== "Workspace" && page !== "Account settings" && (
           <div className="source-note">
             <WarningCircle size={20} />
             <p>
@@ -474,6 +478,7 @@ function App() {
             </p>
           </div>
         )}
+        {page==='Account settings'&&<AccountSettings api={api} onDirty={setSheetDirty}/>}
         {page === "Integrations" && <CRMPanel partners={data.partners || []} searches={data.searches} api={api} reload={load} />}
         {page === "Overview" && (
           <>
@@ -1092,4 +1097,4 @@ function Empty({ title, body }: any) {
     </div>
   );
 }
-createRoot(document.getElementById("root")!).render(location.pathname === '/brief' ? <PublicBrief/> : location.pathname === '/setup' ? <Setup /> : <App />);
+createRoot(document.getElementById("root")!).render(location.pathname === '/role-invite' ? <CandidateRolePage/> : location.pathname === '/brief' ? <PublicBrief/> : location.pathname === '/setup' ? <Setup /> : <App />);

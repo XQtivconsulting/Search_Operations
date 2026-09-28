@@ -58,3 +58,23 @@ test('CRM import validates every selected partner before any workspace write',as
  assert.equal((await send([{partner_id:'p'},{partner_id:'r'}])).status,400);assert.equal(written,null);
  assert.equal((await send([{partner_id:'p',partner:'Wrong name'}])).status,200);assert.equal((written as any)[0].partner,'Verified Partner');
 });
+
+test('password change verifies current secret, preserves account and revokes every older session',async()=>{
+ const {db,identity}=fixture();const {passwordHash,passwordOK}=await import('../src/password');
+ db.prepare('INSERT INTO users VALUES(?,?,?,?)').run('synthetic','synthetic@example.com','Synthetic',passwordHash('Old-password-123'));
+ db.exec("INSERT INTO memberships VALUES('synthetic','test','researcher','staff','active')");
+ const one=await identity.session('synthetic'),two=await identity.session('synthetic');
+ await assert.rejects(identity.changePasswordAttempt(one.token,{currentPassword:'Wrong-password',newPassword:'New-password-456',confirmPassword:'New-password-456'},'ip'),/incorrect/);
+ assert.equal(db.prepare("SELECT count FROM limits WHERE key='password-user:synthetic'").get()?.count,1);
+ assert.ok(await identity.authenticate(two.token,'test'));
+ await assert.rejects(identity.changePasswordAttempt(one.token,{currentPassword:'Old-password-123',newPassword:'short',confirmPassword:'short'},'ip'),/12 and 128/);
+ const result=await identity.changePasswordAttempt(one.token,{currentPassword:'Old-password-123',newPassword:'New-password-456',confirmPassword:'New-password-456'},'ip');
+ assert.equal(await identity.authenticate(one.token,'test'),null);assert.equal(await identity.authenticate(two.token,'test'),null);assert.ok(await identity.authenticate(result.token,'test'));
+ assert.ok(passwordOK('New-password-456',db.prepare('SELECT password FROM users').get()!.password as string));
+ await assert.rejects(identity.changePasswordAttempt(one.token,{},'ip'),/sign in/);db.close();
+});
+test('password endpoint enforces same origin and returns replacement HttpOnly cookie, never a secret',async()=>{
+ let changed=0;const env:any={IDENTITY:{getByName:()=>({changePasswordAttempt:async(raw:string)=>{assert.equal(raw,'synthetic-session');changed++;return {token:'synthetic-replacement'};}})}};
+ const send=(origin:string,method='POST')=>worker.fetch(new Request('https://app.example.com/api/change-password',{method,headers:{Origin:origin,Cookie:'search_session=synthetic-session'},...(method==='POST'?{body:'{}'}:{})}),env);
+ assert.equal((await send('https://evil.example')).status,403);assert.equal((await send('https://app.example.com','GET')).status,405);assert.equal(changed,0);const r=await send('https://app.example.com');assert.equal(r.status,200);assert.match(r.headers.get('Set-Cookie')!,/HttpOnly; Secure; SameSite=Strict/);assert.deepEqual(await r.json(),{ok:true});
+});

@@ -28,6 +28,15 @@ Cloudflare Wrangler emulates the Worker and SQLite Durable Objects locally. Deve
 
 See [Deployment](docs/DEPLOYMENT.md), [Architecture](docs/ARCHITECTURE.md), [Workbook migration](docs/MIGRATION.md), [Verification](docs/VERIFICATION.md), and [Roadmap](docs/PRODUCT-PLAN.md).
 
+## New role pages and company imports
+
+- Role repository → Role brief: upload Word/PDF text, edit and preview a branded long-scroll page, add a partner video link, approve and publish, then invite selected mapped candidates with email verification. Legacy anonymous brief links are disabled.
+- Company universe → Import Excel: regular XLSX imports with preview, duplicate matching and tag union. Profiles support public website/LinkedIn/revenue suggestions and manual edits.
+- Target companies: role-specific research waves, including bulk wave assignment.
+- Account settings: self-service password changes with current-password verification and revocation of other sessions.
+
+See [Research workflow](docs/RESEARCH-WORKFLOW.md) for usage and limits.
+
 ## Boundaries
 
 This is a sourcing pilot, not the entire long-term ERP. Attachments, reusable strategy templates, downstream delivery, commercials, AI, password recovery/SSO, scheduled synchronization, pagination, and production recovery validation remain open. The spreadsheet is a bulk operational editor, not an Excel formula engine.

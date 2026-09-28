@@ -1,3 +1,5 @@
+import {cleanRolePage} from './role-page';
+import {cleanCompany} from './company-import';
 import {Actor,canPlan,requireThat,text,day,count,safeLink} from './domain';
 export const researchSchema=`
 CREATE TABLE IF NOT EXISTS research_records(id TEXT PRIMARY KEY,kind TEXT NOT NULL,role_id TEXT NOT NULL DEFAULT '',record_key TEXT NOT NULL,data TEXT NOT NULL,version INTEGER NOT NULL DEFAULT 1,UNIQUE(kind,record_key));
@@ -46,7 +48,7 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
   const name=text(b.name,200);requireThat(name,'Enter a company name.');kind='company';key=name.toLowerCase().replace(/\s+/g,' ');
   requireThat(!find(kind,key)||find(kind,key)?.id===old?.id,'This company is already in the master list.',409);
   const tags=(v:any)=>[...new Set(String(v||'').split(',').map(v=>text(v,100)).filter(Boolean))].slice(0,30);
-  next={name,company_type:text(b.company_type,150),industries:tags(b.industries),offerings:tags(b.offerings),specialties:tags(b.specialties),geographies:tags(b.geographies),website:safeLink(b.website),notes:text(b.notes,5000)};
+  next=cleanCompany(b);
  } else if(b.action==='peer-route') {
   requireThat(canPlan(a),'Planning permission required.',403);requireThat(db.rows('SELECT staff_id FROM team_members WHERE team_id=? AND staff_id=?',b.team_id,b.staff_id).length,'This researcher is not in the team.');
   teammate(b.reviewer_id,b.team_id,b.staff_id);kind='peer-route';key=b.team_id+':'+b.staff_id;requireThat(old?.id===find(kind,key)?.id,'Peer pairing changed. Reload.',409);
@@ -60,12 +62,14 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
   manage();requireThat(search,'Choose a role.');kind=b.action.startsWith('brief')?'brief':'strategy';key=role;
   requireThat(!old||old.kind===kind,'Wrong record type.');requireThat(old?.id===find(kind,key)?.id,'A document already exists. Reload.',409);
   next={...old};delete next.version;
-  if(b.action.endsWith('-save')) {const content=text(b.content,40000);requireThat(content,'Enter document content.');next.draft=content;next.status='Draft';}
-  if(b.action.endsWith('-approve')) {requireThat(old?.draft,'Save a draft first.');next.active=old.draft;next.revision=(old.revision||0)+1;next.approved_by=a.id;next.approved_at=iso();next.status='Approved';
+  if(b.action.endsWith('-save')) {const page=kind==='brief'&&b.page?cleanRolePage(b.page):null;const content=page?page.sections.map(s=>s.heading+'\n\n'+s.body).join('\n\n'):text(b.content,40000);requireThat(content,'Enter document content.');next.draft=content;if(page)next.draft_page=page;else if(kind==='brief')delete next.draft_page;next.status='Draft';}
+  if(b.action.endsWith('-approve')) {requireThat(old?.draft,'Save a draft first.');next.active=old.draft;if(kind==='brief')next.active_page=old.draft_page||null;next.revision=(old.revision||0)+1;next.approved_by=a.id;next.approved_at=iso();next.status='Approved';
    if(kind==='strategy'&&!old.cutover){const today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'}).format(new Date()),date=b.cutover?day(b.cutover):today;requireThat(date>=today,'Candidate tracking cannot start in the past.');requireThat(!db.rows('SELECT e.id FROM entries e JOIN assignments a ON a.id=e.assignment_id WHERE a.search_id=? AND a.work_date>=? AND (e.mapped IS NOT NULL OR e.peer IS NOT NULL OR e.partner IS NOT NULL)',role,date).length,'This role has manual output on or after that date. Choose a later start date to preserve those records.');next.cutover=date;}
   }
-  if(b.action==='brief-publish') {requireThat(old?.active,'Approve a client-safe brief first.');const token=crypto.randomUUID()+crypto.randomUUID();db.rows('DELETE FROM brief_shares WHERE role_id=?',role);db.rows('INSERT INTO brief_shares VALUES(?,?,?,?)',token,role,JSON.stringify({title:search.title,client:search.client,content:old.active,revision:old.revision}),iso());next.share_token=token;}
-  if(b.action==='brief-unpublish') {db.rows('DELETE FROM brief_shares WHERE role_id=?',role);next.share_token='';}
+  if(b.action==='brief-publish') {requireThat(old?.active,'Approve a candidate-safe brief first.');db.rows('DELETE FROM brief_shares WHERE role_id=?',role);db.rows('INSERT OR REPLACE INTO role_publications VALUES(?,?)',role,JSON.stringify({title:search.title,client:search.client,content:old.active,page:old.active_page||null,revision:old.revision}));next.published_revision=old.revision;next.share_token='';}
+  if(b.action==='brief-unpublish') {db.rows('DELETE FROM brief_shares WHERE role_id=?',role);db.rows('DELETE FROM role_publications WHERE role_id=?',role);db.rows('UPDATE candidate_invites SET revoked=1 WHERE role_id=?',role);next.share_token='';next.published_revision=null;}
+ } else if(b.action==='target-wave') {
+  manage();requireThat(old?.kind==='target','Choose a role target.');kind='target';key=role+':'+old.company_id;const wave=count(b.wave,'Research wave',false);requireThat(wave&&wave<=99,'Use a wave from 1 to 99.');next={...old,wave};
  } else if(['company-save','company-claim','company-progress'].includes(b.action)) {
   requireThat(search,'Choose a role.');kind='target';requireThat(!old||old.kind===kind,'Wrong record type.');
   if(b.action==='company-save') {
@@ -79,8 +83,9 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
    const team=text(b.team_id),owner=manager?text(b.owner_id):(team?a.id:'');
    if(team)requireThat(db.rows('SELECT id FROM teams WHERE id=?',team).length,'Choose a team.');
    if(owner){const rm=researcher(owner);requireThat(team&&db.rows('SELECT staff_id FROM team_members WHERE team_id=? AND staff_id=?',team,rm.staff_id||rm.staffId).length,'The researcher must belong to this team.');}
+   requireThat(!b.wave||(Number.isInteger(Number(b.wave))&&Number(b.wave)>=1&&Number(b.wave)<=99),'Use a wave from 1 to 99.');
    requireThat(['','High','Normal','Low'].includes(text(b.priority)),'Choose a valid priority.');
-   next={...old,name,company_id:companyId,team_id:team,owner_id:owner,reviewer_id:'',scope:text(b.scope,5000),target_titles:text(b.target_titles,1000),category:text(b.category,200),priority:text(b.priority),expected:count(b.expected,'Expected talent'),due:b.due?day(b.due):'',status:old?.status||'Not started',source:old?.source||(manager?'Planned':'Researcher added'),strategy_revision:old?.strategy_revision||s?.revision||null,created_by:old?.created_by||a.id};
+   next={...old,name,company_id:companyId,team_id:team,owner_id:owner,reviewer_id:'',scope:text(b.scope,5000),target_titles:text(b.target_titles,1000),category:text(b.category,200),priority:text(b.priority),wave:count(b.wave,'Research wave'),expected:count(b.expected,'Expected talent'),due:b.due?day(b.due):'',status:old?.status||'Not started',source:old?.source||(manager?'Planned':'Researcher added'),strategy_revision:old?.strategy_revision||s?.revision||null,created_by:old?.created_by||a.id};
   } else {
    requireThat(old,'Company not found.');key=role+':'+old.company_id;
    if(b.action==='company-claim'){requireThat(!old.owner_id,'This company is already assigned.',409);const m=researcher(a.id);requireThat(db.rows('SELECT staff_id FROM team_members WHERE team_id=? AND staff_id=?',old.team_id,m.staff_id||m.staffId).length,'You must be a member of the assigned team.');next={...old,owner_id:a.id,status:'In progress',started_at:iso()};}

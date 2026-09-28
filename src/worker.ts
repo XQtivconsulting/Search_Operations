@@ -1,6 +1,7 @@
+import {companySuggestions} from './company-enrichment';
 import { Identity, digest } from "./identity";
 import { Workspace } from "./workspace";
-import { sendInvitationEmail } from './invitation-email';
+import { sendInvitationEmail,sendRoleEmail } from './invitation-email';
 import { fetchJobs, readCRMToken } from './recruitcrm';
 import { requireThat, text, roles } from "./domain";
 export { Identity, Workspace };
@@ -61,7 +62,24 @@ export default {
           requireThat(raw.length < 8e6, "Request is too large.", 413);
           body = JSON.parse(raw);
         }
-        if (url.pathname === '/api/public-brief' && req.method === 'GET') {
+        if (url.pathname.startsWith('/api/candidate/')) {
+          const tenant=text(url.searchParams.get('workspace')||body.workspace,100);
+          requireThat(/^[a-zA-Z0-9_-]+$/.test(tenant),'Invalid invitation.',404);
+          const w:any=env.WORKSPACE.getByName(tenant);
+          if(url.pathname==='/api/candidate/code'&&req.method==='POST') {
+            requireThat(env.RESEND_API_KEY&&env.INVITATION_FROM,'Email verification is temporarily unavailable. Contact your partner.',503);
+            const c=await w.candidateCode(body,ip);
+            const status=await sendRoleEmail(env,c.email,'code',c.code,crypto.randomUUID());
+            requireThat(status==='accepted','Code delivery could not be confirmed. Wait one minute and try again.',503);
+            res=json({ok:true});
+          } else if(url.pathname==='/api/candidate/verify'&&req.method==='POST') {
+            const s=await w.candidateVerify(body,ip);
+            res=json({ok:true},200,{'Set-Cookie':`candidate_session=${s.token}; Path=/api/candidate; HttpOnly; Secure; SameSite=Strict; Max-Age=28800`});
+          } else if(url.pathname==='/api/candidate/page'&&req.method==='POST') {
+            const session=req.headers.get('Cookie')?.match(/(?:^|; )candidate_session=([^;]*)/)?.[1]||'';
+            res=json(await w.candidatePage(session,body.token));
+          } else res=json({error:'Not found.'},404);
+        } else if (url.pathname === '/api/public-brief' && req.method === 'GET') {
           const tenant=text(url.searchParams.get('workspace'),100),token=text(url.searchParams.get('token'),100);
           requireThat(/^[a-zA-Z0-9_-]+$/.test(tenant)&&/^[a-f0-9-]{72}$/.test(token),'Brief not found.',404);
           const brief=await (env.WORKSPACE.getByName(tenant) as any).publicBrief(token);
@@ -106,6 +124,10 @@ export default {
           res = json({ memberships: result.memberships }, 200, {
             "Set-Cookie": cookie(result.token),
           });
+        } else if (url.pathname === '/api/change-password') {
+          requireThat(req.method === 'POST', 'Method not allowed.', 405);
+          const result = await identity.changePasswordAttempt(rawCookie, body, ip);
+          res = json({ok:true},200,{'Set-Cookie':cookie(result.token)});
         } else if (url.pathname === "/api/logout") {
           requireThat(req.method === "POST", "Method not allowed.", 405);
           await identity.logout(rawCookie);
@@ -150,6 +172,23 @@ export default {
             const partners=(await identity.members(a.tenant)).filter((m:any)=>m.status==='active' && ['admin','founder','partner'].includes(m.role)).map((m:any)=>({id:m.id,name:m.name}));
             const people=(await identity.members(a.tenant)).filter((m:any)=>m.status==='active').map((m:any)=>({id:m.id,name:m.name,role:m.role,staff_id:m.staff_id,status:m.status}));
             res = json({...await workspace.state(a),partners,people});
+          }
+          else if (url.pathname === '/api/company-lookup'&&req.method==='POST') {
+            requireThat(['admin','planner'].includes(a.role),'Planning permission required.',403);
+            await identity.limit('company-lookup:'+a.id,30);
+            res=json(await companySuggestions(text(body.name,200)));
+          }
+          else if (url.pathname === '/api/candidate-invites'&&req.method==='POST') {
+            if(body.action==='list')res=json(await workspace.candidateInvites(a,text(body.role_id)));
+            else if(body.action==='revoke')res=json(await workspace.candidateRevoke(a,text(body.id)));
+            else {
+              requireThat(body.action==='send','Unknown invitation action.');
+              requireThat(env.RESEND_API_KEY&&env.INVITATION_FROM,'Configure invitation email before inviting candidates.',409);
+              const invite=await workspace.candidateInvite(a,body);
+              const link=`${url.origin}/role-invite?workspace=${encodeURIComponent(a.tenant)}#${invite.token}`;
+              const emailStatus=await sendRoleEmail(env,invite.email,'invitation',link,invite.id);
+              res=json({id:invite.id,emailStatus});
+            }
           }
           else if (url.pathname === '/api/research' && req.method === 'POST') {
             res=json(await workspace.research(a,body,await identity.members(a.tenant)));
@@ -225,7 +264,7 @@ export default {
     );
     headers.set(
       "Content-Security-Policy",
-      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
     );
     return new Response(res.body, { status: res.status, headers });
   },

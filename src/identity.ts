@@ -16,6 +16,7 @@ export class Identity extends DurableObject {
   constructor(ctx: DurableObjectState, env: any) {
     super(ctx, env);
     ctx.storage.sql.exec(identitySchema);
+    ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS account_events(id TEXT PRIMARY KEY,user_id TEXT NOT NULL,action TEXT NOT NULL,created_at TEXT NOT NULL)');
   }
   rows(q: string, ...p: (string | number | null)[]): any[] {
     return this.ctx.storage.sql.exec(q, ...p).toArray();
@@ -186,6 +187,32 @@ export class Identity extends DurableObject {
       this.rows("UPDATE invites SET used=1 WHERE token=?", hash);
     });
     return this.session(id);
+  }
+  async changePassword(raw: string, body: any) {
+    const hash = await digest(raw);
+    const nextToken = token(), nextHash = await digest(nextToken);
+    return this.ctx.storage.transactionSync(() => {
+      const u = this.rows('SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires>?', hash, Date.now())[0];
+      requireThat(u, 'Please sign in again.', 401);
+      // Attempt counter is outside the rollback below; see changePasswordAttempt.
+      const current = String(body.currentPassword ?? ''), next = String(body.newPassword ?? '');
+      requireThat(current.length <= 128 && passwordOK(current, u.password), 'Current password is incorrect.', 401);
+      requireThat(next.length >= 12 && next.length <= 128, 'Use a password between 12 and 128 characters.');
+      requireThat(next === String(body.confirmPassword ?? ''), 'New passwords do not match.');
+      requireThat(next !== current, 'Choose a different new password.');
+      this.rows('UPDATE users SET password=? WHERE id=?', passwordHash(next), u.id);
+      this.rows('INSERT INTO account_events VALUES(?,?,?,?)',crypto.randomUUID(),u.id,'password-changed',new Date().toISOString());
+      this.rows('DELETE FROM sessions WHERE user_id=?', u.id);
+      this.rows('INSERT INTO sessions VALUES(?,?,?)', nextHash, u.id, Date.now()+7*86400e3);
+      return {token:nextToken};
+    });
+  }
+  async changePasswordAttempt(raw: string, body: any, ip: string) {
+    this.limit('password-ip:'+ip, 10);
+    const session = this.rows('SELECT user_id FROM sessions WHERE token=? AND expires>?', await digest(raw), Date.now())[0];
+    requireThat(session, 'Please sign in again.', 401);
+    this.limit('password-user:'+session.user_id, 5);
+    return this.changePassword(raw, body);
   }
   async logout(raw: string) {
     this.rows("DELETE FROM sessions WHERE token=?", await digest(raw));

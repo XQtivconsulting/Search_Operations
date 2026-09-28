@@ -1,3 +1,5 @@
+import {candidateSchema,createCandidateInvite,listCandidateInvites,revokeCandidateInvite,requestCandidateCode,verifyCandidateCode,candidatePage} from './candidate-access';
+import {planCompanyImport} from './company-import';
 import { DurableObject } from "cloudflare:workers";
 import {researchSchema,researchState,researchMutation,derivedEntries} from "./research";
 import type {Member} from "./research";
@@ -22,6 +24,7 @@ export class Workspace extends DurableObject {
     super(ctx, env);
     ctx.storage.sql.exec(workspaceSchema);
     ctx.storage.sql.exec(researchSchema);
+    ctx.storage.sql.exec(candidateSchema);
     if(!this.rows('PRAGMA table_info(crm_jobs)').some(c=>c.name === 'company_name'))
       this.rows("ALTER TABLE crm_jobs ADD COLUMN company_name TEXT NOT NULL DEFAULT ''");
     if(!this.rows('PRAGMA table_info(searches)').some(c=>c.name === 'partner_id'))
@@ -51,10 +54,24 @@ export class Workspace extends DurableObject {
     );
   }
   async research(a: Actor,b:any,members:Member[]):Promise<any> {return this.ctx.storage.transactionSync(()=>{
+      if(b.action==='company-import') {
+        requireThat(canPlan(a),'Planning permission required.',403);
+        const existing=researchState(this).records.filter(r=>r.kind==='company');
+        const plan=planCompanyImport(existing,b.rows,b.overwrite===true);
+        const signature=JSON.stringify(existing.map(c=>[c.id,c.version]).sort());
+        if(b.preview)return {plan,signature};
+        requireThat(signature===b.signature,'The company list changed. Preview the import again.',409);
+        return {saved:plan.map(c=>researchMutation(this,a,{...c,id:c.existingId,action:'company-master'},members))};
+      }
+      if(b.action==='target-waves') {
+        requireThat(Array.isArray(b.items)&&b.items.length>0&&b.items.length<=100,'Select 1–100 targets.');
+        requireThat(new Set(b.items.map((i:any)=>i.id)).size===b.items.length,'Select each target once.');
+        return {saved:b.items.map((i:any)=>researchMutation(this,a,{...i,action:'target-wave',wave:b.wave},members))};
+      }
       if(b.action==='company-batch') {
         requireThat(Array.isArray(b.company_ids)&&b.company_ids.length>0&&b.company_ids.length<=100,'Select 1–100 companies.');
         requireThat(new Set(b.company_ids).size===b.company_ids.length,'Select each company once.');
-        return {saved:b.company_ids.map((company_id:string)=>researchMutation(this,a,{action:'company-save',role_id:b.role_id,company_id,category:b.category,team_id:b.team_id,owner_id:b.owner_id},members))};
+        return {saved:b.company_ids.map((company_id:string)=>researchMutation(this,a,{action:'company-save',role_id:b.role_id,company_id,category:b.category,wave:b.wave,team_id:b.team_id,owner_id:b.owner_id},members))};
       }
       if(b.action==='mapping-batch') {
         requireThat(Array.isArray(b.items)&&b.items.length>0&&b.items.length<=100,'Select 1–100 mappings.');
@@ -64,7 +81,14 @@ export class Workspace extends DurableObject {
       }
       return researchMutation(this,a,b,members);
     });}
-  async publicBrief(token:string) {const r=this.rows("SELECT data FROM brief_shares WHERE token=?",token)[0];return r?JSON.parse(r.data):null;}
+  // Legacy anonymous links no longer grant role access.
+  async publicBrief(_token:string) {return null;}
+  async candidateInvite(a:Actor,b:any){return this.ctx.storage.transactionSync(()=>createCandidateInvite(this,a,b));}
+  async candidateInvites(a:Actor,role:string){return listCandidateInvites(this,a,role);}
+  async candidateRevoke(a:Actor,id:string){return this.ctx.storage.transactionSync(()=>revokeCandidateInvite(this,a,id));}
+  async candidateCode(b:any,ip:string){return requestCandidateCode(this,b,ip);}
+  async candidateVerify(b:any,ip:string){return verifyCandidateCode(this,b,ip);}
+  async candidatePage(session:string,token?:string){return candidatePage(this,session,token);}
   async state(a: Actor) {
     const research=researchState(this);
     const result = {

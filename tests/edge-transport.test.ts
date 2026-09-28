@@ -40,3 +40,11 @@ test('CRM and invitation request options work in the Cloudflare runtime and reje
     assert.equal(result.redirectedMail,'unconfirmed');
   } finally {await mf.dispose();}
 });
+
+test('candidate token cryptography and role email options work inside workerd',async()=>{
+ const bundle=await build({bundle:true,write:false,format:'esm',platform:'browser',external:['node:crypto'],stdin:{resolveDir:process.cwd(),sourcefile:'candidate-edge-probe.ts',loader:'ts',contents:`
+ import {createHash,randomBytes,randomInt} from 'node:crypto';
+ import {sendRoleEmail} from './src/invitation-email';
+ export default {async fetch(){const token=Buffer.from(randomBytes(32)).toString('hex'),code=String(randomInt(100000,1000000));const mail=await sendRoleEmail({RESEND_API_KEY:'synthetic',INVITATION_FROM:'invites@example.com'},'synthetic@example.com','code',code,'synthetic-id',async(url,init)=>{const r=new Request(url,init);if(r.redirect!=='manual'||r.headers.get('Idempotency-Key')!=='synthetic-id')throw new Error('Invalid request');return Response.json({id:'synthetic'});});return Response.json({tokenLength:token.length,codeLength:code.length,digestLength:createHash('sha256').update(token).digest('hex').length,mail});}};`}});
+ const mf=new Miniflare(convertV4MiniflareOptions({modules:true,compatibilityDate:'2026-09-25',compatibilityFlags:['nodejs_compat'],script:bundle.outputFiles[0].text}));try{const response=await mf.dispatchFetch('http://localhost');assert.equal(response.status,200);assert.deepEqual(await response.json(),{tokenLength:64,codeLength:6,digestLength:64,mail:'accepted'});}finally{await mf.dispose();}
+});

@@ -2,6 +2,12 @@
 
 ## Completed
 
+- Candidate-page tests cover approved/published snapshot separation, anonymous-link denial, mapped-candidate/manager authorization, secret exclusion, email-code attempts, single use, expiry, cross-invitation binding and immediate revocation. Password tests exercise current-password verification, attempt counters, new-password validation, session rotation and same-origin API enforcement.
+- Company-import tests cover repeated rows, tag union, protected scalar values, explicit replacement, ambiguous/conflicting identifiers, stale previews and permissions. Research-wave tests cover transactional rollback and role-specific identity.
+- Synthetic DOCX, PDF and XLSX files were processed with the installed parsers; no customer files or accounts were used. Rendering tests verify escaped document text and allowlisted video providers. Public lookup and candidate email tests use synthetic transports, never real recipients.
+- workerd tests validate candidate token/code cryptography and role-email Request options, in addition to the existing CRM/email adapter tests.
+
+
 - Daily Work grouping/sorting tests verify researcher-day deduplication across roles, target preservation, unplanned work and zero-versus-unknown output. Company master tests cover metadata, durable identity on rename, role targets without upfront strategy/assignment, version checks and atomic selection. Peer tests cover reciprocal two-person routing, same-team restrictions, reassignment and membership removal.
 - Estimated effort hours removed from domain output and all application views. Review turnaround still measures elapsed time, not researcher effort.
 
@@ -18,7 +24,7 @@
 
 - Compact workspace CSS reduces repeated row, card, form and section spacing. Fixed checkbox inputs inheriting the global 48px form minimum height. Typecheck, all tests and build passed after this CSS change; authenticated visual verification remains outstanding.
 
-- TypeScript checking, 57 automated tests and the Vite production build pass locally.
+- TypeScript checking, 71 automated tests and the Vite production build pass locally.
 - Bulk-write tests cover rollback, audit records, permissions, optimistic versions, review locks and clipboard handling.
 - CRM company tests cover paginated exact-slug name joins, hostile company pagination, automatic client creation/update, and preservation of existing client names when absent. Workspace fixtures exercise migration from the prior staging schema.
 - CRM tests cover configuration formats, tenant isolation for plain-token fallback, pagination, hostile URLs, access errors, timeouts, invalid responses, staging and selected apply.
@@ -28,6 +34,10 @@
 - Setup tests cover secret rejection, concurrent first-admin invitation prevention and denial after an existing membership.
 
 ## Still unverified
+
+- Live end-to-end candidate email delivery, hosted video playback and Wikidata lookup. No real candidate invitations were sent. Original documents/video files are not stored; PDF OCR is not supported.
+- Interactive visual checks of the new page editor and XLSX column-mapping flow in a browser. Automated parser and React render checks passed; these do not substitute for an authenticated browser walkthrough.
+
 
 - Full browser walkthrough of new research screens with live authenticated personas. No customer records or real accounts were used in automated tests.
 
