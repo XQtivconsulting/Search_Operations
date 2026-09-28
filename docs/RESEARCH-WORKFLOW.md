@@ -94,3 +94,15 @@ All writes and audit records are atomic. A stale preview requires a fresh previe
 ## Accepted accounts only
 
 Invite colleagues in People & access, wait for acceptance, enable Researcher and select their team in Teams. Role Target companies then offers active researchers in that team. No unlinked planning-person creation or pre-acceptance peer pairing is available. When a team has no eligible accounts, the researcher selector explains the setup required.
+
+## Role-first My Work and inline mappings
+
+My Work defaults to today's date in US Eastern and shows role/team allocations for the signed-in researcher. Open Work on role to enter candidate mappings and see company coverage within that role. Include other roles on my plate exposes assigned-company and own-mapping roles without a plan for the selected date. There is no separate top-level company-assignment list. Pending reviews remain accessible from the personal review queue.
+
+New mapping uses one inline row: first name, last name, LinkedIn URL and current company. Existing LinkedIn profiles reuse master details; candidate names link to a full profile with email, phone, title, company and all mapped roles. Company autocomplete matches master names; Add company is explicit when no match exists. A new role/company target is created with the researcher as owner when necessary. An existing company assigned to another researcher is not reassigned; a mapping can remain direct. Completed owned targets must be reopened before additional mappings. Drafts do not count as submitted output, and marking company research done does not approve candidates. Fit evidence and normal review gates remain required.
+
+Daily Work expansion controls say Show/Hide researchers with the count. Missing partners and teams have explicit labels. Historical entries whose staff identity is unavailable display Removed user; historical output is not deleted.
+
+Target companies supports checked multi-select and Assign selected companies: choose team and accepted researcher once, then save an atomic version-checked batch (up to 100). Completed targets must be reopened before bulk reassignment. Claim is renamed Assign to me; an unassigned company can use the researcher's unique team from role planning, or their sole team, otherwise an explicit team selection is required. An explicit existing company team is always respected.
+
+Coverage outcomes include Research complete and Complete — no relevant talent found. Both count as completed company coverage, independently of candidate approvals. Completion snapshots record researcher and team attribution; reopening clears completion until the work is finished again. Workflow Monitor highlights no-talent outcomes; Performance adds a separate researcher/team/role company-coverage table. Completed targets show Research complete and View / reopen coverage instead of a repeated assignment action.

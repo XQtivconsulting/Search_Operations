@@ -1,7 +1,9 @@
+import {CoverageMetrics} from './CoverageMetrics';
 import './role-page.css';
 import {CandidateRolePage} from './RolePageView';
 import {PeoplePanel} from './PeoplePanel';
-import {Candidates} from './Candidates';
+import {Candidates,CandidateProfile} from './Candidates';
+import {MyWork} from './MyWork';
 import {WorkflowMonitor} from './WorkflowMonitor';
 import {AccountSettings} from './AccountSettings';
 import React, { useEffect, useState } from "react";
@@ -65,6 +67,7 @@ function App() {
     [page, setPage] = useState("Overview"),
     [search, setSearch] = useState(""),
     [selected, setSelected] = useState(""),
+    [candidateId,setCandidateId]=useState(""),
     [from, setFrom] = useState(""),
     [to, setTo] = useState(""),
     [modal, setModal] = useState<Row | null>(null),
@@ -281,7 +284,7 @@ function App() {
     return entries.map((e: Row) => (
       <div className="entry" key={e.id}>
         <div>
-          <strong>{pBy[e.staff_id]?.name || "Unassigned"}</strong>
+          <strong>{pBy[e.staff_id]?.name || "Removed user"}</strong>
           {e.flag && (
             <span className="flag">
               <WarningCircle />
@@ -622,15 +625,18 @@ function App() {
           </>
         )}
         {page === "Weekly plan" && <WeeklyPlanner data={data} api={api} reload={load} initialSearch={selected} onDirty={setSheetDirty} onTeams={()=>setPage('Teams')}/>}
-        {["Role repository","My Work"].includes(page)&&<ResearchPanel key={page} data={data} api={api} reload={load} view={page} initialRole={page==='Role repository'?selected:''} initialTab={repoTab} onDirty={setSheetDirty} onCompanies={id=>{setSelected(id);setPage("Company universe");}}/>}
+        {page==='My Work'&&<MyWork data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage("Role repository");}}/>}
+        {page==='Role repository'&&<ResearchPanel onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} key={page} data={data} api={api} reload={load} view={page} initialRole={page==='Role repository'?selected:''} initialTab={repoTab} onDirty={setSheetDirty} onCompanies={id=>{setSelected(id);setPage("Company universe");}}/>}
         {page === 'Company universe'&&<CompanyUniverse data={data} api={api} reload={load} onDirty={setSheetDirty} initialRole={selected} onOpen={id=>{setSelected(id);setRepoTab("Target companies");setPage("Role repository");}}/>}
         {page==='Workflow Monitor'&&<WorkflowMonitor data={data} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage('Role repository');}}/>}
-        {page==='Candidates'&&<Candidates data={data} api={api} reload={load} onDirty={setSheetDirty} onOpen={id=>{setSelected(id);setRepoTab("Candidate mappings");setPage("Role repository");}}/>}
+        {page==='Candidates'&&candidateId&&<CandidateProfile key={candidateId} id={candidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} onBack={()=>setCandidateId('')} onRole={id=>{setSelected(id);setRepoTab('Candidate mappings');setPage('Role repository');}}/>}
+        {page==='Candidates'&&!candidateId&&<Candidates onCandidate={setCandidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} onOpen={id=>{setSelected(id);setRepoTab("Candidate mappings");setPage("Role repository");}}/>}
         {page==='Teams'&&<><TeamsPanel data={data} api={api} reload={load} onAdd={()=>open({kind:'team'})}/>{planner?<PeerSetup data={data} api={api} reload={load}/>:<p>Team planners manage peer-review pairings.</p>}</>}
         {page === "Daily work" && <DailyWork data={data} assignments={assignments} entries={filtered} renderEntries={entryRows} onOpen={id=>{setSelected(id);setRepoTab("Candidate mappings");setPage("Role repository");}}/>}
         {page === "Performance" && (
           <>
             {cards(filtered)}
+            <CoverageMetrics data={data} role={selected} from={from} to={to}/>
             <section className="panel">
               <div className="section-head">
                 <div>

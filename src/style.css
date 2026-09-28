@@ -1159,3 +1159,10 @@ input[type=checkbox] { accent-color:var(--xqtiv-navy); }
 .app th button,.app .text-button{box-shadow:none}
 .workflow-monitor .row-actions{gap:6px;align-items:flex-start}
 .workflow-monitor .row-actions button{justify-content:flex-start;line-height:1.3;padding:7px 10px}
+.inline-mapping{padding:12px;background:#f2f5fc;border:1px solid #c5d2e9;border-radius:6px;margin:12px 0}
+.inline-mapping-fields{display:grid;grid-template-columns:1fr 1fr 1.6fr 1.2fr auto;gap:8px;align-items:end}
+.inline-mapping label{font-size:12px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.inline-mapping input{width:100%;min-width:0;background:white;border:1px solid #a7b4ca;border-radius:4px}
+.planned-role{border:1px solid #d5deed;padding:12px;margin-top:12px;border-radius:7px}.planned-role h3{margin:8px 0}.planned-role .section-head p{font-size:12px}.planned-role td{white-space:normal}.planned-role .row-actions input{min-width:180px}
+.candidate-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:16px 0}.candidate-fields label,.candidate-fields>div{display:flex;flex-direction:column;gap:5px}.candidate-fields input{border:1px solid #a7b4ca;border-radius:4px}.candidate-fields small{color:#52627d}
+@media(max-width:1000px){.inline-mapping-fields{grid-template-columns:1fr 1fr}.candidate-fields{grid-template-columns:1fr 1fr}}

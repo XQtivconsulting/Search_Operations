@@ -174,3 +174,45 @@ test('accepted account may share a display name with legacy staff or another acc
  const again=await f.w.state(admin,accepted);assert.equal(again.staff.length,state.staff.length);assert.equal(f.db.prepare("SELECT name FROM staff WHERE id='legacy-duplicate'").get()?.name,'Same Person');
  const version=(again.teams.find(t=>t.id==='t') as any).roster_version;await f.w.mutate(admin,'team-members',{id:'t',version,staff_ids:['person:account-one','person:account-two']},accepted);assert.equal(f.db.prepare("SELECT COUNT(*) n FROM team_members WHERE team_id='t'").get()?.n,2);f.db.close();
 });
+
+test('inline mappings create explicit companies and role coverage atomically, reuse master candidates, and keep authorship',async()=>{
+ const f=fixture();const b={action:'mapping-inline',role_id:'r',team_id:'t',first_name:'Inline',last_name:'Person',url:'https://linkedin.com/in/inline-person',company:'Inline Co'};
+ await assert.rejects(f.run(mapper,b),/explicitly add/);assert.equal((await f.state()).research.records.length,0);
+ const result=await f.run(mapper,{...b,create_company:true});let state=await f.state();const company=state.research.records.find(r=>r.kind==='company')!,candidate=state.research.records.find(r=>r.kind==='candidate')!,target=state.research.records.find(r=>r.kind==='target')!,mapping=await f.rec(result.ids[0]);
+ assert.equal(candidate.company_id,company.id);assert.equal(target.owner_id,'mapper');assert.equal(mapping.target_id,target.id);assert.equal(mapping.mapper_id,'mapper');assert.equal(mapping.staff_id,'s');assert.equal(mapping.team_id,'t');assert.equal(mapping.status,'Draft');assert.equal(target.status,'Not started');
+ await assert.rejects(f.run(mapper,{...b,candidate_version:candidate.version}),/already mapped/);
+ await f.run(peer,{...b,role_id:'r2',candidate_version:candidate.version,company:'Wrong incoming company',first_name:'Wrong incoming name'});
+ state=await f.state();assert.equal(state.research.records.filter(r=>r.kind==='company').length,1);assert.equal(state.research.records.filter(r=>r.kind==='candidate').length,1);assert.equal((await f.rec(candidate.id)).first_name,'Inline');assert.equal(state.research.records.find(r=>r.kind==='mapping'&&r.role_id==='r2')?.mapper_id,'peer');
+ await f.run(mapper,{...target,action:'company-progress',status:'Completed',notes:'Research complete'});assert.equal((await f.rec(mapping.id)).status,'Draft');f.db.close();
+});
+test('inline mapping validation rolls back new company and target; stale candidate details are rejected',async()=>{
+ const f=fixture(),base={action:'mapping-inline',role_id:'r',team_id:'t',company:'Rollback Co',create_company:true,url:'https://linkedin.com/in/rollback-inline'};
+ await assert.rejects(f.run(mapper,{...base,first_name:'Missing last name'}),/last name/);assert.equal((await f.state()).research.records.length,0);
+ await assert.rejects(f.run({...mapper,role:'founder'},base),/Researcher/);await assert.rejects(f.run(mapper,{...base,team_id:'foreign',first_name:'Test',last_name:'Person'}));assert.equal((await f.state()).research.records.length,0);
+ const c=await f.run(mapper,{action:'candidate-save',first_name:'Existing',last_name:'Person',url:base.url});await assert.rejects(f.run(mapper,{...base,candidate_version:99}),/changed/);assert.equal((await f.state()).research.records.length,1);f.db.close();
+});
+test('role-first My Work and mapping entry expose roles first and no mapping popup or contact fields',async()=>{
+ const React=await import('react'),{renderToStaticMarkup}=await import('react-dom/server'),{MyWork}=await import('../src/MyWork'),{InlineMapping}=await import('../src/InlineMapping');
+ const f=fixture(),data={...await f.state(),actor:mapper,people:members},common={data,api:async()=>({}),reload:async()=>{},onDirty:()=>{},onCandidate:()=>{}};
+ const html=renderToStaticMarkup(React.createElement(MyWork,{...common,onOpen:()=>{}}));assert.ok(html.includes('My planned work'));assert.ok(!html.includes('My company assignments'));
+ const row=renderToStaticMarkup(React.createElement(InlineMapping,{...common,role:'r',team:'t'}));assert.ok(row.includes('LinkedIn profile URL'));assert.ok(row.includes('Current company'));assert.ok(!row.includes('role="dialog"'));assert.ok(!row.includes('Email'));assert.ok(!row.includes('Phone'));f.db.close();
+});
+
+test('bulk company allocation is atomic, role scoped and uses active team researchers',async()=>{
+ const f=fixture(),a=await f.run(admin,{action:'company-save',role_id:'r',name:'Bulk A'}),b=await f.run(admin,{action:'company-save',role_id:'r',name:'Bulk B'}),body={action:'target-assign-batch',role_id:'r',team_id:'t',owner_id:'mapper',items:[{id:a.id,version:1},{id:b.id,version:1}]};
+ await assert.rejects(f.run(mapper,body),/permission/);await assert.rejects(f.run(admin,{...body,items:[body.items[0],{id:b.id,version:99}]}),/changed/);assert.equal((await f.rec(a.id)).owner_id,'');
+ await f.run(admin,body);assert.equal((await f.rec(a.id)).owner_id,'mapper');assert.equal((await f.rec(b.id)).owner_id,'mapper');
+ await assert.rejects(f.run(admin,{...body,role_id:'r2',items:[{id:a.id,version:2}]}),/this role/);f.db.close();
+});
+test('assign to me resolves an unassigned company through role planning while respecting an explicit team',async()=>{
+ const f=fixture();f.db.exec("INSERT INTO teams VALUES('other','Other');INSERT INTO team_members VALUES('other','s');INSERT INTO assignments(id,search_id,team_id,work_date) VALUES('plan','r','t','2026-09-28')");
+ const t=await f.run(admin,{action:'company-save',role_id:'r',name:'Claimable'});await f.run(mapper,{...await f.rec(t.id),action:'company-claim'});const claimed=await f.rec(t.id);assert.equal(claimed.team_id,'t');assert.equal(claimed.owner_id,'mapper');
+ await assert.rejects(f.run(peer,{...claimed,action:'company-claim'}),/already assigned/);
+ const blocked=await f.run(admin,{action:'company-save',role_id:'r',name:'Other team',team_id:'other'});await assert.rejects(f.run(peer,{...await f.rec(blocked.id),action:'company-claim',team_id:'t'}),/assigned team/);f.db.close();
+});
+test('no talent counts as completed research with zero mappings and retains completion attribution',async()=>{
+ const f=fixture(),t=await f.run(admin,{action:'company-save',role_id:'r',name:'Researched company',team_id:'t',owner_id:'mapper'});await f.run(mapper,{...await f.rec(t.id),action:'company-progress',status:'No relevant talent',notes:'Checked relevant leadership; none meet the mandate.'});
+ const completed=await f.rec(t.id);assert.equal(completed.coverage_researcher_id,'mapper');assert.equal(completed.coverage_team_id,'t');assert.ok(completed.completed_at);
+ const {workflowSummary}=await import('../src/workflow-summary');const summary=workflowSummary(await f.state()).find((r:any)=>r.role.id==='r')!;assert.equal(summary.completed,1);assert.equal(summary.noTalent,1);assert.equal(summary.submitted,0);
+ await assert.rejects(f.run(admin,{action:'target-assign-batch',role_id:'r',team_id:'t',owner_id:'peer',items:[{id:t.id,version:completed.version}]}),/Reopen/);assert.equal((await f.rec(t.id)).owner_id,'mapper');f.db.close();
+});

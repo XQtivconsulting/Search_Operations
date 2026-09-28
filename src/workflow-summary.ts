@@ -15,6 +15,6 @@ export function workflowSummary(data:R,now=Date.now()) {
   if(peer.length)bottlenecks.push(`${peer.length} awaiting peer review`);
   if(partner.length)bottlenecks.push(`${partner.length} awaiting partner review`);
   if(returned)bottlenecks.push(`${returned} returned / on hold`);
-  return {role,targets:targets.length,completed,withMappings,submitted:submitted.length,drafts:mappings.filter(m=>m.status==='Draft').length,approved:mappings.filter(m=>m.status==='Approved').length,peer:peer.length,partner:partner.length,oldest,bottlenecks,direct:submitted.filter(m=>!m.target_id).length};
+  return {role,targets:targets.length,completed,noTalent:targets.filter(t=>t.status==='No relevant talent').length,withMappings,submitted:submitted.length,drafts:mappings.filter(m=>m.status==='Draft').length,approved:mappings.filter(m=>m.status==='Approved').length,peer:peer.length,partner:partner.length,oldest,bottlenecks,direct:submitted.filter(m=>!m.target_id).length};
  });
 }

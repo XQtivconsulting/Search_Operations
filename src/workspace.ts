@@ -2,7 +2,7 @@ import {planCandidates} from './candidate-import';
 import {candidateSchema,createCandidateInvite,listCandidateInvites,revokeCandidateInvite,requestCandidateCode,verifyCandidateCode,candidatePage} from './candidate-access';
 import {planCompanyImport} from './company-import';
 import { DurableObject } from "cloudflare:workers";
-import {researchSchema,researchState,researchMutation,derivedEntries} from "./research";
+import {researchSchema,researchState,researchMutation,derivedEntries,linkedin} from "./research";
 import type {Member} from "./research";
 import {weekStart,weekDays} from './planning';
 import { workspaceSchema } from "./schema";
@@ -55,6 +55,24 @@ export class Workspace extends DurableObject {
     );
   }
   async research(a: Actor,b:any,members:Member[]):Promise<any> {await this.syncPeople(members);return this.ctx.storage.transactionSync(()=>{
+      if(b.action==='mapping-inline') {
+        requireThat(hasRole(a,'researcher'),'Researcher access required.',403);
+        const records=researchState(this).records,url=linkedin(b.url),candidate=records.find(r=>r.kind==='candidate'&&r.url===url);
+        if(candidate)requireThat(candidate.version===Number(b.candidate_version),'Candidate details changed. Reload before adding the mapping.',409);
+        const role=text(b.role_id),team=text(b.team_id);
+        requireThat(!candidate||!records.some(r=>r.kind==='mapping'&&r.role_id===role&&r.candidate_id===candidate.id),'This candidate is already mapped to this role.',409);
+        const companyName=text(candidate?.company||b.company,200),normalize=(s:string)=>s.trim().toLowerCase().replace(/\s+/g,' ');
+        let company=records.find(r=>r.kind==='company'&&normalize(r.name)===normalize(companyName)),target:any=null;
+        if(b.company_id){const selected=records.find(r=>r.id===b.company_id&&r.kind==='company');requireThat(selected&&normalize(selected.name)===normalize(companyName),'Select the matching company.');company=selected;}
+        requireThat(!companyName||company||b.create_company===true,'Choose an existing company or explicitly add the new company.');
+        if(companyName){
+          target=company?records.find(r=>r.kind==='target'&&r.role_id===role&&r.company_id===company!.id):null;
+          if(!target){const created=researchMutation(this,a,{action:'company-save',role_id:role,company_id:company?.id,name:companyName,team_id:team,owner_id:a.id},members);target=researchState(this).records.find(r=>r.id===created.id);company=researchState(this).records.find(r=>r.id===target.company_id);}
+          else if(!target.owner_id&&target.team_id===team){researchMutation(this,a,{...target,action:'company-claim'},members);target={...target,owner_id:a.id};}
+        }
+        const linked=target?.owner_id===a.id&&target.team_id===team?target.id:'';
+        return researchMutation(this,a,{action:'mapping-add',role_id:role,team_id:team,target_id:linked,items:[{candidate_id:candidate?.id,url,first_name:b.first_name,last_name:b.last_name,company:company?.name||companyName,company_id:company?.id||''}]},members);
+      }
       if(b.action==='candidate-import'||b.action==='candidate-assign') {
         requireThat(canPlan(a)||hasRole(a,'researcher')||hasRole(a,'partner'),'Candidate editing permission required.',403);
         const records=researchState(this).records,candidates=records.filter(r=>r.kind==='candidate');
@@ -90,6 +108,11 @@ export class Workspace extends DurableObject {
         if(b.preview)return {plan,signature};
         requireThat(signature===b.signature,'The company list changed. Preview the import again.',409);
         return {saved:plan.map(c=>researchMutation(this,a,{...c,id:c.existingId,action:'company-master'},members))};
+      }
+      if(b.action==='target-assign-batch') {
+        requireThat(Array.isArray(b.items)&&b.items.length>0&&b.items.length<=100&&new Set(b.items.map((i:any)=>i.id)).size===b.items.length,'Select 1–100 distinct companies.');
+        requireThat(b.team_id&&b.owner_id,'Choose a team and researcher.');
+        return {saved:b.items.map((item:any)=>{const target=researchState(this).records.find(r=>r.id===item.id&&r.kind==='target');requireThat(target&&target.role_id===b.role_id,'Select companies from this role.',404);requireThat(!['Completed','No relevant talent'].includes(target.status),'Reopen completed company research before reassigning it.',409);return researchMutation(this,a,{id:item.id,version:item.version,action:'target-assign',team_id:b.team_id,owner_id:b.owner_id},members);})};
       }
       if(b.action==='target-waves') {
         requireThat(Array.isArray(b.items)&&b.items.length>0&&b.items.length<=100,'Select 1–100 targets.');

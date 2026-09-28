@@ -77,3 +77,9 @@ Typecheck, all 112 tests and production build passed locally. Updated tests repl
 ## Legacy duplicate-name fix — 2026-09-28
 
 The accounts-only synchronization could hit the legacy UNIQUE staff.name constraint when an accepted account shared a name with an unlinked historical record or another account. Synchronization now disambiguates its internal storage label while state returns the authoritative account display name. Historical staff IDs and work are unchanged. Regression coverage verifies same-name legacy/account records, two accepted accounts with the same name, repeated state loads and assigning both accepted accounts. All 113 tests, typecheck and production build passed. The reported production error was not inspected in a signed-in session; this database failure was identified and reproduced through the regression scenario.
+
+## Role-first My Work — 2026-09-28
+
+All 120 tests, typecheck and production build passed. New tests cover inline company/target creation and rollback, canonical candidate reuse, duplicate role rejection, stale profile versions, actual researcher/team attribution, independent coverage vs candidate review, inline entry without dialog/contact fields, role-first screen rendering and explicit Daily Work labels. No customer data was imported, changed or deleted during testing. Authenticated browser interaction was not verified.
+
+Additional coverage verifies atomic multi-company assignment, stale/cross-role/permission failures, role-plan team inference for Assign to me, enforcement of an explicitly assigned company team, and no-talent completion counted with zero mappings and retained researcher/team attribution.
