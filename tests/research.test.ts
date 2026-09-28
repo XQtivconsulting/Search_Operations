@@ -166,3 +166,11 @@ test('candidate import validates rows, stale previews, permissions and atomic ro
  const old=await f.run(admin,{action:'candidate-save',first_name:'Old',last_name:'Name',url:'https://linkedin.com/in/legacy-bulk'});const raw=f.db.prepare('SELECT data FROM research_records WHERE id=?').get(old.id)!.data as string;const data=JSON.parse(raw);delete data.first_name;f.db.prepare('UPDATE research_records SET data=? WHERE id=?').run(JSON.stringify(data),old.id);
  const batch={action:'candidate-import',rows:[{...rows[0],url:'https://linkedin.com/in/rollback-new'},{first_name:'Old',last_name:'Name',url:data.url}],role_id:'r',team_id:'t'};const pre=await f.run(mapper,{...batch,preview:true});await assert.rejects(f.run(mapper,{...batch,signature:pre.signature}),/first name|First name/);assert.ok(!(await f.state()).research.records.some(r=>r.url==='https://www.linkedin.com/in/rollback-new'));f.db.close();
 });
+
+test('accepted account may share a display name with legacy staff or another account without breaking state',async()=>{
+ const f=fixture();f.db.exec("INSERT INTO staff VALUES('legacy-duplicate','Same Person');INSERT INTO assignments(id,search_id,team_id,work_date) VALUES('old','r','t','2026-09-01');INSERT INTO entries(id,assignment_id,staff_id,mapped) VALUES('old-entry','old','legacy-duplicate',7)");
+ const accepted=[...members,{id:'account-one',name:'Same Person',role:'researcher',status:'active',staff_id:'person:account-one'},{id:'account-two',name:'Same Person',role:'researcher',status:'active',staff_id:'person:account-two'}];
+ const state=await f.w.state(admin,accepted);assert.equal(state.staff.filter(s=>s.name==='Same Person').length,3);assert.equal(f.db.prepare("SELECT mapped FROM entries WHERE id='old-entry'").get()?.mapped,7);
+ const again=await f.w.state(admin,accepted);assert.equal(again.staff.length,state.staff.length);assert.equal(f.db.prepare("SELECT name FROM staff WHERE id='legacy-duplicate'").get()?.name,'Same Person');
+ const version=(again.teams.find(t=>t.id==='t') as any).roster_version;await f.w.mutate(admin,'team-members',{id:'t',version,staff_ids:['person:account-one','person:account-two']},accepted);assert.equal(f.db.prepare("SELECT COUNT(*) n FROM team_members WHERE team_id='t'").get()?.n,2);f.db.close();
+});

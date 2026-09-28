@@ -153,6 +153,7 @@ export class Workspace extends DurableObject {
           )
         : [],
     };
+    if(members)result.staff=result.staff.map(s=>({...s,name:members.find(m=>(m.staff_id||m.staffId)===s.id)?.name||s.name}));
     result.assignments=result.assignments.map(a=>({...a,has_work:this.assignmentHasWork(a)}));
     const automated=new Set(research.records.filter(r=>r.kind==='strategy'&&r.active).map(r=>r.role_id));
     result.entries=result.entries.map(e=>({...e,automated:automated.has(e.search_id)}));
@@ -204,7 +205,11 @@ export class Workspace extends DurableObject {
       this.rows('CREATE TABLE IF NOT EXISTS account_researchers(staff_id TEXT PRIMARY KEY,user_id TEXT NOT NULL)');
       this.rows('DELETE FROM account_researchers');
       for(const m of members.filter(m=>m.status==='active'&&hasRole(m,'researcher')&&(m.staff_id||m.staffId))){const sid=m.staff_id||m.staffId!;
-        this.rows('INSERT INTO staff(id,name) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name',sid,m.name);
+        // Legacy staff.name is unique, whereas account display names are not identities.
+        // Keep historical staff IDs intact and disambiguate only this internal storage label.
+        let storageName=m.name,suffix=0;
+        while(this.rows('SELECT id FROM staff WHERE name=? AND id<>?',storageName,sid).length)storageName=m.name+' ['+sid+(suffix++?':'+suffix:'')+']';
+        this.rows('INSERT INTO staff(id,name) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name',sid,storageName);
         this.rows('INSERT INTO account_researchers VALUES(?,?)',sid,m.id);
         this.rows('UPDATE staff_profiles SET archived=0 WHERE staff_id=? AND archived<>0',sid);
       }
