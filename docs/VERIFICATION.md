@@ -1,5 +1,9 @@
 # Verification status
 
+## Sortable planning sheets and company alignment — 2026-09-28
+
+Search Decisions headers sort evidence, decisions and weekly history; Team Allocation headers sort role/team names, daily target totals and week totals. Headers expose direction and aria-sort. A shared comparator sorts numbers numerically and leaves missing values last. Company Universe explicitly left-aligns table headers, cells and header buttons, overriding a legacy global right-alignment rule. Typecheck, all 133 tests and production build passed. Comparator tests cover numeric, natural-text, date and blank ordering. Browser visual verification was not performed. Deployment is checked separately.
+
 ## Consistent sourcing colors — 2026-09-28
 
 Start uses light green, Continue a deeper green, and Pause soft red. Decision/history badges and team-allocation cards use the same background, foreground and border palette. Typecheck, all 132 tests and production build passed. Browser visual verification was not performed. Deployment is checked separately.

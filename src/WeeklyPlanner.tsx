@@ -1,3 +1,4 @@
+import {compareTableValues} from './table-sort';
 import {SearchDecisions} from './SearchDecisions';
 import {effectiveDecision,isWorkingDecision,sourcingDecisions} from './search-decisions';
 import {Plus,ArrowsLeftRight} from '@phosphor-icons/react';
@@ -10,6 +11,7 @@ type Props={data:Row;api:(path:string,body?:unknown)=>Promise<any>;reload:()=>Pr
 const label=(date:string)=>new Date(date+'T12:00:00').toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
 export function WeeklyPlanner({data,api,reload,initialSearch='',onDirty,onTeams}:Props) {
  const [week,setWeek]=useState(()=>weekStart(new Date().toLocaleDateString('en-CA'))),[mode,setMode]=useState<'search'|'team'>('search');
+ const [gridSort,setGridSort]=useState({key:'name',descending:false});
  const [view,setView]=useState<'decisions'|'allocation'>('decisions'),[decisionFilter,setDecisionFilter]=useState('');
  const [roles,setRoles]=useState<string[]|null>(initialSearch?[initialSearch]:null);
  const [filter,setFilter]=useState(''),[editor,setEditor]=useState<Row|null>(null),[priority,setPriority]=useState<Row|null>(null),[change,setChange]=useState<Row|null>(null);
@@ -42,6 +44,9 @@ export function WeeklyPlanner({data,api,reload,initialSearch='',onDirty,onTeams}
  const decisionRoles=data.searches.filter((r:Row)=>(roles===null||roles.includes(r.id))&&eligible(r));
  const entities=(mode==='search'?data.searches:data.teams).filter((r:Row)=>(mode==='search'?(roles===null||roles.includes(r.id))&&eligible(r):(!filter||r.id===filter)));
  const visible=assignments.filter((a:Row)=>entities.some((r:Row)=>r.id===(mode==='search'?a.search_id:a.team_id))&&eligible(searches.get(a.search_id)||{id:a.search_id}));
+ const entityValue=(r:Row)=>gridSort.key==='name'?(mode==='search'?`${r.client} ${r.title}`:r.name):visible.filter((a:Row)=>(mode==='search'?a.search_id:a.team_id)===r.id&&(gridSort.key==='total'||a.work_date===gridSort.key)).reduce((n:number,a:Row)=>n+(a.target||0),0);
+ const sortedEntities=[...entities].sort((a:Row,b:Row)=>compareTableValues(entityValue(a),entityValue(b),gridSort.descending)||String(a.id).localeCompare(String(b.id)));
+ const gridHeading=(key:string,title:string)=><th key={key} scope="col" aria-sort={gridSort.key===key?(gridSort.descending?'descending':'ascending'):'none'}><button className="table-sort-heading" onClick={()=>setGridSort({key,descending:gridSort.key===key?!gridSort.descending:false})}>{title} <span aria-hidden="true">{gridSort.key===key?(gridSort.descending?'↓':'↑'):'↕'}</span></button></th>;
  function editPriority(s:Row,decisionWeek=week){const p=data.priorities.find((p:Row)=>p.search_id===s.id&&p.week===decisionWeek),effective=decisionFor(s.id,decisionWeek);setPriority({search_id:s.id,week:decisionWeek,disposition:effective?.disposition || 'Start',notes:effective?.notes || '',version:p?.version || 0,base_week:effective?.week||'',base_version:effective?.version||0});setError('');setDirty(false);}
  function allocation(id:string,review=false){setView('allocation');setMode('search');setRoles([id]);setDecisionFilter(review?'':'working');if(!review)openPair(id);}
 
@@ -61,8 +66,8 @@ export function WeeklyPlanner({data,api,reload,initialSearch='',onDirty,onTeams}
   {notice&&<p className="notice" role="status">{notice}</p>}
   {!editor&&!priority&&!change&&error&&<p className="error" role="alert">{error}</p>}
   {!data.teams.length&&<p className="source-note">Create teams and add their researchers in Teams before allocating work.</p>}
-  {view==='decisions'?<SearchDecisions data={data} roles={decisionRoles} week={week} canEdit={planner} onDecide={editPriority} onAllocate={id=>allocation(id)} onReviewPlan={(id,date)=>{setWeek(weekStart(date));allocation(id,true);}}/>:<div className="plan-scroll"><table className="plan-grid"><thead><tr><th>{mode==='search'?'Search / weekly priority':'Team / researchers'}</th>{dates.map(d=><th key={d}>{label(d)}</th>)}<th>Week target</th></tr></thead><tbody>
-   {entities.map((r:Row)=>{const row=visible.filter((a:Row)=>(mode==='search'?a.search_id:a.team_id)===r.id),p=decisionFor(r.id);return <tr key={r.id}>
+  {view==='decisions'?<SearchDecisions data={data} roles={decisionRoles} week={week} canEdit={planner} onDecide={editPriority} onAllocate={id=>allocation(id)} onReviewPlan={(id,date)=>{setWeek(weekStart(date));allocation(id,true);}}/>:<div className="plan-scroll"><table className="plan-grid"><thead><tr>{gridHeading('name',mode==='search'?'Search / weekly priority':'Team / researchers')}{dates.map(d=>gridHeading(d,label(d)))}{gridHeading('total','Week target')}</tr></thead><tbody>
+   {sortedEntities.map((r:Row)=>{const row=visible.filter((a:Row)=>(mode==='search'?a.search_id:a.team_id)===r.id),p=decisionFor(r.id);return <tr key={r.id}>
     <th scope="row">{mode==='search'?<><strong>{r.client}</strong><span>{r.title}</span><small>Partner: {r.partner || 'Not assigned'}</small><div className="priority-line"><span className={p?`badge plan-priority-badge priority-${p.disposition.toLowerCase()}`:"plan-priority-text priority-text-none"}>{p?.disposition || 'No priority'}</span>{planner&&<button className="plan-priority-edit" aria-label={`${p?'Edit':'Set'} weekly priority for ${r.client} — ${r.title}`} onClick={()=>editPriority(r)}>{p?'Edit':'Set'}</button>}</div>{p?.notes&&<small>{p.notes}</small>}</>:<><strong>{r.name}</strong><small>{data.team_members.filter((m:Row)=>m.team_id===r.id).map((m:Row)=>data.staff.find((s:Row)=>s.id===m.staff_id)?.name).join(', ')||'No members configured'}</small>{canPlan(data.actor)&&<button onClick={onTeams}>Edit team</button>}</>}</th>
     {dates.map(date=>{const cell=row.filter((a:Row)=>a.work_date===date);return <td key={date}>
      {cell.map((a:Row)=>{const other=mode==='search'?teams.get(a.team_id)?.name:`${searches.get(a.search_id)?.client} · ${searches.get(a.search_id)?.title}`;const clash=assignments.filter((b:Row)=>b.team_id===a.team_id&&b.work_date===date).length>1;const disposition=decisionFor(a.search_id)?.disposition;return <div className="plan-assignment" key={a.id}><button className={`plan-slot priority-${(disposition || 'none').toLowerCase()}`} key={a.id} disabled={!planner} onClick={()=>{setEditor(pair(a.search_id,a.team_id));setError('');setDirty(false);}}><span>{other}</span>{disposition&&<small>{disposition}</small>}<strong>{a.target??'—'} <small>target</small></strong>{clash&&<small className="plan-warning">Team has multiple searches today</small>}</button>{planner&&<button className="plan-icon plan-transfer" title="Move / unassign" aria-label={`Move or unassign ${other} on ${label(date)}`} onClick={()=>openChange(a.search_id,a.team_id,date)}><ArrowsLeftRight size={14}/></button>}</div>;})}

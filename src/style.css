@@ -1260,3 +1260,7 @@ input[type=checkbox] { accent-color:var(--xqtiv-navy); }
 .app .decision-grid .decision-history-cell{background:transparent;border:0;padding:2px;box-shadow:none;text-align:left;min-height:0}
 .app .decision-grid .decision-warning{display:block;color:#8b4600;background:#fff2de;margin-top:6px}
 .app .decision-grid tbody tr:nth-child(even){background:#f3f6fa}
+.app .table-sort-heading{display:flex;align-items:center;justify-content:space-between;gap:5px;width:100%;padding:0;min-height:0;border:0;background:transparent;color:inherit;text-align:left;box-shadow:none}
+.app .table-sort-heading span{flex:none;color:#677e9c}
+.app .company-master .sheet-table th,.app .company-master .sheet-table td{ text-align:left; }
+.app .company-master .sheet-table th button{ text-align:left;justify-content:flex-start; }
