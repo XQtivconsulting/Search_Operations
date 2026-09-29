@@ -1,5 +1,9 @@
 # Role research workflow
 
+## Role management
+
+Use Role Repository to choose roles, filter by the latest fetched RecruitCRM status, edit an engagement partner and manage research. Searches is no longer a separate navigation item. Integrations has separate Save partner and Add / update selected in repository actions. Saving a partner on an unimported CRM job does not create a workspace role, and survives later CRM fetches. Status is read from the latest fetched RecruitCRM snapshot; there is no automatic polling. Remove role from workspace is available to planners/admins for mistaken additions only when no research, planning, publication or invitation history exists. It does not delete the RecruitCRM job. Roles with history are retained and can be filtered using their CRM status.
+
 ## Start here
 
 1. In People & access, start with an existing person and enable Researcher alongside their other roles. Link an existing unlinked researcher record or create one for that same person. Invite only people who do not already have accounts. Then use Teams to manage rosters.

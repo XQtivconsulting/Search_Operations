@@ -213,3 +213,32 @@ test('weekly plans select individual researchers and protect recorded allocation
  next=await plan(w);next.days[0].staff_ids=['foreign'];await assert.rejects(w.mutate(actor,'week-plan',next),/selected team/);
  db.prepare('UPDATE entries SET mapped=0 WHERE assignment_id=?').run(id);next.days[0].staff_ids=['s'];await assert.rejects(w.mutate(actor,'week-plan',next),/Recorded work/);assert.deepEqual(db.prepare('SELECT staff_id FROM entries WHERE assignment_id=?').all(id).map(r=>r.staff_id),['s2']);db.close();
 });
+
+test('saved CRM engagement partners do not activate a role and survive preview refresh',async()=>{
+ const {db,w}=fixture();const job={external_id:'new-job',title:'New role',status:'Open',company_slug:'co',company_name:'Synthetic'};
+ await w.stageCRM(actor,[job]);
+ await w.mutate(actor,'crm-owner',{external_id:'new-job',version:0,partner_id:'partner',partner:'Partner'});
+ assert.equal(db.prepare("SELECT count(*) n FROM searches WHERE external_id='new-job'").get()?.n,0);
+ await w.stageCRM(actor,[{...job,status:'Closed'}]);
+ const saved=(await w.crmState(actor)).jobs[0];assert.equal(saved.saved_partner_id,'partner');assert.equal(saved.partner_version,1);
+ await assert.rejects(w.mutate(actor,'crm-owner',{external_id:'new-job',version:0,partner_id:''}),/changed/);
+ await assert.rejects(w.mutate({...actor,role:'researcher'},'crm-owner',{external_id:'new-job',version:1,partner_id:''}),/permission/);
+ await assert.rejects(w.applyCRM(actor,[{...saved,partner_version:0}]),/saved partner changed/);
+ await w.applyCRM(actor,[{...saved,partner_version:1}]);
+ const imported=db.prepare("SELECT * FROM searches WHERE external_id='new-job'").get()!;assert.equal(imported.partner_id,'partner');assert.equal(imported.status,'Closed');
+ await w.stageCRM(actor,[{...job,status:'Abandoned'}]);assert.equal((await w.state(actor)).searches.find(s=>s.external_id==='new-job')?.status,'Abandoned');
+ await assert.rejects(w.mutate(actor,'crm-owner',{external_id:'new-job',version:1,partner_id:''}),/now in the repository/);
+ db.close();
+});
+test('mistaken empty roles can be removed with version and permission checks; research and planning history are protected',async()=>{
+ const {db,w}=fixture();db.exec("INSERT INTO searches(id,external_id,client,title,partner_id,partner) VALUES('empty','crm-empty','Synthetic','Mistake','p','Partner')");
+ await assert.rejects(w.mutate({...actor,role:'researcher'},'search-remove',{id:'empty',version:1}),/permission/);
+ await assert.rejects(w.mutate(actor,'search-remove',{id:'empty',version:2}),/changed/);
+ await assert.rejects(w.mutate(actor,'search-remove',{id:'r',version:1}),/history/);
+ await w.mutate(actor,'search-remove',{id:'empty',version:1});
+ assert.equal(db.prepare("SELECT * FROM searches WHERE id='empty'").get(),undefined);
+ assert.equal(db.prepare("SELECT partner_id FROM crm_partners WHERE external_id='crm-empty'").get()?.partner_id,'p');
+ assert.equal(db.prepare("SELECT count(*) n FROM audit WHERE action='search-remove'").get()?.n,1);
+ db.exec("INSERT INTO searches(id,client,title) VALUES('research','Synthetic','History');INSERT INTO research_records(id,kind,role_id,record_key,data) VALUES('doc','brief','research','brief:research','{}')");
+ await assert.rejects(w.mutate(actor,'search-remove',{id:'research',version:1}),/history/);db.close();
+});

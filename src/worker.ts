@@ -177,6 +177,10 @@ export default {
               requireThat(Array.isArray(body.jobs),'Select jobs to import.');
               const members=await identity.members(a.tenant);
               for(const item of body.jobs) {
+                if(!item.search_id&&!Object.prototype.hasOwnProperty.call(item,'partner_id')) {
+                  const saved=(await workspace.crmState(a)).jobs.find((j:any)=>j.external_id===item.external_id);
+                  if(saved?.saved_partner_id) {item.partner_id=saved.saved_partner_id;}
+                }
                 if(Object.prototype.hasOwnProperty.call(item,'partner_id')) {
                   const partner=item.partner_id?members.find((m:any)=>m.id===item.partner_id&&m.status==='active'&&canPartnerReview(m)):null;
                   requireThat(!item.partner_id||partner,'Choose an active engagement partner.');
@@ -227,7 +231,7 @@ export default {
           else if (url.pathname === "/api/mutate" && req.method === "POST") {
             requireThat(!['staff','staff-edit','staff-archive'].includes(body.kind),'Manage accepted accounts and roles in People & access. Standalone researcher records are retired.',410);
             requireThat(!['entry','review','reopen'].includes(body.kind),'Manual count entry is retired. Add candidate mappings and use their review workflow.',410);
-            if(['search','search-owner'].includes(body.kind)) {
+            if(['search','search-owner','crm-owner'].includes(body.kind)) {
               const partner=body.partner_id ? (await identity.members(a.tenant)).find((m:any)=>m.id===body.partner_id && m.status==='active' && canPartnerReview(m)) : null;
               requireThat(!body.partner_id || partner,'Choose an active engagement partner.');
               body.partner=partner?.name || '';

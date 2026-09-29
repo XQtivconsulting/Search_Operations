@@ -26,6 +26,7 @@ export class Workspace extends DurableObject {
     ctx.storage.sql.exec(workspaceSchema);
     ctx.storage.sql.exec(researchSchema);
     ctx.storage.sql.exec(candidateSchema);
+    this.rows("CREATE TABLE IF NOT EXISTS crm_partners(external_id TEXT PRIMARY KEY,partner_id TEXT NOT NULL DEFAULT '',partner TEXT NOT NULL DEFAULT '',version INTEGER NOT NULL DEFAULT 1)");
     if(!this.rows('PRAGMA table_info(crm_jobs)').some(c=>c.name === 'company_name'))
       this.rows("ALTER TABLE crm_jobs ADD COLUMN company_name TEXT NOT NULL DEFAULT ''");
     if(!this.rows('PRAGMA table_info(searches)').some(c=>c.name === 'partner_id'))
@@ -177,6 +178,8 @@ export class Workspace extends DurableObject {
         : [],
     };
     if(members)result.staff=result.staff.map(s=>({...s,name:members.find(m=>(m.staff_id||m.staffId)===s.id)?.name||s.name}));
+    const crmStatuses=new Map(this.rows('SELECT external_id,status FROM crm_jobs').map(j=>[j.external_id,j.status]));
+    result.searches=result.searches.map(s=>({...s,status:crmStatuses.has(s.external_id)?crmStatuses.get(s.external_id):s.status}));
     result.assignments=result.assignments.map(a=>({...a,has_work:this.assignmentHasWork(a)}));
     const automated=new Set(research.records.filter(r=>r.kind==='strategy'&&r.active).map(r=>r.role_id));
     result.entries=result.entries.map(e=>({...e,automated:automated.has(e.search_id)}));
@@ -185,7 +188,7 @@ export class Workspace extends DurableObject {
   }
   async crmState(a: Actor) {
     requireThat(hasRole(a,'admin'), 'Administrator permission required.',403);
-    return {jobs:this.rows('SELECT * FROM crm_jobs ORDER BY title'), runs:this.rows('SELECT * FROM integration_runs ORDER BY created_at DESC LIMIT 20')};
+    return {jobs:this.rows('SELECT j.*,p.partner_id AS saved_partner_id,p.partner AS saved_partner,COALESCE(p.version,0) AS partner_version FROM crm_jobs j LEFT JOIN crm_partners p ON p.external_id=j.external_id ORDER BY j.title'), runs:this.rows('SELECT * FROM integration_runs ORDER BY created_at DESC LIMIT 20')};
   }
   async stageCRM(a: Actor, jobs: CRMJob[]) {
     requireThat(hasRole(a,'admin'), 'Administrator permission required.',403);
@@ -214,7 +217,9 @@ export class Workspace extends DurableObject {
         const id = old?.id || uuid(), client = source.company_name || old?.client || text(item.client);
         requireThat(client,'Enter a client name for each new search.');
         const changePartner=Object.prototype.hasOwnProperty.call(item,'partner_id');
-        const partner_id=changePartner?text(item.partner_id):(old?.partner_id || ''),partner=changePartner?text(item.partner):(old?.partner || '');
+        const saved=this.rows('SELECT * FROM crm_partners WHERE external_id=?',source.external_id)[0];
+        if(!old&&saved) requireThat(Number(item.partner_version)===saved.version,'The saved partner changed. Reload before adding the role.',409);
+        const partner_id=changePartner?text(item.partner_id):(old?.partner_id || saved?.partner_id || ''),partner=changePartner?text(item.partner):(old?.partner || saved?.partner || '');
         if(old) this.rows('UPDATE searches SET title=?,status=?,client=?,partner_id=?,partner=?,version=version+1 WHERE id=?',source.title,source.status,client,partner_id,partner,id);
         else this.rows('INSERT INTO searches(id,external_id,client,title,status,partner_id,partner) VALUES(?,?,?,?,?,?,?)',id,source.external_id,client,source.title,source.status,partner_id,partner);
         this.audit(a,'crm-apply',id,old || null,{external_id:source.external_id,title:source.title,status:source.status,client,partner_id,partner});
@@ -313,6 +318,30 @@ export class Workspace extends DurableObject {
         for(const id of ids) this.rows('INSERT INTO team_members VALUES(?,?)',b.id,id);
         this.rows('INSERT INTO team_rosters VALUES(?,?) ON CONFLICT(team_id) DO UPDATE SET version=excluded.version',b.id,version+1);
         this.audit(a,kind,b.id,before,{staff_ids:ids,version:version+1});
+        return {id:b.id};
+      }
+      if(kind === 'crm-owner') {
+        requireThat(hasRole(a,'admin'),'Administrator permission required.',403);
+        const id=text(b.external_id),job=this.rows('SELECT * FROM crm_jobs WHERE external_id=?',id)[0];
+        requireThat(job,'Fetch jobs before saving a partner.',404);
+        requireThat(!this.rows('SELECT id FROM searches WHERE external_id=?',id).length,'This role is now in the repository. Reload before saving.',409);
+        const old=this.rows('SELECT * FROM crm_partners WHERE external_id=?',id)[0];
+        requireThat(Number(b.version)===(old?.version||0),'The engagement partner changed. Reload before saving.',409);
+        this.rows('INSERT INTO crm_partners(external_id,partner_id,partner,version) VALUES(?,?,?,?) ON CONFLICT(external_id) DO UPDATE SET partner_id=excluded.partner_id,partner=excluded.partner,version=excluded.version',id,text(b.partner_id),text(b.partner),(old?.version||0)+1);
+        this.audit(a,kind,id,old||null,{partner_id:text(b.partner_id),partner:text(b.partner)});
+        return {id};
+      }
+      if(kind === 'search-remove') {
+        requireThat(canPlan(a),'Planning permission required.',403);
+        const old=this.rows('SELECT * FROM searches WHERE id=?',b.id)[0];
+        requireThat(old,'Search not found.',404);
+        requireThat(Number(b.version)===old.version,'The search changed. Reload before removing.',409);
+        const used=['assignments','weekly_priorities','weekly_decisions'].some(t=>this.rows(`SELECT 1 FROM ${t} WHERE search_id=? LIMIT 1`,b.id).length)
+          ||['research_records','brief_shares','role_publications','candidate_invites'].some(t=>this.rows(`SELECT 1 FROM ${t} WHERE role_id=? LIMIT 1`,b.id).length);
+        requireThat(!used,'This role has research or planning history and cannot be removed. Close or abandon it in RecruitCRM instead.',409);
+        if(old.external_id) this.rows('INSERT INTO crm_partners(external_id,partner_id,partner,version) VALUES(?,?,?,1) ON CONFLICT(external_id) DO UPDATE SET partner_id=excluded.partner_id,partner=excluded.partner,version=crm_partners.version+1',old.external_id,old.partner_id||'',old.partner||'');
+        this.rows('DELETE FROM searches WHERE id=?',b.id);
+        this.audit(a,kind,b.id,old,null);
         return {id:b.id};
       }
       if(kind === 'search-owner') {

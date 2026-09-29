@@ -1,5 +1,9 @@
 # Verification status
 
+## Role lifecycle and independent partner save — 2026-09-28
+
+Role Repository replaces Searches in navigation, with a filter over actual RecruitCRM statuses, selected-role status, partner editing and guarded removal of empty roles. Workspace status reads use the latest fetched CRM snapshot. Integrations saves a partner separately from adding/updating repository roles; saved assignments persist across fetches in a versioned tenant-local table. Removal rejects any planning, research, publication or invitation history, checks permissions/version and audits the deletion; RecruitCRM is untouched and the partner is retained for re-addition. Typecheck, 127 tests and production build passed; regression coverage includes independent save, refresh persistence, stale saves/imports, permissions, guarded removal and status refresh. No live records were changed during verification. Signed-in browser verification was not performed; deployment is checked separately.
+
 ## Compact candidate directory — 2026-09-28
 
 Directory shows 25/50/100 rows per page, immediate global and per-column filters, sortable identity columns, distinct mapped-role counts and profile links. Expanded mapping attribution is removed from directory rows. Typecheck, all 125 tests and production build passed. Tests exercise combined filters, LinkedIn/company sorting, 3,001-record pagination, empty/shrinking results and distinct role counts. Existing mapping integration coverage now asserts compact counts without mapper attribution. No live records were changed and signed-in browser verification was not performed. Pagination is client-side; records still arrive in workspace state. Deployment is verified separately in GitHub Actions.
