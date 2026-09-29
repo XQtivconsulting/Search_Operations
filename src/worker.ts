@@ -229,6 +229,7 @@ export default {
           else if(url.pathname==='/api/people/reset'&&req.method==='POST'){const result=await identity.resetTestPeople(a,body);if(!body.preview)await workspace.syncPeople(await identity.members(a.tenant));res=json(result);}
           else if(url.pathname==='/api/invitations/cancel'&&req.method==='POST')res=json(await identity.cancelInvitation(a,text(body.id,100)));
           else if (url.pathname === "/api/mutate" && req.method === "POST") {
+            requireThat(body.kind!=='search','New roles must be added through the RecruitCRM integration.',410);
             requireThat(!['staff','staff-edit','staff-archive'].includes(body.kind),'Manage accepted accounts and roles in People & access. Standalone researcher records are retired.',410);
             requireThat(!['entry','review','reopen'].includes(body.kind),'Manual count entry is retired. Add candidate mappings and use their review workflow.',410);
             if(['search','search-owner','crm-owner'].includes(body.kind)) {

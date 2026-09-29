@@ -182,3 +182,10 @@ test('new researcher invitation has no person allocation until accepted; role up
  const {db,identity}=fixture();const invite=await identity.invite('new@example.com','New Person','test','researcher',null,false,['researcher','partner']);assert.equal((await identity.members('test')).length,0);assert.equal((await identity.pendingInvitations('test'))[0].staff_id,null);
  await identity.accept({token:invite,email:'new@example.com',password:'Synthetic-password-123'},'ip');const person=(await identity.members('test'))[0];assert.equal(person.staff_id,'person:'+person.id);assert.deepEqual(person.roles,['researcher','partner']);db.close();
 });
+
+test('manual role creation is rejected before any workspace write',async()=>{
+ let written=false;
+ const env:any={IDENTITY:{getByName:()=>({authenticate:async()=>({tenant:'test',role:'admin'})})},WORKSPACE:{getByName:()=>({mutate:async()=>{written=true;}})}};
+ const res=await worker.fetch(new Request('https://app.example.com/api/mutate',{method:'POST',headers:{Origin:'https://app.example.com'},body:JSON.stringify({kind:'search',title:'Manual role',client:'Synthetic'})}),env);
+ assert.equal(res.status,410);assert.equal(written,false);assert.match((await res.json() as any).error,/RecruitCRM/);
+});
