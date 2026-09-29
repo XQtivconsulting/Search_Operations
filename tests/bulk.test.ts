@@ -56,6 +56,7 @@ test('review zero is completed, history is retained and output locks',async()=>{
 });
 test('targets use assignment versions and duplicate batches are rejected',async()=>{
   const {db,w}=fixture();
+  await w.mutate(actor,'decision',{search_id:'r',week:'2026-09-21',disposition:'Continue',version:0});
   await w.bulk(actor,[{kind:'assignment-edit',id:'a',version:1,target:30,notes:'Priority'}]);
   assert.equal(db.prepare("SELECT target FROM assignments WHERE id='a'").get()?.target,30);
   await assert.rejects(w.bulk(actor,[{kind:'assignment-edit',id:'a',version:1,target:20}]),/changed this assignment/);
@@ -89,6 +90,7 @@ test('CRM company names create clients and missing names preserve existing clien
 const {weekDays,weekStart}=await import('../src/planning');
 async function roster(w:any,ids=['s','s2'],version=0) {await w.mutate(actor,'team-members',{id:'t',version,staff_ids:ids});}
 async function plan(w:any,overrides:any={}) {
+ if(!w.sourcingDecision('r','2026-09-28')) await w.mutate(actor,'decision',{search_id:'r',week:'2026-09-21',disposition:'Continue',version:0,notes:'Synthetic allocation setup'});
  const state=await w.state(actor),week='2026-09-28';
  return {week,search_id:'r',team_id:'t',roster_version:state.teams[0].roster_version,
   days:weekDays(week).map(date=>{const old=state.assignments.find((a:any)=>a.search_id==='r'&&a.team_id==='t'&&a.work_date===date);return {date,id:old?.id,version:old?.version,enabled:!!old,target:old?.target??10,notes:old?.notes||''};}),...overrides};
@@ -200,7 +202,7 @@ test('planners can maintain teams without gaining people administration',async()
  await assert.rejects(w.mutate(planner,'staff-edit',{id:'s',version:0,name:'Changed'}),/permission/);db.close();
 });
 
-function transferFixture(){const f=fixture();f.db.exec("INSERT INTO teams VALUES('red','Red'); INSERT INTO team_members(team_id,staff_id) VALUES('red','s2'); INSERT INTO assignments(id,search_id,team_id,work_date,target,notes) VALUES('b','r','t','2026-09-26',12,'Keep target'); INSERT INTO entries(id,assignment_id,staff_id) VALUES('eb','b','s');");return f;}
+function transferFixture(){const f=fixture();f.db.exec("INSERT INTO weekly_priorities(search_id,week,disposition,notes) VALUES('r','2026-09-21','Continue','Synthetic setup'); INSERT INTO teams VALUES('red','Red'); INSERT INTO team_members(team_id,staff_id) VALUES('red','s2'); INSERT INTO assignments(id,search_id,team_id,work_date,target,notes) VALUES('b','r','t','2026-09-26',12,'Keep target'); INSERT INTO entries(id,assignment_id,staff_id) VALUES('eb','b','s');");return f;}
 const transferBody={operation:'move',week:'2026-09-21',search_id:'r',team_id:'t',destination_team_id:'red',roster_version:0,items:[{id:'a',version:1},{id:'b',version:1}]};
 test('weekly move preserves targets and notes, replaces blank roster and audits each day',async()=>{const {db,w}=transferFixture();await w.mutate(actor,'plan-transfer',transferBody);const rows=db.prepare('SELECT * FROM assignments ORDER BY id').all();assert.ok(rows.every(r=>r.team_id==='red'&&r.version===2));assert.equal(rows[1].target,12);assert.equal(rows[1].notes,'Keep target');assert.deepEqual(db.prepare('SELECT staff_id FROM entries').all().map(r=>r.staff_id),['s2','s2']);assert.equal(db.prepare("SELECT COUNT(*) n FROM audit WHERE action='plan-move'").get()?.n,2);db.close();});
 test('weekly unassign only removes selected unstarted days',async()=>{const {db,w}=transferFixture();await w.mutate(actor,'plan-transfer',{...transferBody,operation:'unassign',items:[{id:'b',version:1}]});assert.equal(db.prepare('SELECT id FROM assignments').get()?.id,'a');assert.equal(db.prepare("SELECT COUNT(*) n FROM entries WHERE assignment_id='a'").get()?.n,2);db.close();});
@@ -241,4 +243,29 @@ test('mistaken empty roles can be removed with version and permission checks; re
  assert.equal(db.prepare("SELECT count(*) n FROM audit WHERE action='search-remove'").get()?.n,1);
  db.exec("INSERT INTO searches(id,client,title) VALUES('research','Synthetic','History');INSERT INTO research_records(id,kind,role_id,record_key,data) VALUES('doc','brief','research','brief:research','{}')");
  await assert.rejects(w.mutate(actor,'search-remove',{id:'research',version:1}),/history/);db.close();
+});
+
+test('carried Pause/Stop block new work and moves; decision changes preserve existing completed work',async()=>{
+ const {db,w}=fixture();await roster(w);let p=await plan(w);p.days[0].enabled=true;await w.mutate(actor,'week-plan',p);
+ const existing=db.prepare("SELECT * FROM assignments WHERE work_date='2026-09-28'").get()!;
+ db.prepare('UPDATE entries SET mapped=0 WHERE assignment_id=?').run(existing.id);
+ await w.mutate(actor,'decision',{search_id:'r',week:'2026-09-28',disposition:'Pause',version:0});
+ assert.equal(db.prepare('SELECT id FROM assignments WHERE id=?').get(existing.id)?.id,existing.id);
+ p=await plan(w);p.days[1].enabled=true;await assert.rejects(w.mutate(actor,'week-plan',p),/Search Decisions/);
+ assert.equal(db.prepare("SELECT count(*) n FROM assignments WHERE work_date='2026-09-29'").get()?.n,0);
+ await assert.rejects(w.mutate(actor,'assignment',{search_id:'r',team_id:'t',work_date:'2026-10-06',target:2,staff_ids:['s']}),/Search Decisions/);
+ await w.mutate(actor,'decision',{search_id:'r',week:'2026-10-05',disposition:'Recalibrate',version:0});
+ await w.mutate(actor,'assignment',{search_id:'r',team_id:'t',work_date:'2026-10-06',target:2,staff_ids:['s']});
+ await w.mutate(actor,'decision',{search_id:'r',week:'2026-10-05',disposition:'Stop',version:1});
+ db.close();
+ const f=transferFixture();await f.w.mutate(actor,'decision',{search_id:'r',week:'2026-09-21',disposition:'Stop',version:1});
+ await assert.rejects(f.w.mutate(actor,'plan-transfer',transferBody),/Search Decisions/);
+ await f.w.mutate(actor,'plan-transfer',{...transferBody,operation:'unassign'});assert.equal(f.db.prepare('SELECT count(*) n FROM assignments').get()?.n,0);f.db.close();
+});
+test('undecided roles cannot be allocated and stale carried decisions cannot be overwritten',async()=>{
+ const {db,w}=fixture();await assert.rejects(w.mutate(actor,'assignment',{search_id:'r',team_id:'t',work_date:'2026-10-01',target:3,staff_ids:[]}),/Search Decisions/);
+ await w.mutate(actor,'decision',{search_id:'r',week:'2026-09-21',disposition:'Start',version:0});
+ await w.mutate(actor,'decision',{search_id:'r',week:'2026-09-21',disposition:'Pause',version:1});
+ await assert.rejects(w.mutate(actor,'decision',{search_id:'r',week:'2026-09-28',disposition:'Continue',version:0,base_week:'2026-09-21',base_version:1}),/carried decision changed/);
+ assert.equal(w.sourcingDecision('r','2026-10-01').disposition,'Pause');assert.equal(db.prepare("SELECT count(*) n FROM weekly_priorities WHERE week='2026-09-28'").get()?.n,0);db.close();
 });

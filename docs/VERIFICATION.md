@@ -1,5 +1,9 @@
 # Verification status
 
+## Decision-first weekly planning — 2026-09-28
+
+Search Decisions is the default view, with current sourcing evidence, sourcing-decision filters and an eight-week carry-forward history. Team Allocation defaults to active decisions. Backend checks require active decisions for new/moved assignments, target increases and researcher changes; unassigning unstarted work remains possible and recorded history is preserved. Inherited decisions have an optimistic source-version guard. Typecheck, all 132 tests and production build passed. Added tests cover carry-forward/future isolation, Eastern mapping dates, evidence counts, paused/stopped/undecided allocation rejection, active resumption, protected work, safe unassignment and stale inherited edits. Existing allocation tests now explicitly establish sourcing decisions. No live data was modified during verification; signed-in browser verification was not performed. Deployment is checked separately.
+
 ## Multi-role delivery filters and weekly cleanup — 2026-09-28
 
 Weekly Plan and Daily Work share a role checkbox filter with client grouping, typed role/client/ID search, All, None and Show matching only. Weekly visible assignments/totals and Daily Work entries/assignments use selected IDs; an empty selection shows no roles. The weekly instruction paragraph, priority legend and priority-save notice are removed. Assigned priorities retain colored badges; unset priority remains plain text. Row borders and banding are lighter, with a bottom border beneath date headers. Typecheck, all 128 tests and production build passed. Signed-in browser interaction/visual verification was not performed; deployment is checked separately.

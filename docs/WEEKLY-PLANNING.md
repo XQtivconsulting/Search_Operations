@@ -2,14 +2,14 @@
 
 ## Operating flow
 
-1. In **People & access**, add or enable researchers. In **Teams**, create named teams and use **Edit members** to choose each team's roster. Researchers are operating staff records. Invitations separately grant app access and should link researcher accounts to the correct staff record.
-2. In **Searches**, expand a search and choose **Set/Edit engagement partner**. The dropdown lists active Admin and Partner accounts. Ownership belongs to the search and appears in its plan and daily work. Invite missing partners from People & access.
-3. Open **Weekly plan**. The calendar always covers Monday through Sunday; previous/next week and a date picker change the week. Existing Wednesday-based decision dates are grouped into their containing calendar week.
-4. Use **By search** to allocate teams against a role, or **By team** to allocate searches against team capacity. Both views show the same assignments. Filters and Find narrow the view; clearing the filter restores the portfolio.
-5. Click **+ Assign** in a day, choose the other side of the search/team pair, and edit the full seven-day plan. Check working days, enter daily partner-approved profile targets, and save the week. **Select Mon–Fri** and **Fill selected days** speed repeated target entry. Weekend planning is supported.
-6. Click an existing allocation to edit its targets or notes. Uncheck an unstarted day to remove it; recorded counts (including zero), notes and reviews prevent removal. A team can work multiple searches in a day; the grid flags these for capacity review. Daily and weekly totals sum the visible targets; these are team totals, not per-researcher targets.
-7. Use **Set/Edit** beside a search's weekly priority to choose Start, Continue, Recalibrate, Pause or Stop and add context. There is one current priority per search/week. Pause/Stop does not silently remove daily assignments—review and remove unstarted allocations separately.
-8. Researchers use **My Work** to add candidate mappings; **Daily work** shows derived output. Reviewers continue through peer and partner approval.
+1. Add roles through RecruitCRM Integrations and set engagement partners there or in Role Repository. Team membership uses accepted researcher accounts managed in People & access and Teams.
+2. Weekly Plan opens **Search Decisions**. Review each role's current mapping count (including drafts), current partner-approved count, pending peer/partner reviews, and mappings created in the week before the selected week. The sourcing start uses strategy cutover, falling back to the role start date; weeks elapsed use today. Evidence totals are current, not reconstructed historical snapshots.
+3. Record Start, Continue, Recalibrate, Pause or Stop, with optional reasoning. These sourcing decisions are independent of RecruitCRM status. The most recent recorded decision on or before the selected week carries forward unchanged until another decision overrides it. Start remains Start until reviewed; assignments are never copied automatically.
+4. Filter by sourcing decision, or by selected roles/clients. **Show 8-week history** displays decisions across the selected week and seven preceding weeks, marking inherited cells. Week navigation moves that history window. Clicking a cell reviews that specific week. Versions protect both the week's record and the inherited source from stale edits.
+5. **Team Allocation** defaults to Start, Continue and Recalibrate. Allocate a team from a decision row, or use the by-search/by-team calendar. New assignments and moves require an active sourcing decision; undecided, Pause and Stop roles cannot receive new allocation. Existing work and review history are retained.
+6. Paused/stopped or undecided roles with future unstarted assignments show a review action. It opens the first affected week. Remove unstarted allocations explicitly; no plan is silently deleted. Targets/notes can still be corrected on existing assignments, but target increases and researcher changes require an active decision. Recorded work always protects researcher attribution and prevents deletion.
+7. Use the small plus icon to assign days, then select researchers and targets. Daily targets are team totals. Existing allocation cards open the seven-day editor. Weekend planning is supported.
+8. Researchers use My Work for candidate mappings and reviewers use the existing approval flow. Daily Work shows candidate-derived output. Whether the slate is sufficient remains a human decision; no automatic count threshold is applied.
 
 ## Data rules
 

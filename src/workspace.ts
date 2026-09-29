@@ -1,3 +1,4 @@
+import {isWorkingDecision} from './search-decisions';
 import {planCandidates} from './candidate-import';
 import {candidateSchema,createCandidateInvite,listCandidateInvites,revokeCandidateInvite,requestCandidateCode,verifyCandidateCode,candidatePage} from './candidate-access';
 import {planCompanyImport} from './company-import';
@@ -260,6 +261,8 @@ export class Workspace extends DurableObject {
       this.rows('INSERT INTO staff(id,name) VALUES(?,?)',id,name);this.audit(a,'staff',id,null,{name});return {id};
     });
   }
+  sourcingDecision(role:string,date:string){return this.rows('SELECT * FROM weekly_priorities WHERE search_id=? AND week<=? ORDER BY week DESC LIMIT 1',role,weekStart(date))[0];}
+  requireSourcing(role:string,date:string){requireThat(isWorkingDecision(this.sourcingDecision(role,date)),'Choose Start, Continue or Recalibrate in Search Decisions before allocating work. Pause and Stop do not allow new assignments.',409);}
   async mutate(a: Actor, kind: string, b: any,members?:Member[]) {
     if(members)await this.syncPeople(members);
     return this.ctx.storage.transactionSync(() => this.applyMutation(a, kind, b));
@@ -373,6 +376,7 @@ export class Workspace extends DurableObject {
           requireThat(!this.assignmentHasWork(old),'Work is recorded on '+old.work_date+'. Keep its attribution and select unstarted days instead.',409);
           const before={...old,staff_ids:this.rows('SELECT staff_id FROM entries WHERE assignment_id=?',old.id).map(r=>r.staff_id)};
           if(b.operation==='move') {
+            this.requireSourcing(old.search_id,old.work_date);
             requireThat(!this.rows('SELECT id FROM assignments WHERE search_id=? AND team_id=? AND work_date=?',old.search_id,destination,old.work_date).length,'The destination team already has this search on '+old.work_date+'. Edit that assignment instead; targets were not combined.',409);
             this.rows('DELETE FROM entries WHERE assignment_id=?',old.id);
             this.rows('UPDATE assignments SET team_id=?,version=version+1 WHERE id=?',destination,old.id);
@@ -415,12 +419,14 @@ export class Workspace extends DurableObject {
           const changed=JSON.stringify([...selected].sort())!==JSON.stringify([...prior].sort());
           requireThat(selected.every((sid:string)=>members.includes(sid)||old&&!changed&&prior.includes(sid)),'Choose researchers from the selected team.');
           if(old) {
+            if(changed || (target??0)>(old.target??0))this.requireSourcing(b.search_id,d.date);
             if(changed){requireThat(!this.assignmentHasWork(old),'Recorded work protects this day’s researcher allocation. Change an unstarted day instead.',409);this.rows('DELETE FROM entries WHERE assignment_id=?',old.id);for(const sid of selected)this.rows('INSERT INTO entries(id,assignment_id,staff_id) VALUES(?,?,?)',uuid(),old.id,sid);}
             if(old.target!==target || old.notes!==notes || changed) {
               this.rows('UPDATE assignments SET target=?,notes=?,version=version+1 WHERE id=?',target,notes,old.id);
               this.audit(a,'plan-edit',old.id,{...old,staff_ids:prior},{target,notes,staff_ids:selected});
             }
           } else {
+            this.requireSourcing(b.search_id,d.date);
             requireThat(members.length,'Add researchers to this team in Teams before planning work.');
             const id=uuid();
             this.rows('INSERT INTO assignments(id,search_id,team_id,work_date,target,notes) VALUES(?,?,?,?,?,?)',id,b.search_id,b.team_id,d.date,target,notes);
@@ -436,6 +442,7 @@ export class Workspace extends DurableObject {
         requireThat(old, "Assignment not found.", 404);
         requireThat(Number(b.version) === old.version, "Someone changed this assignment. Reload before editing.", 409);
         const target = count(b.target, "Target");
+        if((target??0)>(old.target??0))this.requireSourcing(old.search_id,old.work_date);
         this.rows("UPDATE assignments SET target=?,notes=?,version=version+1 WHERE id=?", target, text(b.notes, 5000), b.id);
         this.audit(a, kind, b.id, old, {target, notes: text(b.notes, 5000)});
         return {id: b.id};
@@ -489,6 +496,7 @@ export class Workspace extends DurableObject {
         const id = uuid(),
           date = day(b.work_date),
           target = count(b.target, "Target");
+        this.requireSourcing(b.search_id,date);
         requireThat(!this.rows('SELECT id FROM assignments WHERE search_id=? AND team_id=? AND work_date=?',b.search_id,b.team_id,date).length,'This search and team are already planned for this day. Edit the weekly plan.',409);
         this.rows(
           "INSERT INTO assignments(id,search_id,team_id,work_date,target,partner,link,notes) VALUES(?,?,?,?,?,?,?,?)",
@@ -645,6 +653,7 @@ export class Workspace extends DurableObject {
         );
         const week=weekStart(b.week),old=this.rows('SELECT * FROM weekly_priorities WHERE search_id=? AND week=?',b.search_id,week)[0];
         requireThat(Number(b.version) === (old?.version || 0),'A priority already exists or has changed for this search and week. Reload and edit it.',409);
+        if(Object.prototype.hasOwnProperty.call(b,'base_week')){const base=this.sourcingDecision(b.search_id,week);requireThat((base?.week||'')===b.base_week&&(base?.version||0)===Number(b.base_version),'The carried decision changed. Reload before saving.',409);}
         const notes=text(b.notes,5000),id=uuid();
         this.rows('INSERT INTO weekly_priorities(search_id,week,disposition,notes,version) VALUES(?,?,?,?,?) ON CONFLICT(search_id,week) DO UPDATE SET disposition=excluded.disposition,notes=excluded.notes,version=excluded.version',b.search_id,week,b.disposition,notes,(old?.version || 0)+1);
         this.rows('INSERT INTO weekly_decisions VALUES(?,?,?,?,?,?,?)',id,b.search_id,week,b.disposition,notes,a.id,now());
