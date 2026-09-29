@@ -365,7 +365,7 @@ function App() {
           </button>
         </div>
       </aside>
-      <main className={"main"+(["Role repository","Company universe","Candidates"].includes(page)?" compact-workspace":"")}>
+      <main className={"main"+(["Role repository","Company universe","Candidates","Daily work"].includes(page)?" compact-workspace":"")}>
         <header>
           <div>
             <p className="eyebrow">{data.name} / {page === "Role repository" ? "ROLE REPOSITORY" : "OPERATIONS"}</p>

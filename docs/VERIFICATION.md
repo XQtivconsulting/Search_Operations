@@ -1,5 +1,9 @@
 # Verification status
 
+## Quieter weekly controls and Daily Work header — 2026-09-28
+
+Weekly assignment plus controls are smaller and borderless at rest. Priority is plain muted text, with a distinct underlined Set/Edit action. Daily Work uses the shared compact page header. Typecheck, all 128 tests and production build passed. Signed-in browser visual verification was not performed. Deployment is checked separately.
+
 ## Candidate header and weekly plan readability — 2026-09-28
 
 Candidates uses the compact page header and removes its duplicate directory heading. Manual role creation is removed from repository controls and rejected by the mutation API; RecruitCRM import remains the new-role route. Weekly role options use aligned ID/text columns. Weekly rows gain horizontal separators and alternating shading; compact labelled icon buttons and a legend replace repeated assignment-action text. Typecheck, all 128 tests and production build passed. Regression coverage confirms manual creation is rejected before any workspace write. Signed-in browser visual verification was not performed. Deployment is checked separately.
