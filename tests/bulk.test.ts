@@ -307,3 +307,29 @@ test('PTO is versioned, audited and limited to self or planner',async()=>{
  await w.mutate(actor,'pto',{...body,pto:false,version:1});assert.equal((await w.state(actor)).timeOff[0].pto,0);
  assert.equal(db.prepare("SELECT COUNT(*) n FROM audit WHERE action='pto'").get()?.n,2);db.close();
 });
+
+test('full workspace reset atomically archives data, clears dependencies and CRM selections, retains audit',async()=>{
+ const {db,w}=fixture();const owner={...actor,roles:['super_admin'] as any};
+ db.exec("INSERT INTO reviews VALUES('review','e','peer',2,'admin','2026-09-29','test'); INSERT INTO team_members VALUES('t','s'); INSERT INTO team_rosters VALUES('t',1); INSERT INTO crm_partners VALUES('crm','partner','Partner',1); INSERT INTO time_off VALUES('s','2026-09-29',1,1); INSERT INTO effort_records VALUES('s','2026-09-29','r','t',1); INSERT INTO research_records VALUES('candidate','candidate','','candidate','{}',1);");
+ w.audit(owner,'test','e',null,{test:true});
+ const preview=await w.previewReset(owner);assert.equal(preview.counts.searches,1);
+ const result=await w.resetWorkspace(owner,{signature:preview.signature},{keep:{id:owner.id},members:[{id:owner.id}]});
+ for(const table of ['searches','teams','staff','entries','assignments','reviews','crm_partners','time_off','effort_records','research_records'])assert.equal(db.prepare(`SELECT COUNT(*) n FROM ${table}`).get()?.n,0,table);
+ const backup=await w.resetBackup(owner,result.backupId);assert.equal(backup.tables.entries.length,2);assert.equal(backup.tables.reviews.length,1);assert.equal(backup.tables.crm_partners.length,1);assert.equal(backup.people.keep.id,owner.id);
+ assert.equal(db.prepare('SELECT COUNT(*) n FROM audit').get()?.n,2);
+ assert.equal((await w.resetBackups(owner)).length,1);db.close();
+});
+test('reset rejects ordinary admins and stale snapshots without clearing or backing up',async()=>{
+ const {db,w}=fixture();const owner={...actor,roles:['super_admin'] as any};
+ await assert.rejects(w.previewReset(actor),/permission/);
+ const preview=await w.previewReset(owner);db.exec("UPDATE searches SET title='Changed' WHERE id='r'");
+ await assert.rejects(w.resetWorkspace(owner,{signature:preview.signature},{}),/Workspace changed/);
+ assert.equal(db.prepare('SELECT COUNT(*) n FROM entries').get()?.n,2);assert.equal(db.prepare('SELECT COUNT(*) n FROM reset_backups').get()?.n,0);db.close();
+});
+test('reset rolls back deletions and snapshot when a dependency prevents deletion',async()=>{
+ const {db,w}=fixture();const owner={...actor,roles:['super_admin'] as any};
+ db.exec("CREATE TABLE future_dependency(id TEXT REFERENCES searches(id)); INSERT INTO future_dependency VALUES('r')");
+ const preview=await w.previewReset(owner);
+ await assert.rejects(w.resetWorkspace(owner,{signature:preview.signature},{}),/FOREIGN KEY/);
+ assert.equal(db.prepare('SELECT COUNT(*) n FROM entries').get()?.n,2);assert.equal(db.prepare('SELECT COUNT(*) n FROM reset_backups').get()?.n,0);db.close();
+});

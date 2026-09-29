@@ -226,6 +226,27 @@ export default {
             requireThat(hasRole(a,'super_admin')||(!hasRole(old,'super_admin')&&!body.roles.includes('super_admin')),'Only a super admin can change a super admin account.',403);
             res=json(await identity.updateMember(a,body));
           }
+          else if(url.pathname==='/api/workspace-reset'&&req.method==='POST') {
+            const people=await identity.resetTestPeople(a,{preview:true}); // Verifies original owner, not merely admin.
+            if(body.action==='preview')res=json({people,...await workspace.previewReset(a)});
+            else if(body.action==='backups')res=json(await workspace.resetBackups(a));
+            else if(body.action==='backup')res=json(await workspace.resetBackup(a,text(body.id,100)));
+            else {
+              requireThat(body.action==='reset','Unknown reset action.');
+              requireThat(body.peopleSignature===people.signature,'People changed. Preview the reset again.',409);
+              requireThat(text(body.confirmEmail,254).toLowerCase()===people.keep.email,'Enter your sign-in email to confirm.');
+              // Snapshot + operational deletion are atomic. If identity cleanup fails, the backup remains
+              // and the UI reports the partial result; retrying previews the remaining people safely.
+              const result=await workspace.resetWorkspace(a,body,{...people,members:await identity.members(a.tenant)});
+              try {
+                await identity.resetTestPeople(a,{signature:people.signature,confirmEmail:body.confirmEmail});
+                await workspace.syncPeople(await identity.members(a.tenant));
+                res=json({...result,ok:true});
+              } catch {
+                res=json({...result,ok:false,error:'Workspace data was cleared and backed up, but people cleanup did not finish. Preview and run the reset again to remove remaining workspace accounts.'});
+              }
+            }
+          }
           else if(url.pathname==='/api/people/reset'&&req.method==='POST'){const result=await identity.resetTestPeople(a,body);if(!body.preview)await workspace.syncPeople(await identity.members(a.tenant));res=json(result);}
           else if(url.pathname==='/api/invitations/cancel'&&req.method==='POST')res=json(await identity.cancelInvitation(a,text(body.id,100)));
           else if (url.pathname === "/api/mutate" && req.method === "POST") {

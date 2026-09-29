@@ -165,3 +165,9 @@ Additional coverage verifies atomic multi-company assignment, stale/cross-role/p
 Daily Work excludes removed-user entries and their totals, including rows populated only by removed people; genuine empty plans remain visible. Stored history is unchanged. My Work focuses one role with mapping/coverage tabs, retained inputs while switching tabs, and a guarded Back action. Repository role selection supports typed ID/company/title search and numeric ID or company sorting. Target selection and Wave are separate columns. Shared tables use stronger blue row contrast.
 
 All 122 tests, typecheck and production build passed locally. Regression tests cover mixed/removed-only Daily Work rows and role search/sort behavior. No live data was modified for verification. Signed-in browser visual/interaction verification was not performed. Deployment is checked separately through GitHub Actions.
+
+## 2026-09-29 — clean-start reset and landing page
+
+Implemented original-owner-only full reset with record-count preview, email confirmation, stale-state checks, transactional per-record backup/deletion, downloadable retained snapshots, and explicit partial-result handling for separate identity cleanup. Preserves owner credentials/roles, other tenants, integration secrets, and immutable audit/research events. Removed Overview and redundant navigation workspace label; default landing is Delivery Monitor or researcher My Work.
+
+Verified locally: typecheck, 156 passing tests, production build. Added actual SQLite foreign-key reset/archive, stale preview/no-write, rollback, and authenticated worker owner/email tests; existing identity test verifies preserved owner password/session and other-tenant membership. Production reset has not been run: the available browser is signed out. No live dataset counts or recovery drill are claimed. Reset is an explicit owner operation, never a migration on deployment.

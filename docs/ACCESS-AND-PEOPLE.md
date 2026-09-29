@@ -46,3 +46,13 @@ A researcher can add a direct mapping for a role using a team they belong to, or
 ## Retired count workflow
 
 Spreadsheet entry, historical count reviews and import reconciliation are removed from the working screens. HTTP APIs reject new manual output and count-review mutations, including bulk requests. Daily Work and Performance display candidate-derived output; legacy aggregate rows remain stored and are not converted into fake candidates or deleted. Planning targets and roster snapshots remain available. Test-data cleanup remains a separate, explicitly scoped operation.
+
+## Owner-only full workspace reset
+
+People & access → Reset workspace test data replaces the people-only UI. Preview counts and an owner email confirmation are required. The server independently verifies the original owner, a current people signature and a SHA-256 workspace snapshot signature. Deployment never clears data.
+
+The operation clears operational records (including legacy reviews/output, role documents, candidate access tokens, all staff/teams/plans, companies/candidates/mappings, effort/PTO, CRM preview and saved partner selections). It retains settings, audit/research events, the owner identity and roles/password, and Worker secrets. RecruitCRM and other tenants are untouched. Other people lose workspace memberships; global credentials and memberships elsewhere remain intact.
+
+Before deletion, an atomic tenant-local recovery snapshot stores each record separately in reset_backups/reset_backup_rows, including credential-free member metadata. Original-owner-only downloads remain under Saved recovery snapshots. There is no automatic restore UI: recovering a snapshot requires administrator assistance and review; do not restore expired invitations or sessions. Immutable audit/research events remain in the live database. Identity membership cleanup is a separate Durable Object transaction; a failure returns an explicit partial-result message and backup ID, with instructions to preview and retry. No partial reset is represented as success.
+
+Overview is retired. Researchers without leadership roles land in My Work; other accounts land in Delivery Monitor. The redundant workspace initial/name label is removed from navigation.

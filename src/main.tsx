@@ -9,7 +9,6 @@ import {AccountSettings} from './AccountSettings';
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
-  SquaresFour,
   Briefcase,
   CalendarBlank,
   ClipboardText,
@@ -65,7 +64,7 @@ function App() {
   const [data, setData] = useState<Row | null>(null),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
-    [page, setPage] = useState("Overview"),
+    [page, setPage] = useState(""),
     [search, setSearch] = useState(""),
     [selected, setSelected] = useState(""),
     [candidateId,setCandidateId]=useState(""),
@@ -86,6 +85,7 @@ function App() {
   async function load() {
     try {
       const next=await api('state');expectedUser=next.actor.id;
+      setPage(current=>current||((hasRole(next.actor,'researcher')&&!['admin','planner','partner','founder'].some(r=>hasRole(next.actor,r as any)))?'My Work':'Delivery Monitor'));
       // Operational totals come only from candidate mappings. Historical aggregates remain in storage.
       setData({...next,entries:next.entries.map((e:Row)=>e.source==='candidates'?e:{...e,mapped:null,peer:null,partner:null,peer_at:null,partner_at:null,flag:null,automated:true,notes:''})});
       setError("");
@@ -96,7 +96,7 @@ function App() {
     }
   }
   useEffect(()=>{
-    const changed=()=>{setData(null);setModal(null);setInvitation(null);setSheetDirty(false);setPage('Overview');setSelected('');setError('The signed-in account changed or expired. Reload to use the current browser account, or sign in again. Use separate browser profiles for simultaneous accounts.');};
+    const changed=()=>{setData(null);setModal(null);setInvitation(null);setSheetDirty(false);setPage('');setSelected('');setError('The signed-in account changed or expired. Reload to use the current browser account, or sign in again. Use separate browser profiles for simultaneous accounts.');};
     const focus=()=>{if(expectedUser)api('session').catch(()=>{});};
     window.addEventListener('xqtiv-account-changed',changed);window.addEventListener('focus',focus);
     return()=>{window.removeEventListener('xqtiv-account-changed',changed);window.removeEventListener('focus',focus);};
@@ -124,7 +124,7 @@ function App() {
         workspace = result.memberships[0]?.tenant || "xqtiv";
         sessionStorage.setItem("workspace", workspace);
         history.replaceState({}, "", "/");
-        setInvitation(null);setModal(null);setPage("Overview");setSelected("");
+        setInvitation(null);setModal(null);setPage("");setSelected("");
         await load();
       } else {
         const body = { ...modal, ...b };
@@ -246,7 +246,6 @@ function App() {
   );
   const queue=(data.research?.records||[]).filter((m:Row)=>m.kind==='mapping'&&['Peer review','Partner review'].includes(m.status));
   const nav: [string, React.ElementType,string][] = [
-    ['Overview',SquaresFour,'Work'],
     ['My Work',ClipboardText,'Work'],
     ['Role repository',Briefcase,'Research'],
     ['Candidates',Users,'Research'],
@@ -318,13 +317,6 @@ function App() {
         <div className="brand">
           <img src="/brand/xqtiv-logo.svg" alt="XQtiv"/><span>Search Operations</span>
         </div>
-        <div className="workspace-label">
-          <span className="workspace-initial">{data.name[0]}</span>
-          <div>
-            <strong>{data.name}</strong>
-            <small>Private workspace</small>
-          </div>
-        </div>
         <nav aria-label="Main navigation">
           {nav.map(([label, Icon, group],index) => (
             <React.Fragment key={label}>{(index===0||nav[index-1][2]!==group)&&<p className="nav-group">{group}</p>}
@@ -360,7 +352,7 @@ function App() {
               if (sheetDirty && !confirm("Discard unsaved changes and sign out?")) return;
               setSheetDirty(false);
               await api("logout", {});
-              setData(null);setInvitation(null);setModal(null);setPage("Overview");history.replaceState({},"","/");
+              setData(null);setInvitation(null);setModal(null);setPage("");history.replaceState({},"","/");
             }}
           >
             <SignOut />
@@ -372,12 +364,11 @@ function App() {
         <header>
           <div>
             <p className="eyebrow">{data.name} / {page === "Role repository" ? "ROLE REPOSITORY" : "OPERATIONS"}</p>
-            <h1>{page === "Role repository" && sBy[selected] ? sBy[selected].title : page === "Overview" ? "A clear view of the work." : page}</h1>
+            <h1>{page === "Role repository" && sBy[selected] ? sBy[selected].title : page}</h1>
             <p className="subheading">
               {
                 {
                   "Role repository": sBy[selected] ? `${sBy[selected].client} · Role ID: ${roleDisplayId(sBy[selected])} · ${sBy[selected].status || "Status not set"} · Partner: ${sBy[selected].partner || "Not assigned"}` : "Choose a role to open its repository.",
-                  Overview: "Keep priorities, output, and reviews connected.",
                   Searches:
                     "The complete search portfolio, with the details one click away.",
                   "Weekly plan":
@@ -391,17 +382,6 @@ function App() {
               }
             </p>
           </div>
-          {planner && ["Overview"].includes(page) && (
-            <button
-              className="primary"
-              onClick={() =>
-                setPage("Weekly plan")
-              }
-            >
-              <Plus />
-              Plan week
-            </button>
-          )}
         </header>
         {notice && (
           <div className="notice" role="status">
@@ -463,95 +443,6 @@ function App() {
         )}
         {page==='Account settings'&&<AccountSettings api={api} onDirty={setSheetDirty} email={actor.email} reload={load}/>}
         {page === "Integrations" && <CRMPanel partners={data.partners || []} searches={data.searches} api={api} reload={load} />}
-        {page === "Overview" && (
-          <>
-            {cards(filtered)}
-            <div className="overview-grid">
-              <section className="panel">
-                <div className="section-head">
-                  <div>
-                    <p className="eyebrow">NEXT ACTIONS</p>
-                    <h2>Reviews waiting on a decision</h2>
-                  </div>
-                  <button onClick={() => {setDeliveryStart({view:'pipeline',roles:null});setPage('Delivery Monitor');}}>
-                    View all <ArrowRight />
-                  </button>
-                </div>
-                {queue.slice(0, 6).map((e: Row) => (
-                  <button
-                    className="work-row"
-                    key={e.id}
-                    onClick={() => {
-                      setSelected(e.role_id);
-                      setDeliveryStart({view:'pipeline',roles:[e.role_id]});setPage("Delivery Monitor");
-                    }}
-                  >
-                    <span className="monogram">
-                      {pBy[e.staff_id]?.name.slice(0, 1)}
-                    </span>
-                    <span>
-                      <strong>
-                        {e.name} · {sBy[e.role_id]?.client}
-                      </strong>
-                      <small>{sBy[e.role_id]?.title}</small>
-                    </span>
-                    <span className="badge">
-                      {e.status}
-                    </span>
-                  </button>
-                ))}
-                {!queue.length && (
-                  <Empty
-                    title="The review queue is clear"
-                    body="New sourcing output appears here when it is ready for a decision."
-                  />
-                )}
-              </section>
-              <section className="panel dark">
-                <p className="eyebrow">PORTFOLIO</p>
-                <h2>
-                  {data.searches.filter((s: Row) => s.status === "Open").length}{" "}
-                  open searches
-                </h2>
-                <p>
-                  Across {new Set(data.searches.map((s: Row) => s.client)).size}{" "}
-                  clients and {data.teams.length} teams.
-                </p>
-                <div className="portfolio-number">
-                  {fmt(totals.personDays)}
-                  <small>researcher-days</small>
-                </div>
-                <p className="fine">
-                  Each researcher and work date is counted once when output is recorded.
-                </p>
-                <button onClick={() => setPage("Performance")}>
-                  Explore performance <ArrowRight />
-                </button>
-              </section>
-            </div>
-            <section className="panel">
-              <div className="section-head">
-                <h2>Recent work</h2>
-                <button onClick={() => {setDeliveryStart({view:'daily',roles:null});setPage('Delivery Monitor');}}>
-                  Open delivery monitor <ArrowRight />
-                </button>
-              </div>
-              {assignments.slice(0, 5).map((a: Row) => (
-                <div className="work-row" key={a.id}>
-                  <span className="date-tile">{dateLabel(a.work_date)}</span>
-                  <span>
-                    <strong>{sBy[a.search_id]?.client}</strong>
-                    <small>{sBy[a.search_id]?.title}</small>
-                  </span>
-                  <span className="badge">{tBy[a.team_id]?.name}</span>
-                  <strong>
-                    {aggregate(entriesFor(a.id) as any).mapped} mapped
-                  </strong>
-                </div>
-              ))}
-            </section>
-          </>
-        )}
         {page === "Searches" && (
           <>
             <div className="searchbox">

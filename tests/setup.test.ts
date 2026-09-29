@@ -189,3 +189,15 @@ test('manual role creation is rejected before any workspace write',async()=>{
  const res=await worker.fetch(new Request('https://app.example.com/api/mutate',{method:'POST',headers:{Origin:'https://app.example.com'},body:JSON.stringify({kind:'search',title:'Manual role',client:'Synthetic'})}),env);
  assert.equal(res.status,410);assert.equal(written,false);assert.match((await res.json() as any).error,/RecruitCRM/);
 });
+
+test('full reset endpoint checks original owner and email before workspace deletion, preserves account',async()=>{
+ const {db,identity}=peopleFixture();let resets=0;
+ const env:any={IDENTITY:{getByName:()=>identity},WORKSPACE:{getByName:()=>({previewReset:async()=>({signature:'snapshot',counts:{searches:1}}),resetWorkspace:async()=>{resets++;return {backupId:'saved'};},syncPeople:async()=>{}})}};
+ const ownerSession=await identity.session('owner'),otherSession=await identity.session('admin2');
+ const send=(token:string,body:any)=>worker.fetch(new Request('https://app.example.com/api/workspace-reset',{method:'POST',headers:{Origin:'https://app.example.com',Cookie:'search_session='+token,'X-Workspace':'test'},body:JSON.stringify(body)}),env);
+ assert.equal((await send(otherSession.token,{action:'preview'})).status,403);
+ const preview:any=await (await send(ownerSession.token,{action:'preview'})).json();
+ assert.equal((await send(ownerSession.token,{action:'reset',peopleSignature:preview.people.signature,signature:preview.signature,confirmEmail:'incorrect@example.com'})).status,400);assert.equal(resets,0);
+ const response=await send(ownerSession.token,{action:'reset',peopleSignature:preview.people.signature,signature:preview.signature,confirmEmail:preview.people.keep.email});
+ assert.equal(response.status,200);assert.equal((await response.json() as any).ok,true);assert.equal(resets,1);assert.equal((await identity.members('test')).length,1);assert.ok(await identity.authenticate(ownerSession.token,'test'));db.close();
+});

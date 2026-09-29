@@ -1,3 +1,4 @@
+import {resetSchema,resetSnapshot,clearWorkspace} from './workspace-reset';
 import {effortSchema,saveEffort} from './effort';
 import {isWorkingDecision} from './search-decisions';
 import {planCandidates} from './candidate-import';
@@ -26,6 +27,7 @@ export class Workspace extends DurableObject {
   constructor(ctx: DurableObjectState, env: any) {
     super(ctx, env);
     ctx.storage.sql.exec(workspaceSchema);
+    ctx.storage.sql.exec(resetSchema);
     ctx.storage.sql.exec(effortSchema);
     this.rows('CREATE TABLE IF NOT EXISTS time_off(staff_id TEXT NOT NULL REFERENCES staff(id),work_date TEXT NOT NULL,pto INTEGER NOT NULL DEFAULT 0,version INTEGER NOT NULL DEFAULT 1,PRIMARY KEY(staff_id,work_date))');
     ctx.storage.sql.exec(researchSchema);
@@ -58,6 +60,17 @@ export class Workspace extends DurableObject {
       JSON.stringify(after),
       now(),
     );
+  }
+  async previewReset(a:Actor) {const {signature,counts}=resetSnapshot(this,a);return {signature,counts};}
+  async resetWorkspace(a:Actor,b:any,people:any) {return this.ctx.storage.transactionSync(()=>clearWorkspace(this,a,b.signature,people));}
+  async resetBackups(a:Actor) {requireThat(hasRole(a,'super_admin'),'Workspace owner permission required.',403);return this.rows('SELECT id,created_at FROM reset_backups WHERE actor=? ORDER BY created_at DESC',a.id);}
+  async resetBackup(a:Actor,id:string) {
+    requireThat(hasRole(a,'super_admin'),'Workspace owner permission required.',403);
+    const row=this.rows('SELECT data FROM reset_backups WHERE id=? AND actor=?',id,a.id)[0];
+    requireThat(row,'Backup not found.',404);
+    const backup=JSON.parse(row.data);backup.tables={};
+    for(const r of this.rows('SELECT * FROM reset_backup_rows WHERE backup_id=? ORDER BY table_name,row_no',id))(backup.tables[r.table_name]??=[]).push(JSON.parse(r.data));
+    return backup;
   }
   async research(a: Actor,b:any,members:Member[]):Promise<any> {await this.syncPeople(members);return this.ctx.storage.transactionSync(()=>{
       if(b.action==='mapping-inline') {
