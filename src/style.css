@@ -1286,7 +1286,7 @@ input[type=checkbox] { accent-color:var(--xqtiv-navy); }
 .app .performance-panel td button{min-height:24px;padding:2px 5px;box-shadow:none}
 .app .performance-detail{padding:10px 0;min-width:850px}
 .app .performance-detail h3{margin:16px 0 8px}
-.app .performance-panel details{margin:14px 0}
+.app .performance-panel>.metric-definitions,.app .performance-detail details{margin:14px 0}
 .app .performance-panel summary,.app .effort-confirmation summary{cursor:pointer;color:#315f99}
 .app .performance-matrix{min-width:750px;width:max-content}
 .app .performance-matrix th{min-width:105px}
@@ -1297,3 +1297,20 @@ input[type=checkbox] { accent-color:var(--xqtiv-navy); }
 .app .effort-row input{width:90px}
 .app .effort-row small{display:block}
 .app .effort-confirmation .sheet-toolbar{flex-wrap:wrap;align-items:end}
+
+/* Match Performance filters to the compact planning controls. */
+.app .performance-controls{gap:8px;align-items:flex-end}
+.app .performance-controls>label{flex:0 1 150px;min-width:130px;gap:4px;margin:0}
+.app .performance-controls>.role-multi-filter{flex:1 1 240px;min-width:220px;max-width:340px}
+.app .performance-controls .role-multi-filter .filter-label{margin:0 0 4px}
+.app .performance-controls .column-filter{margin:0}
+.app .performance-controls>label :is(input,select),.app .performance-controls .column-filter>summary{width:100%;height:32px;min-height:32px;box-sizing:border-box;padding:5px 8px;border:1px solid #c9d0dc;border-radius:4px;background:#fff;color:#22304a;box-shadow:none;margin:0}
+.app .performance-controls .column-filter>summary{align-items:center}
+.app .performance-controls>button{height:32px;min-height:32px;padding:5px 10px;box-shadow:none;margin:0}
+.app .performance-measure{display:flex;flex-direction:column;gap:4px;max-width:240px;margin:8px 0}
+.app .performance-measure select{height:32px;min-height:32px;padding:5px 8px;border:1px solid #c9d0dc;background:white;color:#22304a}
+.app .metric-definitions{border-top:1px solid #d3dce9;padding-top:12px}
+.app .metric-definitions>summary{padding:3px 0;color:#315f99}
+.app .metric-definitions ul{max-width:900px;margin:10px 0 0;padding-left:20px;color:#22304a;list-style:disc}
+.app .metric-definitions li{padding-left:3px;margin:0 0 8px}
+@media(max-width:600px){.app .performance-controls>label,.app .performance-controls>.role-multi-filter{flex:1 1 150px;max-width:none;min-width:0}.app .performance-controls>.role-multi-filter{flex-basis:100%}}

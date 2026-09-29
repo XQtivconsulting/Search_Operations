@@ -1,3 +1,7 @@
+## Performance formatting — September 29, 2026
+
+Removed broad details margins from the custom role filter; normalized Performance control heights, label typography, borders and responsive wrapping. Replaced dense metric-definition paragraphs with spaced, bold-labeled bullets while retaining native expand/collapse. No metric calculations changed. Typecheck, 152 tests and production build passed. Browser visual verification was unavailable.
+
 ## Automatic person-days and PTO — September 29, 2026
 
 Person-days now derive from daily researcher allocations before reporting filters, excluding future work and full-day PTO. Prior recorded corrections remain preserved; no effort-confirmation UI remains. Weekly Plan provides self/planner PTO controls with versioning/audit and allocation annotations. No production data was rewritten.

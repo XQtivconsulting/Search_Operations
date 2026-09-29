@@ -84,3 +84,10 @@
 .app .main .decision-grid td button:not(.decision-history-cell) {min-height:24px;padding:2px 5px;font-size:var(--type-caption);line-height:1.3;box-shadow:none}
 .app .main .decision-grid .badge {font-size:var(--type-micro);font-weight:var(--weight-medium);line-height:1.3;padding:3px 6px;border-radius:3px}
 .app .main .decision-history {min-width:1100px}
+
+/* Performance control labels, including the custom role picker, share one scale. */
+.app .performance-controls>label,.app .performance-controls .filter-label,.app .performance-measure{font-size:var(--type-control);font-weight:var(--weight-medium);line-height:1.4}
+.app .performance-controls>label :is(input,select),.app .performance-controls .column-filter>summary,.app .performance-measure select{font-size:var(--type-control);font-weight:var(--weight-regular);line-height:1.4}
+.app .performance-panel .delivery-summary{font-size:var(--type-control);line-height:1.4}
+.app .metric-definitions li{font-size:var(--type-body);font-weight:var(--weight-regular);line-height:1.6}
+.app .metric-definitions strong{font-weight:var(--weight-emphasis)}
