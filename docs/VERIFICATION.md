@@ -1,5 +1,9 @@
 # Verification status
 
+## Compact repository and company layout — 2026-09-28
+
+Candidate mappings is the first/default repository tab, including sidebar entry. Explicit links to target companies retain their destination. Compact page headers, one repository control row, sorting inside the role picker, and secondary action menus reduce space above the table. Company Universe removes its duplicated heading/help blocks, groups filters/actions in one toolbar and reveals role-assignment controls after company selection. Typecheck, all 127 tests and production build passed. Signed-in browser visual verification was not performed. Deployment is checked separately through GitHub Actions.
+
 ## Role lifecycle and independent partner save — 2026-09-28
 
 Role Repository replaces Searches in navigation, with a filter over actual RecruitCRM statuses, selected-role status, partner editing and guarded removal of empty roles. Workspace status reads use the latest fetched CRM snapshot. Integrations saves a partner separately from adding/updating repository roles; saved assignments persist across fetches in a versioned tenant-local table. Removal rejects any planning, research, publication or invitation history, checks permissions/version and audits the deletion; RecruitCRM is untouched and the partner is retained for re-addition. Typecheck, 127 tests and production build passed; regression coverage includes independent save, refresh persistence, stale saves/imports, permissions, guarded removal and status refresh. No live records were changed during verification. Signed-in browser verification was not performed; deployment is checked separately.

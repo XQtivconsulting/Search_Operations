@@ -74,7 +74,7 @@ function App() {
     [modal, setModal] = useState<Row | null>(null),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState("");
-  const [repoTab,setRepoTab]=useState("Target companies");
+  const [repoTab,setRepoTab]=useState("Candidate mappings");
   const [sheetDirty, setSheetDirty] = useState(false);
   useEffect(()=>{const warn=(e:BeforeUnloadEvent)=>{if(sheetDirty){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[sheetDirty]);
   const invite = location.pathname.startsWith('/join/') ? location.pathname.split('/')[2] : new URLSearchParams(location.hash.slice(1)).get("invite");
@@ -333,6 +333,7 @@ function App() {
               onClick={() => {
                 if (sheetDirty && !confirm("Discard unsaved changes?")) return;
                 setSheetDirty(false);
+                if(label==='Role repository')setRepoTab("Candidate mappings");
                 setPage(label);
                 setNotice("");
               }}
@@ -364,7 +365,7 @@ function App() {
           </button>
         </div>
       </aside>
-      <main className="main">
+      <main className={"main"+(["Role repository","Company universe"].includes(page)?" compact-workspace":"")}>
         <header>
           <div>
             <p className="eyebrow">{data.name} / {page === "Role repository" ? "ROLE REPOSITORY" : "OPERATIONS"}</p>
@@ -372,7 +373,7 @@ function App() {
             <p className="subheading">
               {
                 {
-                  "Role repository": sBy[selected] ? `${sBy[selected].client} · Role ID: ${roleDisplayId(sBy[selected])}` : "Choose a role to open its repository.",
+                  "Role repository": sBy[selected] ? `${sBy[selected].client} · Role ID: ${roleDisplayId(sBy[selected])} · ${sBy[selected].status || "Status not set"} · Partner: ${sBy[selected].partner || "Not assigned"}` : "Choose a role to open its repository.",
                   Overview: "Keep priorities, output, and reviews connected.",
                   Searches:
                     "The complete search portfolio, with the details one click away.",
@@ -387,7 +388,7 @@ function App() {
               }
             </p>
           </div>
-          {planner && ["Overview","Role repository","Daily work"].includes(page) && (
+          {planner && ["Overview","Daily work"].includes(page) && (
             <button
               className="primary"
               onClick={() =>
@@ -626,7 +627,7 @@ function App() {
         )}
         {page === "Weekly plan" && <WeeklyPlanner data={data} api={api} reload={load} initialSearch={selected} onDirty={setSheetDirty} onTeams={()=>setPage('Teams')}/>}
         {page==='My Work'&&<MyWork data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage("Role repository");}}/>}
-        {page==='Role repository'&&<ResearchPanel onEditPartner={s=>open({kind:"search-owner",...s})} onRoleChange={setSelected} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} key={page} data={data} api={api} reload={load} view={page} initialRole={page==='Role repository'?selected:''} initialTab={repoTab} onDirty={setSheetDirty} onCompanies={id=>{setSelected(id);setPage("Company universe");}}/>}
+        {page==='Role repository'&&<ResearchPanel onCreateRole={()=>open({kind:"search"})} onEditPartner={s=>open({kind:"search-owner",...s})} onRoleChange={setSelected} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} key={page} data={data} api={api} reload={load} view={page} initialRole={page==='Role repository'?selected:''} initialTab={repoTab} onDirty={setSheetDirty} onCompanies={id=>{setSelected(id);setPage("Company universe");}}/>}
         {page === 'Company universe'&&<CompanyUniverse data={data} api={api} reload={load} onDirty={setSheetDirty} initialRole={selected} onOpen={id=>{setSelected(id);setRepoTab("Target companies");setPage("Role repository");}}/>}
         {page==='Workflow Monitor'&&<WorkflowMonitor data={data} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage('Role repository');}}/>}
         {page==='Candidates'&&candidateId&&<CandidateProfile key={candidateId} id={candidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} onBack={()=>setCandidateId('')} onRole={id=>{setSelected(id);setRepoTab('Candidate mappings');setPage('Role repository');}}/>}

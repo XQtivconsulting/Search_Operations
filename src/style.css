@@ -1214,3 +1214,40 @@ input[type=checkbox] { accent-color:var(--xqtiv-navy); }
 .app .candidate-bulk{margin:10px 0;align-items:center;flex-wrap:wrap}
 .app .candidate-pagination{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:13px}
 .app .candidate-pagination label,.app .candidate-pagination .row-actions{display:flex;align-items:center;gap:8px}
+
+/* Compact, table-first workspaces. */
+.app .compact-workspace>header{margin-bottom:10px;padding-bottom:0;min-height:0}
+.app .compact-workspace>header h1{font-size:23px;line-height:1.2;margin:3px 0}
+.app .compact-workspace>header .eyebrow{font-size:10px;margin:0}
+.app .compact-workspace>header .subheading{font-size:12px;margin:4px 0;line-height:1.4}
+.app .compact-workspace .sheet-toolbar{margin:6px 0;gap:8px}
+.app .compact-workspace .sheet-toolbar label{font-size:11px;gap:3px}
+.app .compact-workspace .sheet-toolbar input,.app .compact-workspace .sheet-toolbar select{font-size:12px;min-height:30px;padding:5px 8px}
+.app .compact-workspace button{font-size:12px;min-height:29px;padding:5px 9px}
+.app .compact-workspace .repository-toolbar{grid-template-columns:minmax(270px,2fr) minmax(110px,.65fr) minmax(160px,1fr) auto;gap:10px}
+.app .compact-workspace .repository-toolbar input,.app .compact-workspace .repository-toolbar select{max-width:none;width:100%}
+.app .compact-workspace .research-tabs{gap:4px;margin:8px 0;border-bottom:1px solid #c3cee0;padding-bottom:6px}
+.app .compact-workspace .research-tabs button{font-size:12px;padding:5px 10px}
+.app .compact-workspace .mappings-panel{padding:10px 12px}
+.app .mapping-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;font-size:12px}
+.app .mapping-toolbar .research-actions{margin:0;display:flex;gap:6px;flex-wrap:wrap}
+.app .compact-menu{position:relative;align-self:end;font-size:12px;flex:none}
+.app .compact-menu>summary{cursor:pointer;white-space:nowrap;padding:6px 9px;border:1px solid #99adc8;border-radius:5px;background:#f4f7fc}
+.app .compact-menu-content{position:absolute;right:0;top:100%;z-index:35;background:white;border:1px solid #9aacc7;box-shadow:0 6px 18px #001b5026;border-radius:5px;padding:8px;min-width:210px;display:flex;flex-direction:column;gap:6px}
+.app .compact-menu-content button{text-align:left}
+.app .role-picker-menu>label{display:flex;flex-direction:row;align-items:center;gap:8px;margin:0 0 8px;font-size:11px}
+.app .role-picker-menu>label select{width:auto}
+.app .compact-workspace .company-master{padding:10px 12px}
+.app .compact-workspace .company-filters{display:flex;flex-wrap:wrap;align-items:end;gap:8px}
+.app .compact-workspace .company-filters .search-filter{flex:1;max-width:none;min-width:220px}
+.app .compact-workspace .company-filters .search-filter input{max-width:none;width:100%}
+.app .compact-workspace .metadata-menu .compact-menu-content{width:340px;max-width:80vw;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.app .compact-workspace .company-selection{margin:6px 0;padding:0;min-height:0;font-size:12px}
+.app .compact-workspace .company-selection p{margin:4px 0}
+.app .compact-workspace .company-assignment{display:flex;align-items:end;gap:10px;padding:8px;margin:6px 0}
+.app .compact-workspace .company-assignment .assignment-main{flex:1;margin:0;gap:8px}
+.app .compact-workspace .company-assignment label{font-size:11px}
+@media(max-width:1000px){.app .compact-workspace .repository-toolbar{grid-template-columns:minmax(240px,1fr) minmax(120px,1fr)}.app .compact-workspace .company-assignment{flex-wrap:wrap}}
+.app .compact-workspace .research-panel{gap:6px}
+.app .compact-workspace .compact-menu{margin-top:0}
+@media(max-width:600px){.app .compact-workspace .repository-toolbar{grid-template-columns:1fr}.app .compact-workspace .compact-menu-content{right:auto;left:0}.app .mapping-toolbar{align-items:flex-start;flex-wrap:wrap}}
