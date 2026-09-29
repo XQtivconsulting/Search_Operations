@@ -52,3 +52,35 @@
 .app .plan-grid :is(.plan-slot small,.plan-priority-text,.plan-priority-edit,.plan-priority-badge){font-size:var(--type-micro)}
 .app .plan-grid .plan-priority-text{font-weight:var(--weight-regular)}
 .app .plan-grid :is(.plan-priority-edit,.plan-priority-badge){font-weight:var(--weight-medium)}
+
+/* Content tables use Team Allocation's density and neutral palette.
+   Scoped to main so the established sidebar remains unchanged. */
+.app .main {
+ --table-band:#f3f6fa;
+ --table-hover:#e1eafa;
+ --table-header:#edf2f5;
+ --table-border:#d3dce9;
+ --table-divider:#e0e6ef;
+}
+.app .main table:not(:where(.role-page *)) {font-size:var(--type-body);line-height:1.4}
+.app .main table:not(:where(.role-page *)) :is(th,td) {padding:7px 8px;border-bottom:1px solid var(--table-border);border-right:1px solid var(--table-divider)}
+.app .main table:not(:where(.role-page *)) thead th {background:var(--table-header);color:#22304a;border-bottom:1px solid #a9b9ce;font-size:var(--type-control);font-weight:var(--weight-emphasis)}
+.app .main table:not(:where(.role-page *)) tbody tr:nth-child(odd)>:is(th,td) {background:#fff}
+.app .main table:not(:where(.role-page *)) tbody tr:nth-child(even)>:is(th,td) {background:var(--table-band)}
+.app .main table:not(:where(.role-page *)) tbody tr:hover>:is(th,td) {background:var(--table-hover)}
+.app .main table:not(:where(.role-page *)) tbody th {position:static;text-align:left;font-size:var(--type-body);font-weight:var(--weight-medium)}
+.app .main table:not(:where(.role-page *)) :is(th,td) small {font-size:var(--type-caption);font-weight:var(--weight-regular);line-height:1.4;color:#60718b;margin-top:2px}
+.app .main table:not(:where(.role-page *)) thead button {font-size:var(--type-control);font-weight:var(--weight-emphasis);line-height:1.4}
+.app .main .plan-grid tbody th:first-child {position:sticky}
+.app .main .plan-grid .plan-slot small {font-size:var(--type-micro)}
+.app .main .decision-grid {table-layout:fixed;min-width:940px;white-space:normal}
+.app .main .decision-grid :is(th,td) {min-width:0;max-width:none;vertical-align:top;text-align:left;overflow-wrap:anywhere}
+.app .main .decision-grid th:first-child {width:200px}
+.app .main .decision-grid:not(.decision-history) th:nth-child(2) {width:112px}
+.app .main .decision-grid:not(.decision-history) th:nth-child(7) {width:152px}
+.app .main .decision-grid:not(.decision-history) th:nth-child(8) {width:150px}
+.app .main .decision-grid .table-sort-heading {align-items:flex-start;gap:4px;white-space:normal}
+.app .main .decision-grid small {max-width:none}
+.app .main .decision-grid td button:not(.decision-history-cell) {min-height:24px;padding:2px 5px;font-size:var(--type-caption);line-height:1.3;box-shadow:none}
+.app .main .decision-grid .badge {font-size:var(--type-micro);font-weight:var(--weight-medium);line-height:1.3;padding:3px 6px;border-radius:3px}
+.app .main .decision-history {min-width:1100px}

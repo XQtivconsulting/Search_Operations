@@ -1,3 +1,7 @@
+## Shared content styling — September 29, 2026
+
+Implemented Team Allocation table density/palette in shared main-content CSS; navigation is excluded. Removed the global third-column minimum width and constrained Search Decisions columns with wrapping headers. Standardized row labels, secondary text, compact decision badges/actions. Typecheck, 133 tests and production build passed. No browser visual verification was available; responsive behavior should be checked in the live app.
+
 # Verification status
 
 ## Sortable planning sheets and company alignment — 2026-09-28
