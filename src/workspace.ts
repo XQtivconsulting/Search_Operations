@@ -27,6 +27,7 @@ export class Workspace extends DurableObject {
     super(ctx, env);
     ctx.storage.sql.exec(workspaceSchema);
     ctx.storage.sql.exec(effortSchema);
+    this.rows('CREATE TABLE IF NOT EXISTS time_off(staff_id TEXT NOT NULL REFERENCES staff(id),work_date TEXT NOT NULL,pto INTEGER NOT NULL DEFAULT 0,version INTEGER NOT NULL DEFAULT 1,PRIMARY KEY(staff_id,work_date))');
     ctx.storage.sql.exec(researchSchema);
     ctx.storage.sql.exec(candidateSchema);
     this.rows("CREATE TABLE IF NOT EXISTS crm_partners(external_id TEXT PRIMARY KEY,partner_id TEXT NOT NULL DEFAULT '',partner TEXT NOT NULL DEFAULT '',version INTEGER NOT NULL DEFAULT 1)");
@@ -154,6 +155,7 @@ export class Workspace extends DurableObject {
       research,
       effort:this.rows('SELECT * FROM effort_records'),
       effortDays:this.rows('SELECT * FROM effort_days'),
+      timeOff:this.rows('SELECT * FROM time_off'),
       actor: a,
       name:
         this.rows("SELECT value FROM settings WHERE key=?", "name")[0]?.value ??
@@ -288,6 +290,16 @@ export class Workspace extends DurableObject {
     });
   }
   private applyMutation(a: Actor, kind: string, b: any): { id: string } {
+      if(kind==='pto'){
+        const staff=text(b.staff_id),date=day(b.work_date);
+        requireThat(canPlan(a)||hasRole(a,'researcher')&&a.staffId===staff,'You can update only your own PTO.',403);
+        requireThat(this.rows('SELECT id FROM staff WHERE id=?',staff).length&&this.assignableStaff(staff),'Choose an active researcher.',404);
+        requireThat(typeof b.pto==='boolean','Choose PTO or working.');
+        const old=this.rows('SELECT * FROM time_off WHERE staff_id=? AND work_date=?',staff,date)[0];
+        requireThat(Number(b.version)===(old?.version||0),'PTO changed. Reload before saving.',409);
+        this.rows('INSERT INTO time_off VALUES(?,?,?,1) ON CONFLICT(staff_id,work_date) DO UPDATE SET pto=excluded.pto,version=version+1',staff,date,b.pto?1:0);
+        const id=JSON.stringify([staff,date]);this.audit(a,'pto',id,old||null,{staff_id:staff,work_date:date,pto:b.pto,version:(old?.version||0)+1});return {id};
+      }
       if(kind==='effort')return saveEffort(this,a,b);
       if(kind === 'staff-edit' || kind === 'staff-archive') {
         requireThat(hasRole(a,'admin'),'Administrator permission required.',403);

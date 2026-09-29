@@ -36,3 +36,7 @@ Daily Work and the separate Workflow Monitor navigation are replaced by Delivery
 No mappings yet, pending reviews, and past work dates below their approval target are attention indicators. Future plans are not flagged as late; current-day targets are not flagged as missed. Pending review counts open the role's entire outstanding pipeline, including earlier work. The pipeline includes Peer review, Partner review, Needs information and Hold; its role filter is shared with daily delivery, but daily period/team filters do not hide outstanding reviews. Candidate links open profiles, and Open mappings leads to the existing permission-controlled repository review actions. Company coverage and other workflow blockers remain available in an expandable section.
 
 Adjust allocation is visible to planners/admins and opens the relevant search and week on Team Allocation. All existing decision gating, write permissions, optimistic versions and audit behavior remain unchanged. My Work remains the individual execution screen.
+
+## PTO and automatic effort
+
+Open Time off in Weekly Plan to mark a researcher/date On PTO, or Remove PTO. Researchers manage their own dates; planners manage team dates. PTO contributes zero person-days across all searches. The team target remains unchanged so planners can review capacity. Allocation cards and My Work indicate PTO. Performance defaults to the planned researcher/day split; no daily confirmation is needed. See PERFORMANCE.md for calculation details.

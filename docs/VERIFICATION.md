@@ -1,3 +1,9 @@
+## Automatic person-days and PTO — September 29, 2026
+
+Person-days now derive from daily researcher allocations before reporting filters, excluding future work and full-day PTO. Prior recorded corrections remain preserved; no effort-confirmation UI remains. Weekly Plan provides self/planner PTO controls with versioning/audit and allocation annotations. No production data was rewritten.
+
+Actual verification: typecheck, 152 synthetic tests and production build passed. Cases cover cross-role/team split conservation, repeated/derived entry deduplication, three-way rounding, future exclusion, prior corrections, PTO precedence/removal and self/planner permission/version/audit behavior. Browser visual verification was not available.
+
 ## Performance and confirmed effort — September 29, 2026
 
 Implemented researcher/team comparison, per-search breakdowns, a one-measure matrix, search effort/yield, first-mapping age, weekly/work-date results and contribution shares. Added per-person/date confirmed effort with fractional search/team splits, audit/version checks, ownership/scope checks, and a one-day maximum. Positive effort protects allocations and effort history prevents role removal. Legacy output was not backfilled as effort.

@@ -16,7 +16,7 @@ Target repository: https://github.com/XQtivconsulting/Search_Operations
 - Peer and partner approvals, immutable review events, correction/reopening history.
 - Candidate directory: required first/last names and unique LinkedIn identity, optional contact details, reusable across roles with independent mapping ownership and review history. Manual count entry and spreadsheet navigation are retired.
 - Atomic batches up to 200 rows: a stale or unauthorized row rolls back the entire batch and its audit records.
-- Performance: researcher/team throughput and quality comparisons, search effort/yield, and confirmed fractional person-days. See [Performance](docs/PERFORMANCE.md).
+- Performance: researcher/team throughput and quality comparisons, search effort/yield, and plan-based person-days with PTO exclusions. See [Performance](docs/PERFORMANCE.md).
 - RecruitCRM job preview and selected import/update, with server-only tenant credentials and explicit field ownership. The connector has synthetic tests; it has not been connected to XQtiv’s live CRM.
 - Read-only workbook extraction and source discrepancy inventory.
 

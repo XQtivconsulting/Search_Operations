@@ -20,9 +20,9 @@ test('team rates use total output and effort rather than averaging researcher ra
  assert.equal(performanceMetrics(d,{...filter,roles:[]}).mapped,0);assert.equal(performanceMetrics(d,{...filter,staff:'s'}).throughput,4);
  assert.equal(performanceMetrics(d,{...filter,from:'2026-09-28'}).days,0);
 });
-test('unconfirmed zero-output planned work prevents a misleading rate',()=>{
+test('planned zero-output work supplies effort without confirmation',()=>{
  const d={...base,assignments:[{id:'a',search_id:'r',team_id:'t',work_date:'2026-09-27'}],entries:[{assignment_id:'a',staff_id:'s'}]};
- assert.equal(performanceMetrics(d,filter).missing,1);
+ assert.equal(performanceMetrics(d,filter).missing,0);assert.equal(performanceMetrics(d,filter).days,1);assert.equal(performanceMetrics(d,filter).throughput,0);
  assert.equal(performanceMetrics({...d,effort:[effort(0)]},filter).missing,0);
 });
 test('search aging separates role age from first mapping age and preserves unknowns',()=>{
@@ -33,5 +33,5 @@ test('performance renders definitions, separate tabs and no invented historical 
  const React=await import('react'),{renderToStaticMarkup}=await import('react-dom/server'),{Performance}=await import('../src/Performance');
  const data={...base,actor:{role:'partner'},searches:[{id:'r',client:'Client',title:'Role'}],teams:[],staff:[{id:'s',name:'Researcher'}],priorities:[],research:{records:[map('a','Approved')]}};
  const html=renderToStaticMarkup(React.createElement(Performance,{data,api:async()=>{},reload:async()=>{},onDirty:()=>{},onDecision:()=>{}}));
- assert.ok(html.includes('Search effort &amp; yield'));assert.ok(html.includes('1 effort entries unconfirmed'));assert.ok(html.includes('1 decided'));assert.ok(html.includes('0 confirmed person-days'));
+ assert.ok(html.includes('Search effort &amp; yield'));assert.ok(html.includes('1 work entries without allocated effort'));assert.ok(html.includes('1 decided'));assert.ok(html.includes('0 person-days (plan-based)'));
 });

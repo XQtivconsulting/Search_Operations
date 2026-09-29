@@ -296,3 +296,14 @@ test('effort checks identity, scope, future dates, unknown references and duplic
  await assert.rejects(w.mutate(researcher,'effort',{...body,items:[{search_id:'unassigned',team_id:'t',days:1}]}),/assigned search/);
  await w.mutate(researcher,'effort',body);assert.equal((await w.state(actor)).effort[0].days,1);db.close();
 });
+
+test('PTO is versioned, audited and limited to self or planner',async()=>{
+ const {db,w}=fixture(),researcher={...actor,id:'self',role:'researcher' as const,staffId:'s'},body={staff_id:'s',work_date:'2026-09-27',pto:true,version:0};
+ await assert.rejects(w.mutate(researcher,'pto',{...body,staff_id:'s2'}),/own PTO/);
+ await assert.rejects(w.mutate({...researcher,role:'partner'},'pto',body),/own PTO/);
+ await assert.rejects(w.mutate(actor,'pto',{...body,staff_id:'foreign'}),/active researcher/);
+ await w.mutate(researcher,'pto',body);assert.equal((await w.state(actor)).timeOff[0].pto,1);
+ await assert.rejects(w.mutate(actor,'pto',{...body,pto:false}),/changed/);
+ await w.mutate(actor,'pto',{...body,pto:false,version:1});assert.equal((await w.state(actor)).timeOff[0].pto,0);
+ assert.equal(db.prepare("SELECT COUNT(*) n FROM audit WHERE action='pto'").get()?.n,2);db.close();
+});
