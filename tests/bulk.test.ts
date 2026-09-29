@@ -269,3 +269,30 @@ test('undecided roles cannot be allocated and stale carried decisions cannot be 
  await assert.rejects(w.mutate(actor,'decision',{search_id:'r',week:'2026-09-28',disposition:'Continue',version:0,base_week:'2026-09-21',base_version:1}),/carried decision changed/);
  assert.equal(w.sourcingDecision('r','2026-10-01').disposition,'Pause');assert.equal(db.prepare("SELECT count(*) n FROM weekly_priorities WHERE week='2026-09-28'").get()?.n,0);db.close();
 });
+
+test('confirmed effort includes zero-output days, splits days and audits corrections atomically',async()=>{
+ const {db,w}=fixture();db.exec("INSERT INTO searches(id,client,title) VALUES('r2','Synthetic','Second role')");
+ await w.mutate(actor,'effort',{staff_id:'s',work_date:'2026-09-27',version:0,items:[{search_id:'r',team_id:'t',days:.5},{search_id:'r2',team_id:'t',days:.5}]});
+ let state=await w.state(actor);assert.equal(state.effort.reduce((n,r)=>n+r.days,0),1);assert.equal(state.effortDays[0].version,1);
+ assert.equal(state.assignments[0].has_work,true);
+ await assert.rejects(w.mutate(actor,'plan-transfer',{operation:'unassign',search_id:'r',team_id:'t',week:'2026-09-21',items:[{id:'a',version:1}]}),/Work is recorded/);
+ await assert.rejects(w.mutate(actor,'week-plan',{search_id:'r',team_id:'t',week:'2026-09-21',roster_version:0,days:weekDays('2026-09-21').map(date=>({date,enabled:false,...(date==='2026-09-27'?{id:'a',version:1}:{})}))}),/Confirmed effort/);
+ await assert.rejects(w.mutate(actor,'effort',{staff_id:'s',work_date:'2026-09-27',version:1,items:[{search_id:'r',team_id:'t',days:.75},{search_id:'r2',team_id:'t',days:.5}]}),/cannot exceed/);
+ assert.equal((await w.state(actor)).effortDays[0].version,1);
+ await assert.rejects(w.mutate(actor,'effort',{staff_id:'s',work_date:'2026-09-27',version:0,items:[{search_id:'r',team_id:'t',days:1}]}),/changed/);
+ await w.mutate(actor,'effort',{staff_id:'s',work_date:'2026-09-27',version:1,items:[{search_id:'r',team_id:'t',days:0},{search_id:'r2',team_id:'t',days:1}]});
+ assert.equal(db.prepare("SELECT count(*) n FROM audit WHERE action='effort-confirm'").get()?.n,2);
+ assert.equal((await w.state(actor)).effortDays[0].version,2);db.close();
+});
+test('effort checks identity, scope, future dates, unknown references and duplicates',async()=>{
+ const {db,w}=fixture();const researcher={...actor,id:'researcher',role:'researcher' as const,staffId:'s'},body={staff_id:'s',work_date:'2026-09-27',version:0,items:[{search_id:'r',team_id:'t',days:1}]};
+ await assert.rejects(w.mutate(researcher,'effort',{...body,staff_id:'s2'}),/own effort/);
+ await assert.rejects(w.mutate({...researcher,role:'partner'},'effort',body),/own effort/);
+ await assert.rejects(w.mutate(actor,'effort',{...body,work_date:'2099-01-01'}),/past date/);
+ await assert.rejects(w.mutate(actor,'effort',{...body,items:[{search_id:'foreign',team_id:'t',days:1}]}),/not found/);
+ await assert.rejects(w.mutate(actor,'effort',{...body,items:[...body.items,...body.items]}),/only once/);
+ await assert.rejects(w.mutate(actor,'effort',{...body,items:[{...body.items[0],days:.123}]}),/two decimals/);
+ db.exec("INSERT INTO searches(id,client,title) VALUES('unassigned','Synthetic','Unassigned')");
+ await assert.rejects(w.mutate(researcher,'effort',{...body,items:[{search_id:'unassigned',team_id:'t',days:1}]}),/assigned search/);
+ await w.mutate(researcher,'effort',body);assert.equal((await w.state(actor)).effort[0].days,1);db.close();
+});

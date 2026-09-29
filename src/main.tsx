@@ -1,5 +1,5 @@
 import {roleDisplayId} from './RolePicker';
-import {CoverageMetrics} from './CoverageMetrics';
+import {Performance} from './Performance';
 import './role-page.css';
 import {CandidateRolePage} from './RolePageView';
 import {PeoplePanel} from './PeoplePanel';
@@ -368,7 +368,7 @@ function App() {
           </button>
         </div>
       </aside>
-      <main className={"main"+(["Role repository","Company universe","Candidates","Delivery Monitor"].includes(page)?" compact-workspace":"")}>
+      <main className={"main"+(["Role repository","Company universe","Candidates","Delivery Monitor","Performance"].includes(page)?" compact-workspace":"")}>
         <header>
           <div>
             <p className="eyebrow">{data.name} / {page === "Role repository" ? "ROLE REPOSITORY" : "OPERATIONS"}</p>
@@ -385,7 +385,7 @@ function App() {
                   "Delivery Monitor":
                     "Track delivery and clear outstanding reviews.",
                   Candidates: "One candidate record, linked to every mapped client and role.",
-                  Performance: "Trace every result to the work behind it.",
+                  Performance: "Compare researcher output and the return on sourcing effort.",
                   "People & access": "Accounts, invitations and combined responsibilities.",
                 }[page]
               }
@@ -413,7 +413,7 @@ function App() {
             {error}
           </div>
         )}
-        {!["Searches","Account settings","Role repository","My Work","Delivery Monitor","Company universe","Teams","Candidates","People & access"].includes(page)  && page !== "Integrations" && page !== "Weekly plan" && (
+        {!["Searches","Account settings","Role repository","My Work","Delivery Monitor","Performance","Company universe","Teams","Candidates","People & access"].includes(page)  && page !== "Integrations" && page !== "Weekly plan" && (
           <div className="filters">
             <label>
               From
@@ -638,114 +638,7 @@ function App() {
         {page==='Candidates'&&!candidateId&&<Candidates onCandidate={setCandidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} onOpen={id=>{setSelected(id);setRepoTab("Candidate mappings");setPage("Role repository");}}/>}
         {page==='Teams'&&<><TeamsPanel data={data} api={api} reload={load} onAdd={()=>open({kind:'team'})}/>{planner?<PeerSetup data={data} api={api} reload={load}/>:<p>Team planners manage peer-review pairings.</p>}</>}
         {page === "Delivery Monitor" && <DeliveryMonitor data={data} initialView={deliveryStart.view} initialRoles={deliveryStart.roles} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage('Role repository');}} onCandidate={id=>{setCandidateId(id);setPage('Candidates');}} onAllocate={(id,date)=>{setSelected(id);setAllocationStart({date,view:'allocation'});setPage('Weekly plan');}}/>}
-        {page === "Performance" && (
-          <>
-            {cards(filtered)}
-            <CoverageMetrics data={data} role={selected} from={from} to={to}/>
-            <section className="panel">
-              <div className="section-head">
-                <div>
-                  <h2>Researcher contributions</h2>
-                  <p>Candidate mapping contributions for the selected period.</p>
-                </div>
-                {(hasRole(actor,'admin')||hasRole(actor,'founder')) && (
-                  <button
-                    onClick={() => {
-                      const header = [
-                        "Researcher",
-                        "Date",
-                        "Client",
-                        "Search",
-                        "Mapped",
-                        "Peer approved",
-                        "Partner approved",
-                        "Flag",
-                      ];
-                      const rows = filtered.map((e: Row) => [
-                        pBy[e.staff_id]?.name,
-                        e.work_date,
-                        sBy[e.search_id]?.client,
-                        sBy[e.search_id]?.title,
-                        e.mapped,
-                        e.peer,
-                        e.partner,
-                        e.flag,
-                      ]);
-                      const csv = [header, ...rows]
-                        .map((row) =>
-                          row
-                            .map(
-                              (v: any) =>
-                                '"' +
-                                String(v ?? "")
-                                  .replace(/^[=+@-]/, "'$&")
-                                  .replaceAll('"', '""') +
-                                '"',
-                            )
-                            .join(","),
-                        )
-                        .join("\r\n");
-                      const a = document.createElement("a");
-                      a.href = URL.createObjectURL(
-                        new Blob([csv], { type: "text/csv" }),
-                      );
-                      a.download = "sourcing-output.csv";
-                      a.click();
-                      URL.revokeObjectURL(a.href);
-                    }}
-                  >
-                    Export CSV
-                  </button>
-                )}
-              </div>
-              <div className="table-scroll">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Researcher</th>
-                      <th>Mapped</th>
-                      <th>Peer</th>
-                      <th>Partner</th>
-                      <th>Approval rate</th>
-                      <th>Researcher-days</th>
-
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.staff.map((p: Row) => {
-                      const entries = filtered.filter(
-                        (e: Row) => e.staff_id === p.id,
-                      );
-                      if (!entries.length) return null;
-                      const m = aggregate(entries as any);
-                      return (
-                        <tr key={p.id}>
-                          <th>{p.name}</th>
-                          <td>{m.mapped}</td>
-                          <td>{m.peer}</td>
-                          <td>{m.partner}</td>
-                          <td>
-                            {m.approvalRate === null
-                              ? "—"
-                              : (m.approvalRate * 100).toFixed(1) + "%"}
-                          </td>
-                          <td>{m.personDays}</td>
-
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <p className="fine">
-                Researcher-days count each researcher and work date once, including
-                recorded zero output.
-                Approval rate = total partner-approved ÷ total mapped. Missing
-                counts are not zeros; totals sum only recorded values.
-              </p>
-            </section>
-          </>
-        )}
+        {page === "Performance" && <Performance data={data} api={api} reload={load} onDirty={setSheetDirty} onDecision={id=>{setSelected(id);setAllocationStart({date:'',view:'decisions'});setPage('Weekly plan');}}/>}
         {page==='People & access'&&isAdmin&&<PeoplePanel data={data} api={api} reload={load} onDirty={setSheetDirty}/>}
         <footer>
           Private workspace · Counts derived from candidate mappings ·{" "}

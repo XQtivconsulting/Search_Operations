@@ -1279,3 +1279,21 @@ input[type=checkbox] { accent-color:var(--xqtiv-navy); }
 .app .delivery-monitor>details{margin-top:14px}
 .app .delivery-monitor>details>summary{cursor:pointer;color:#315f99}
 .app .delivery-monitor .table-sort-heading{align-items:flex-start}
+.app .performance-panel .sheet-toolbar{flex-wrap:wrap;align-items:end}
+.app .performance-panel :is(th,td){text-align:left;vertical-align:top;white-space:normal}
+.app .performance-table{min-width:920px}
+.app .performance-table>thead>tr>th:first-child{width:230px}
+.app .performance-panel td button{min-height:24px;padding:2px 5px;box-shadow:none}
+.app .performance-detail{padding:10px 0;min-width:850px}
+.app .performance-detail h3{margin:16px 0 8px}
+.app .performance-panel details{margin:14px 0}
+.app .performance-panel summary,.app .effort-confirmation summary{cursor:pointer;color:#315f99}
+.app .performance-matrix{min-width:750px;width:max-content}
+.app .performance-matrix th{min-width:105px}
+.app .performance-matrix th:first-child{min-width:230px;max-width:290px}
+.app .effort-confirmation{padding:10px 0;border-bottom:1px solid #d3dce9}
+.app .effort-confirmation form{display:grid;gap:8px;margin-top:10px}
+.app .effort-row{display:flex;align-items:center;justify-content:space-between;gap:15px;max-width:760px}
+.app .effort-row input{width:90px}
+.app .effort-row small{display:block}
+.app .effort-confirmation .sheet-toolbar{flex-wrap:wrap;align-items:end}

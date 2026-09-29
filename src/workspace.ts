@@ -1,3 +1,4 @@
+import {effortSchema,saveEffort} from './effort';
 import {isWorkingDecision} from './search-decisions';
 import {planCandidates} from './candidate-import';
 import {candidateSchema,createCandidateInvite,listCandidateInvites,revokeCandidateInvite,requestCandidateCode,verifyCandidateCode,candidatePage} from './candidate-access';
@@ -25,6 +26,7 @@ export class Workspace extends DurableObject {
   constructor(ctx: DurableObjectState, env: any) {
     super(ctx, env);
     ctx.storage.sql.exec(workspaceSchema);
+    ctx.storage.sql.exec(effortSchema);
     ctx.storage.sql.exec(researchSchema);
     ctx.storage.sql.exec(candidateSchema);
     this.rows("CREATE TABLE IF NOT EXISTS crm_partners(external_id TEXT PRIMARY KEY,partner_id TEXT NOT NULL DEFAULT '',partner TEXT NOT NULL DEFAULT '',version INTEGER NOT NULL DEFAULT 1)");
@@ -143,13 +145,15 @@ export class Workspace extends DurableObject {
   async candidateVerify(b:any,ip:string){return verifyCandidateCode(this,b,ip);}
   async candidatePage(session:string,token?:string){return candidatePage(this,session,token);}
   assignmentHasWork(a:any) {
-    return !!(this.rows("SELECT id FROM research_records WHERE kind='mapping' AND role_id=? AND json_extract(data,'$.team_id')=? AND json_extract(data,'$.work_date')=?",a.search_id,a.team_id,a.work_date).length||this.rows("SELECT id FROM entries WHERE assignment_id=? AND (mapped IS NOT NULL OR peer IS NOT NULL OR partner IS NOT NULL OR notes<>'' OR flag IS NOT NULL OR source<>'manual')",a.id).length||this.rows('SELECT r.id FROM reviews r JOIN entries e ON e.id=r.entry_id WHERE e.assignment_id=?',a.id).length);
+    return !!(this.rows('SELECT 1 FROM effort_records WHERE search_id=? AND team_id=? AND work_date=? AND days>0',a.search_id,a.team_id,a.work_date).length||this.rows("SELECT id FROM research_records WHERE kind='mapping' AND role_id=? AND json_extract(data,'$.team_id')=? AND json_extract(data,'$.work_date')=?",a.search_id,a.team_id,a.work_date).length||this.rows("SELECT id FROM entries WHERE assignment_id=? AND (mapped IS NOT NULL OR peer IS NOT NULL OR partner IS NOT NULL OR notes<>'' OR flag IS NOT NULL OR source<>'manual')",a.id).length||this.rows('SELECT r.id FROM reviews r JOIN entries e ON e.id=r.entry_id WHERE e.assignment_id=?',a.id).length);
   }
   async state(a: Actor,members?:Member[]) {
     if(members)await this.syncPeople(members);
     const research=researchState(this);
     const result = {
       research,
+      effort:this.rows('SELECT * FROM effort_records'),
+      effortDays:this.rows('SELECT * FROM effort_days'),
       actor: a,
       name:
         this.rows("SELECT value FROM settings WHERE key=?", "name")[0]?.value ??
@@ -284,6 +288,7 @@ export class Workspace extends DurableObject {
     });
   }
   private applyMutation(a: Actor, kind: string, b: any): { id: string } {
+      if(kind==='effort')return saveEffort(this,a,b);
       if(kind === 'staff-edit' || kind === 'staff-archive') {
         requireThat(hasRole(a,'admin'),'Administrator permission required.',403);
         const old=this.rows("SELECT s.*,COALESCE(p.email,'') email,COALESCE(p.archived,0) archived,COALESCE(p.version,0) version FROM staff s LEFT JOIN staff_profiles p ON p.staff_id=s.id WHERE s.id=?",b.id)[0];
@@ -339,7 +344,7 @@ export class Workspace extends DurableObject {
         const old=this.rows('SELECT * FROM searches WHERE id=?',b.id)[0];
         requireThat(old,'Search not found.',404);
         requireThat(Number(b.version)===old.version,'The search changed. Reload before removing.',409);
-        const used=['assignments','weekly_priorities','weekly_decisions'].some(t=>this.rows(`SELECT 1 FROM ${t} WHERE search_id=? LIMIT 1`,b.id).length)
+        const used=['assignments','weekly_priorities','weekly_decisions','effort_records'].some(t=>this.rows(`SELECT 1 FROM ${t} WHERE search_id=? LIMIT 1`,b.id).length)
           ||['research_records','brief_shares','role_publications','candidate_invites'].some(t=>this.rows(`SELECT 1 FROM ${t} WHERE role_id=? LIMIT 1`,b.id).length);
         requireThat(!used,'This role has research or planning history and cannot be removed. Close or abandon it in RecruitCRM instead.',409);
         if(old.external_id) this.rows('INSERT INTO crm_partners(external_id,partner_id,partner,version) VALUES(?,?,?,1) ON CONFLICT(external_id) DO UPDATE SET partner_id=excluded.partner_id,partner=excluded.partner,version=crm_partners.version+1',old.external_id,old.partner_id||'',old.partner||'');
@@ -404,6 +409,7 @@ export class Workspace extends DurableObject {
           requireThat(old ? old.id===d.id && old.version===Number(d.version) : !d.id,'The plan changed. Reload before saving.',409);
           if(!d.enabled) {
             if(old) {
+              requireThat(!this.rows('SELECT 1 FROM effort_records WHERE search_id=? AND team_id=? AND work_date=? AND days>0',b.search_id,b.team_id,d.date).length,'Confirmed effort protects this assignment. Correct the effort record before removing it.',409);
               requireThat(!this.rows("SELECT id FROM research_records WHERE kind='mapping' AND role_id=? AND json_extract(data,'$.team_id')=? AND json_extract(data,'$.work_date')=?",b.search_id,b.team_id,d.date).length,'Candidate work is linked to this day. Keep the assignment and edit its target.',409);
               requireThat(!this.rows("SELECT id FROM entries WHERE assignment_id=? AND (mapped IS NOT NULL OR peer IS NOT NULL OR partner IS NOT NULL OR notes<>'' OR flag IS NOT NULL OR source<>'manual')",old.id).length && !this.rows('SELECT r.id FROM reviews r JOIN entries e ON e.id=r.entry_id WHERE e.assignment_id=?',old.id).length,'Work has already been recorded on '+d.date+'. Keep this assignment and edit its target instead.',409);
               this.rows('DELETE FROM entries WHERE assignment_id=?',old.id);

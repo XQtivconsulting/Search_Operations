@@ -1,3 +1,9 @@
+## Performance and confirmed effort — September 29, 2026
+
+Implemented researcher/team comparison, per-search breakdowns, a one-measure matrix, search effort/yield, first-mapping age, weekly/work-date results and contribution shares. Added per-person/date confirmed effort with fractional search/team splits, audit/version checks, ownership/scope checks, and a one-day maximum. Positive effort protects allocations and effort history prevents role removal. Legacy output was not backfilled as effort.
+
+Actual verification: typecheck passed, 147 synthetic tests passed, production build passed. New cases cover pending/returned versus final quality denominators, pooled team metrics, zero-output effort, unknown effort/rates, date filters and age, combined rendering, correction rollback/version conflicts, ownership and scope rejection, future/duplicate/invalid inputs, and allocation protection through both removal paths. No live user data used and no browser visual verification available. See PERFORMANCE.md for definitions and limitations.
+
 ## Delivery Monitor consolidation — September 29, 2026
 
 Combined navigation, daily period/team/role filtering, attention indicators, an all-date review pipeline, candidate/repository links and contextual Team Allocation navigation. Retained coverage/blocker details and existing backend permission checks. Added synthetic tests for date boundaries, role selection, prior-period pending work, daily reconciliation, future/current-day attention rules, combined rendering and multi-researcher unplanned work. Typecheck, 139 tests and production build passed. No live user data used; browser visual verification remains unavailable.
