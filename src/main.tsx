@@ -35,6 +35,7 @@ import { CRMPanel } from "./CRMPanel";
 import {ResearchPanel,PublicBrief} from "./ResearchPanel";
 import { Setup } from './Setup';
 import "./style.css";
+import "./typography.css";
 type Row = Record<string, any>;
 let workspace = sessionStorage.getItem("workspace") || "xqtiv";
 let expectedUser:string|null=null;

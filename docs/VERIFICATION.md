@@ -1,5 +1,9 @@
 # Verification status
 
+## Shared application typography — 2026-09-28
+
+Added typography.css as the single application type scale and removed 127 competing size/weight declarations from component styling, preserving font-face definitions, sign-in styling and candidate-facing role-document typography. Page headings use 23px, section headings 16px, table/body text 13px, controls and dropdown rows 12px, supporting text 11px, and compact weekly annotations 10px. Weights use 400/500/600 for content/controls/emphasis. Representative Weekly Plan, Candidates, Company Universe and Repository components rendered to static HTML with synthetic data. Typecheck, all 132 tests and production build passed. Browser computed-style/visual checking could not run: the browser executable was unavailable and its download was invalid. No authenticated browser verification occurred. Deployment is checked separately.
+
 ## Decision-first weekly planning — 2026-09-28
 
 Search Decisions is the default view, with current sourcing evidence, sourcing-decision filters and an eight-week carry-forward history. Team Allocation defaults to active decisions. Backend checks require active decisions for new/moved assignments, target increases and researcher changes; unassigning unstarted work remains possible and recorded history is preserved. Inherited decisions have an optimistic source-version guard. Typecheck, all 132 tests and production build passed. Added tests cover carry-forward/future isolation, Eastern mapping dates, evidence counts, paused/stopped/undecided allocation rejection, active resumption, protected work, safe unassignment and stale inherited edits. Existing allocation tests now explicitly establish sourcing decisions. No live data was modified during verification; signed-in browser verification was not performed. Deployment is checked separately.
