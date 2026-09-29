@@ -1282,3 +1282,19 @@ input[type=checkbox] { accent-color:var(--xqtiv-navy); }
 .app .plan-grid .priority-text-none{color:#7a8799}
 .app .plan-grid .plan-priority-edit{display:inline;min-height:0;padding:0;border:0;background:none;box-shadow:none;font-size:10px;font-weight:500;line-height:1.3;color:#315f99;text-decoration:underline;text-underline-offset:2px}
 .app .plan-grid .plan-priority-edit:hover{color:#001b50;background:none}
+
+.app .role-multi-filter{position:relative;min-width:220px;flex:1 1 280px;max-width:430px}
+.app .role-multi-filter .filter-label{display:block;font-size:12px;margin-bottom:4px}
+.app .role-multi-filter .filter-menu{width:430px;max-width:85vw;left:0;right:auto}
+.app .role-multi-filter .filter-menu>input{width:100%;max-width:none}
+.app .role-multi-filter .checkbox{display:flex;flex-direction:row;align-items:center;gap:7px;max-width:none;font-size:12px}
+.app .role-multi-filter .checkbox input{width:14px;height:14px;min-height:0;flex:none}
+.app .role-multi-filter .role-client{padding:7px 4px;background:#eaf0f8;margin-top:5px}
+.app .role-multi-filter .role-choice{padding:5px 4px 5px 20px;white-space:normal}
+.app .role-multi-filter .role-choice small{color:#687d98}
+.app .plan-grid tbody tr>th,.app .plan-grid tbody tr>td{border-bottom:1px solid #d3dce9;border-right:1px solid #e0e6ef}
+.app .plan-grid tbody tr:nth-child(even)>td,.app .plan-grid tbody tr:nth-child(even)>th{background:#f3f6fa}
+.app .plan-grid thead th{border-bottom:1px solid #a9b9ce;box-shadow:0 1px 0 #a9b9ce}
+.app .plan-grid .plan-priority-badge{font-size:10px;line-height:1.3;padding:3px 6px;border-radius:3px;font-weight:500}
+.app .role-multi-filter:has(details[open]){z-index:40}
+.app .role-multi-filter .filter-menu{z-index:40}

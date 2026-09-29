@@ -1,3 +1,4 @@
+import {RoleMultiFilter} from './RoleMultiFilter';
 import {roleDisplayId} from './RolePicker';
 import {CoverageMetrics} from './CoverageMetrics';
 import './role-page.css';
@@ -74,6 +75,7 @@ function App() {
     [modal, setModal] = useState<Row | null>(null),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState("");
+  const [dailyRoles,setDailyRoles]=useState<string[]|null>(null);
   const [repoTab,setRepoTab]=useState("Candidate mappings");
   const [sheetDirty, setSheetDirty] = useState(false);
   useEffect(()=>{const warn=(e:BeforeUnloadEvent)=>{if(sheetDirty){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[sheetDirty]);
@@ -227,7 +229,7 @@ function App() {
     (e: Row) =>
       (!from || e.work_date >= from) &&
       (!to || e.work_date <= to) &&
-      (!selected || e.search_id === selected),
+      (page==="Daily work"?(dailyRoles===null||dailyRoles.includes(e.search_id)):(!selected || e.search_id === selected)),
   );
   const totals = aggregate(filtered),
     flagged = filtered.filter((e: Row) => e.flag).length;
@@ -235,7 +237,7 @@ function App() {
     (a: Row) =>
       (!from || a.work_date >= from) &&
       (!to || a.work_date <= to) &&
-      (!selected || a.search_id === selected),
+      (page==="Daily work"?(dailyRoles===null||dailyRoles.includes(a.search_id)):(!selected || a.search_id === selected)),
   );
   const list = data.searches.filter((s: Row) =>
     (s.title + " " + s.client + " " + s.external_id)
@@ -430,7 +432,7 @@ function App() {
                 onChange={(e) => setTo(e.target.value)}
               />
             </label>
-            <label className="search-filter">
+            {page==="Daily work"?<RoleMultiFilter searches={data.searches} value={dailyRoles} onChange={setDailyRoles} disabled={sheetDirty}/>:(<label className="search-filter">
               Search
               <select
                 value={selected}
@@ -444,13 +446,14 @@ function App() {
                   </option>
                 ))}
               </select>
-            </label>
+            </label>)}
             <button
               onClick={() => {
                 if (sheetDirty) return;
                 setFrom("");
                 setTo("");
                 setSelected("");
+                setDailyRoles(null);
               }}
             >
               Clear filters

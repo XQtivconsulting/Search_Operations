@@ -1,5 +1,5 @@
 import {Plus,ArrowsLeftRight} from '@phosphor-icons/react';
-import {RolePicker} from './RolePicker';
+import {RoleMultiFilter} from './RoleMultiFilter';
 import {hasRole,canPlan,canPartnerReview,roleList,roleLabel} from './domain';
 import React,{useEffect,useState} from 'react';
 import {addDays,weekStart,weekDays} from './planning';
@@ -8,7 +8,8 @@ type Props={data:Row;api:(path:string,body?:unknown)=>Promise<any>;reload:()=>Pr
 const label=(date:string)=>new Date(date+'T12:00:00').toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
 export function WeeklyPlanner({data,api,reload,initialSearch='',onDirty,onTeams}:Props) {
  const [week,setWeek]=useState(()=>weekStart(new Date().toLocaleDateString('en-CA'))),[mode,setMode]=useState<'search'|'team'>('search');
- const [filter,setFilter]=useState(initialSearch),[editor,setEditor]=useState<Row|null>(null),[priority,setPriority]=useState<Row|null>(null),[change,setChange]=useState<Row|null>(null);
+ const [roles,setRoles]=useState<string[]|null>(initialSearch?[initialSearch]:null);
+ const [filter,setFilter]=useState(''),[editor,setEditor]=useState<Row|null>(null),[priority,setPriority]=useState<Row|null>(null),[change,setChange]=useState<Row|null>(null);
  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[dirty,setDirty]=useState(false);
  const planner=canPlan(data.actor),dates=weekDays(week);
  const searches=new Map<string,Row>(data.searches.map((s:Row)=>[s.id,s])),teams=new Map<string,Row>(data.teams.map((t:Row)=>[t.id,t]));
@@ -26,14 +27,14 @@ export function WeeklyPlanner({data,api,reload,initialSearch='',onDirty,onTeams}
  function choosePair(search_id:string,team_id:string){if(dirty&&!confirm('Discard edits before changing the search or team?'))return;setEditor(pair(search_id,team_id,editor?.clickedDate));setDirty(false);setError('');}
  function changeDay(index:number,patch:Row){setEditor({...editor,days:editor!.days.map((d:Row,i:number)=>i===index?{...d,...patch}:d)});setDirty(true);}
  async function savePlan(e:React.FormEvent){e.preventDefault();setBusy(true);setError('');try{await api('mutate',{kind:'week-plan',week,...editor});await reload();setEditor(null);setDirty(false);setNotice('Weekly assignments saved. Researchers can add candidate mappings in My Work.');}catch(e:any){setError(e.message);}finally{setBusy(false);}}
- async function savePriority(e:React.FormEvent){e.preventDefault();setBusy(true);setError('');try{await api('mutate',{kind:'decision',week,...priority});await reload();setPriority(null);setDirty(false);setNotice('Weekly priority saved. Previous decisions remain in history.');}catch(e:any){setError(e.message);}finally{setBusy(false);}}
+ async function savePriority(e:React.FormEvent){e.preventDefault();setBusy(true);setError('');try{await api('mutate',{kind:'decision',week,...priority});await reload();setPriority(null);setDirty(false);setNotice('');}catch(e:any){setError(e.message);}finally{setBusy(false);}}
  function openChange(search_id:string,team_id:string,date='') {
   if(dirty&&!confirm('Discard unsaved edits before moving assignments?'))return;
   const rows=assignments.filter((a:Row)=>a.search_id===search_id&&a.team_id===team_id);
   setChange({search_id,team_id,operation:'move',destination_team_id:'',rows,selected:rows.filter((a:Row)=>!a.has_work&&(!date||a.work_date===date)).map((a:Row)=>a.id)});setEditor(null);setPriority(null);setDirty(true);setError('');
  }
  async function transfer(e:React.FormEvent){e.preventDefault();setBusy(true);setError('');try{await api('mutate',{kind:'plan-transfer',operation:change!.operation,week,search_id:change!.search_id,team_id:change!.team_id,destination_team_id:change!.destination_team_id,roster_version:teams.get(change!.destination_team_id)?.roster_version||0,items:change!.rows.filter((a:Row)=>change!.selected.includes(a.id)).map((a:Row)=>({id:a.id,version:a.version}))});await reload();setNotice(change!.operation==='move'?'Selected daily assignments moved to the new team.':'Selected daily assignments unassigned.');setChange(null);setDirty(false);}catch(e:any){setError(e.message);}finally{setBusy(false);}}
- const entities=(mode==='search'?data.searches:data.teams).filter((r:Row)=>(!filter||r.id===filter));
+ const entities=(mode==='search'?data.searches:data.teams).filter((r:Row)=>(mode==='search'?(roles===null||roles.includes(r.id)):(!filter||r.id===filter)));
  const visible=assignments.filter((a:Row)=>entities.some((r:Row)=>r.id===(mode==='search'?a.search_id:a.team_id)));
  function editPriority(s:Row){const p=data.priorities.find((p:Row)=>p.search_id===s.id&&p.week===week);setPriority({search_id:s.id,disposition:p?.disposition || 'Start',notes:p?.notes || '',version:p?.version || 0});setError('');setDirty(false);}
  return <section className="panel weekly-planner">
@@ -43,18 +44,16 @@ export function WeeklyPlanner({data,api,reload,initialSearch='',onDirty,onTeams}
    <button aria-label="Next week" onClick={()=>setWeek(addDays(week,7))}>→</button>
    <button onClick={()=>setWeek(weekStart(new Date().toLocaleDateString('en-CA')))}>This week</button>
    <label>View<select value={mode} onChange={e=>{setMode(e.target.value as 'search'|'team');setFilter('');}}><option value="search">By search</option><option value="team">By team</option></select></label>
-   {mode==='search'?<RolePicker searches={data.searches} value={filter} onChange={setFilter} allowAll disabled={dirty||busy}/>:<label>Team<select value={filter} onChange={e=>setFilter(e.target.value)}><option value="">All teams</option>{data.teams.map((r:Row)=><option key={r.id} value={r.id}>{r.name}</option>)}</select></label>}
-   {planner&&<button className="primary" onClick={()=>openPair(mode==='search'?filter:'',mode==='team'?filter:'')}>Plan week</button>}
+   {mode==='search'?<RoleMultiFilter searches={data.searches} value={roles} onChange={setRoles} disabled={dirty||busy}/>:<label>Team<select value={filter} onChange={e=>setFilter(e.target.value)}><option value="">All teams</option>{data.teams.map((r:Row)=><option key={r.id} value={r.id}>{r.name}</option>)}</select></label>}
+   {planner&&<button className="primary" onClick={()=>openPair(mode==='search'&&roles?.length===1?roles[0]:'',mode==='team'?filter:'')}>Plan week</button>}
   </div>
-  <p className="fine">{label(dates[0])} – {label(dates[6])}. Targets are partner-approved profiles per team, per day. Click an assignment to edit its week.</p>
   <div className="plan-action-legend"><span><Plus size={13}/> Assign</span><span><ArrowsLeftRight size={13}/> Move / unassign</span><span>Click an assignment to edit</span></div>
-  <div className="priority-legend" aria-label="Priority colors">{['Start','Continue','Recalibrate','Pause','Stop'].map(p=><span key={p} className={`badge priority-${p.toLowerCase()}`}>{p}</span>)}</div>
   {notice&&<p className="notice" role="status">{notice}</p>}
   {!editor&&!priority&&!change&&error&&<p className="error" role="alert">{error}</p>}
   {!data.teams.length&&<p className="source-note">Create teams and add their researchers in Teams before allocating work.</p>}
   <div className="plan-scroll"><table className="plan-grid"><thead><tr><th>{mode==='search'?'Search / weekly priority':'Team / researchers'}</th>{dates.map(d=><th key={d}>{label(d)}</th>)}<th>Week target</th></tr></thead><tbody>
    {entities.map((r:Row)=>{const row=visible.filter((a:Row)=>(mode==='search'?a.search_id:a.team_id)===r.id),p=data.priorities.find((p:Row)=>p.search_id===r.id&&p.week===week);return <tr key={r.id}>
-    <th scope="row">{mode==='search'?<><strong>{r.client}</strong><span>{r.title}</span><small>Partner: {r.partner || 'Not assigned'}</small><div className="priority-line"><span className={`plan-priority-text priority-text-${(p?.disposition || "none").toLowerCase()}`}>{p?.disposition || 'No priority'}</span>{planner&&<button className="plan-priority-edit" aria-label={`${p?'Edit':'Set'} weekly priority for ${r.client} — ${r.title}`} onClick={()=>editPriority(r)}>{p?'Edit':'Set'}</button>}</div>{p?.notes&&<small>{p.notes}</small>}</>:<><strong>{r.name}</strong><small>{data.team_members.filter((m:Row)=>m.team_id===r.id).map((m:Row)=>data.staff.find((s:Row)=>s.id===m.staff_id)?.name).join(', ')||'No members configured'}</small>{canPlan(data.actor)&&<button onClick={onTeams}>Edit team</button>}</>}</th>
+    <th scope="row">{mode==='search'?<><strong>{r.client}</strong><span>{r.title}</span><small>Partner: {r.partner || 'Not assigned'}</small><div className="priority-line"><span className={p?`badge plan-priority-badge priority-${p.disposition.toLowerCase()}`:"plan-priority-text priority-text-none"}>{p?.disposition || 'No priority'}</span>{planner&&<button className="plan-priority-edit" aria-label={`${p?'Edit':'Set'} weekly priority for ${r.client} — ${r.title}`} onClick={()=>editPriority(r)}>{p?'Edit':'Set'}</button>}</div>{p?.notes&&<small>{p.notes}</small>}</>:<><strong>{r.name}</strong><small>{data.team_members.filter((m:Row)=>m.team_id===r.id).map((m:Row)=>data.staff.find((s:Row)=>s.id===m.staff_id)?.name).join(', ')||'No members configured'}</small>{canPlan(data.actor)&&<button onClick={onTeams}>Edit team</button>}</>}</th>
     {dates.map(date=>{const cell=row.filter((a:Row)=>a.work_date===date);return <td key={date}>
      {cell.map((a:Row)=>{const other=mode==='search'?teams.get(a.team_id)?.name:`${searches.get(a.search_id)?.client} · ${searches.get(a.search_id)?.title}`;const clash=assignments.filter((b:Row)=>b.team_id===a.team_id&&b.work_date===date).length>1;const disposition=data.priorities.find((p:Row)=>p.search_id===a.search_id&&p.week===week)?.disposition;return <div className="plan-assignment" key={a.id}><button className={`plan-slot priority-${(disposition || 'none').toLowerCase()}`} key={a.id} disabled={!planner} onClick={()=>{setEditor(pair(a.search_id,a.team_id));setError('');setDirty(false);}}><span>{other}</span>{disposition&&<small>{disposition}</small>}<strong>{a.target??'—'} <small>target</small></strong>{clash&&<small className="plan-warning">Team has multiple searches today</small>}</button>{planner&&<button className="plan-icon plan-transfer" title="Move / unassign" aria-label={`Move or unassign ${other} on ${label(date)}`} onClick={()=>openChange(a.search_id,a.team_id,date)}><ArrowsLeftRight size={14}/></button>}</div>;})}
      {planner&&<button className="plan-icon plan-assign-icon" title="Assign" aria-label={`Plan ${mode==='search'?r.title:r.name} on ${label(date)}`} onClick={()=>openPair(mode==='search'?r.id:'',mode==='team'?r.id:'',date)}><Plus size={11}/></button>}

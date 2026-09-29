@@ -1,5 +1,9 @@
 # Verification status
 
+## Multi-role delivery filters and weekly cleanup — 2026-09-28
+
+Weekly Plan and Daily Work share a role checkbox filter with client grouping, typed role/client/ID search, All, None and Show matching only. Weekly visible assignments/totals and Daily Work entries/assignments use selected IDs; an empty selection shows no roles. The weekly instruction paragraph, priority legend and priority-save notice are removed. Assigned priorities retain colored badges; unset priority remains plain text. Row borders and banding are lighter, with a bottom border beneath date headers. Typecheck, all 128 tests and production build passed. Signed-in browser interaction/visual verification was not performed; deployment is checked separately.
+
 ## Quieter weekly controls and Daily Work header — 2026-09-28
 
 Weekly assignment plus controls are smaller and borderless at rest. Priority is plain muted text, with a distinct underlined Set/Edit action. Daily Work uses the shared compact page header. Typecheck, all 128 tests and production build passed. Signed-in browser visual verification was not performed. Deployment is checked separately.
