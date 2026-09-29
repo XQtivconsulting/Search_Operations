@@ -1,3 +1,4 @@
+import {RolePicker} from './RolePicker';
 import {hasRole,canPlan,canPartnerReview,roleList,roleLabel} from './domain';
 import React,{useEffect,useState} from 'react';
 import {addDays,weekStart,weekDays} from './planning';
@@ -6,7 +7,7 @@ type Props={data:Row;api:(path:string,body?:unknown)=>Promise<any>;reload:()=>Pr
 const label=(date:string)=>new Date(date+'T12:00:00').toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
 export function WeeklyPlanner({data,api,reload,initialSearch='',onDirty,onTeams}:Props) {
  const [week,setWeek]=useState(()=>weekStart(new Date().toLocaleDateString('en-CA'))),[mode,setMode]=useState<'search'|'team'>('search');
- const [filter,setFilter]=useState(initialSearch),[query,setQuery]=useState(''),[editor,setEditor]=useState<Row|null>(null),[priority,setPriority]=useState<Row|null>(null),[change,setChange]=useState<Row|null>(null);
+ const [filter,setFilter]=useState(initialSearch),[editor,setEditor]=useState<Row|null>(null),[priority,setPriority]=useState<Row|null>(null),[change,setChange]=useState<Row|null>(null);
  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[dirty,setDirty]=useState(false);
  const planner=canPlan(data.actor),dates=weekDays(week);
  const searches=new Map<string,Row>(data.searches.map((s:Row)=>[s.id,s])),teams=new Map<string,Row>(data.teams.map((t:Row)=>[t.id,t]));
@@ -31,7 +32,7 @@ export function WeeklyPlanner({data,api,reload,initialSearch='',onDirty,onTeams}
   setChange({search_id,team_id,operation:'move',destination_team_id:'',rows,selected:rows.filter((a:Row)=>!a.has_work&&(!date||a.work_date===date)).map((a:Row)=>a.id)});setEditor(null);setPriority(null);setDirty(true);setError('');
  }
  async function transfer(e:React.FormEvent){e.preventDefault();setBusy(true);setError('');try{await api('mutate',{kind:'plan-transfer',operation:change!.operation,week,search_id:change!.search_id,team_id:change!.team_id,destination_team_id:change!.destination_team_id,roster_version:teams.get(change!.destination_team_id)?.roster_version||0,items:change!.rows.filter((a:Row)=>change!.selected.includes(a.id)).map((a:Row)=>({id:a.id,version:a.version}))});await reload();setNotice(change!.operation==='move'?'Selected daily assignments moved to the new team.':'Selected daily assignments unassigned.');setChange(null);setDirty(false);}catch(e:any){setError(e.message);}finally{setBusy(false);}}
- const entities=(mode==='search'?data.searches:data.teams).filter((r:Row)=>(!filter||r.id===filter)&&`${r.client || ''} ${r.title || r.name}`.toLowerCase().includes(query.toLowerCase()));
+ const entities=(mode==='search'?data.searches:data.teams).filter((r:Row)=>(!filter||r.id===filter));
  const visible=assignments.filter((a:Row)=>entities.some((r:Row)=>r.id===(mode==='search'?a.search_id:a.team_id)));
  function editPriority(s:Row){const p=data.priorities.find((p:Row)=>p.search_id===s.id&&p.week===week);setPriority({search_id:s.id,disposition:p?.disposition || 'Start',notes:p?.notes || '',version:p?.version || 0});setError('');setDirty(false);}
  return <section className="panel weekly-planner">
@@ -41,8 +42,7 @@ export function WeeklyPlanner({data,api,reload,initialSearch='',onDirty,onTeams}
    <button aria-label="Next week" onClick={()=>setWeek(addDays(week,7))}>→</button>
    <button onClick={()=>setWeek(weekStart(new Date().toLocaleDateString('en-CA')))}>This week</button>
    <label>View<select value={mode} onChange={e=>{setMode(e.target.value as 'search'|'team');setFilter('');}}><option value="search">By search</option><option value="team">By team</option></select></label>
-   <label>{mode==='search'?'Search':'Team'}<select value={filter} onChange={e=>setFilter(e.target.value)}><option value="">All {mode==='search'?'searches':'teams'}</option>{(mode==='search'?data.searches:data.teams).map((r:Row)=><option key={r.id} value={r.id}>{mode==='search'?`${r.client} · ${r.title}`:r.name}</option>)}</select></label>
-   <label>Find<input value={query} onChange={e=>setQuery(e.target.value)} placeholder={mode==='search'?'Client or role':'Team name'}/></label>
+   {mode==='search'?<RolePicker searches={data.searches} value={filter} onChange={setFilter} allowAll disabled={dirty||busy}/>:<label>Team<select value={filter} onChange={e=>setFilter(e.target.value)}><option value="">All teams</option>{data.teams.map((r:Row)=><option key={r.id} value={r.id}>{r.name}</option>)}</select></label>}
    {planner&&<button className="primary" onClick={()=>openPair(mode==='search'?filter:'',mode==='team'?filter:'')}>Plan week</button>}
   </div>
   <p className="fine">{label(dates[0])} – {label(dates[6])}. Targets are partner-approved profiles per team, per day. Click an assignment to edit its week.</p>

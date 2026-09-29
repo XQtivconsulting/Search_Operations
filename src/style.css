@@ -1251,3 +1251,5 @@ input[type=checkbox] { accent-color:var(--xqtiv-navy); }
 .app .compact-workspace .research-panel{gap:6px}
 .app .compact-workspace .compact-menu{margin-top:0}
 @media(max-width:600px){.app .compact-workspace .repository-toolbar{grid-template-columns:1fr}.app .compact-workspace .compact-menu-content{right:auto;left:0}.app .mapping-toolbar{align-items:flex-start;flex-wrap:wrap}}
+.app .plan-toolbar .role-picker{flex:1 1 320px}
+.app .plan-toolbar .role-picker-controls>label{max-width:none;width:100%}

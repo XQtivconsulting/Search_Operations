@@ -1,5 +1,9 @@
 # Verification status
 
+## Weekly plan role picker — 2026-09-28
+
+Replaced the separate search dropdown and Find field with the shared searchable RolePicker, including role ID/company/title matching, internal sort controls and All roles reset. Team view retains its team selector. Typecheck, all 127 tests and production build passed. Signed-in browser verification was not performed; deployment is checked separately.
+
 ## Compact repository and company layout — 2026-09-28
 
 Candidate mappings is the first/default repository tab, including sidebar entry. Explicit links to target companies retain their destination. Compact page headers, one repository control row, sorting inside the role picker, and secondary action menus reduce space above the table. Company Universe removes its duplicated heading/help blocks, groups filters/actions in one toolbar and reveals role-assignment controls after company selection. Typecheck, all 127 tests and production build passed. Signed-in browser visual verification was not performed. Deployment is checked separately through GitHub Actions.
