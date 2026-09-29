@@ -1201,3 +1201,16 @@ input[type=checkbox] { accent-color:var(--xqtiv-navy); }
 .app .repository-toolbar .role-picker-menu button{display:grid;grid-template-columns:110px minmax(0,1fr);align-items:start;gap:12px}
 .app .repository-toolbar .role-picker-menu button span{overflow-wrap:anywhere}
 @media(max-width:800px){.app .repository-toolbar{grid-template-columns:1fr}}
+
+.app .candidate-search{flex:1;max-width:650px}.app .candidate-search input{max-width:none;width:100%}
+.app .candidate-directory-table{table-layout:fixed;min-width:900px;width:100%}
+.app .candidate-directory-table th,.app .candidate-directory-table td{padding:7px 9px;vertical-align:middle;text-align:left}
+.app .candidate-directory-table td{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app .candidate-directory-table td .text-button{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app .candidate-directory-table th:last-child{width:70px}
+.app .candidate-directory-table .candidate-select-column{width:65px}
+.app .candidate-directory-table .column-sort{background:transparent;border:0;padding:0;box-shadow:none;color:inherit;text-align:left;width:100%;display:flex;justify-content:space-between}
+.app .candidate-directory-table .column-filters input{width:100%;min-width:0;padding:6px;font-size:12px}
+.app .candidate-bulk{margin:10px 0;align-items:center;flex-wrap:wrap}
+.app .candidate-pagination{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:13px}
+.app .candidate-pagination label,.app .candidate-pagination .row-actions{display:flex;align-items:center;gap:8px}

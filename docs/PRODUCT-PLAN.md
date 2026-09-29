@@ -1,5 +1,9 @@
 # Product plan
 
+## Candidate profile follow-up
+
+Keep the directory compact, sortable and searchable with paged rows. A future release should expand the individual candidate page with notes, resume storage, phone numbers/contact details, interaction history and mapping workflows. These richer profile features are deferred; the current directory update does not implement them. Server-side candidate search/pagination remains future work; current pagination bounds rendered rows while the workspace state still supplies the records.
+
 ## First operating release
 
 Use weekly priorities to choose searches, create daily team assignments, record individual output, complete peer and partner review, and inspect productivity. Preserve a compact spreadsheet view for repeated input. The current implementation provides this loop with durable storage and permissions, plus a staged job import from RecruitCRM.
