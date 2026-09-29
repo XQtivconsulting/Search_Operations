@@ -1,5 +1,9 @@
 # Verification status
 
+## Role repository clarity — 2026-09-28
+
+Removed the workflow tutorial and Team, Person, Strategy subcategory and Status filters. The selected role updates the main screen title, with company and role ID beneath it. Role selection has a full-width input and aligned option columns; Sort and Find remain. Typecheck, all 122 tests and production build passed. Signed-in browser visual verification was not performed. Deployment is checked separately through GitHub Actions.
+
 ## Searches filter cleanup — 2026-09-28
 
 Removed the shared From/Through and All searches controls, including Clear filters, from Searches. Portfolio cards and totals now ignore those shared filters; the client/role/CRM text search remains. Typecheck, all 122 tests and production build passed locally. Signed-in browser verification was not performed. Deployment is verified separately through GitHub Actions.

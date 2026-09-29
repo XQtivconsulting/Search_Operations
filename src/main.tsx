@@ -1,3 +1,4 @@
+import {roleDisplayId} from './RolePicker';
 import {CoverageMetrics} from './CoverageMetrics';
 import './role-page.css';
 import {CandidateRolePage} from './RolePageView';
@@ -367,11 +368,12 @@ function App() {
       <main className="main">
         <header>
           <div>
-            <p className="eyebrow">{data.name} / OPERATIONS</p>
-            <h1>{page === "Overview" ? "A clear view of the work." : page}</h1>
+            <p className="eyebrow">{data.name} / {page === "Role repository" ? "ROLE REPOSITORY" : "OPERATIONS"}</p>
+            <h1>{page === "Role repository" && sBy[selected] ? sBy[selected].title : page === "Overview" ? "A clear view of the work." : page}</h1>
             <p className="subheading">
               {
                 {
+                  "Role repository": sBy[selected] ? `${sBy[selected].client} · Role ID: ${roleDisplayId(sBy[selected])}` : "Choose a role to open its repository.",
                   Overview: "Keep priorities, output, and reviews connected.",
                   Searches:
                     "The complete search portfolio, with the details one click away.",
@@ -625,7 +627,7 @@ function App() {
         )}
         {page === "Weekly plan" && <WeeklyPlanner data={data} api={api} reload={load} initialSearch={selected} onDirty={setSheetDirty} onTeams={()=>setPage('Teams')}/>}
         {page==='My Work'&&<MyWork data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage("Role repository");}}/>}
-        {page==='Role repository'&&<ResearchPanel onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} key={page} data={data} api={api} reload={load} view={page} initialRole={page==='Role repository'?selected:''} initialTab={repoTab} onDirty={setSheetDirty} onCompanies={id=>{setSelected(id);setPage("Company universe");}}/>}
+        {page==='Role repository'&&<ResearchPanel onRoleChange={setSelected} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} key={page} data={data} api={api} reload={load} view={page} initialRole={page==='Role repository'?selected:''} initialTab={repoTab} onDirty={setSheetDirty} onCompanies={id=>{setSelected(id);setPage("Company universe");}}/>}
         {page === 'Company universe'&&<CompanyUniverse data={data} api={api} reload={load} onDirty={setSheetDirty} initialRole={selected} onOpen={id=>{setSelected(id);setRepoTab("Target companies");setPage("Role repository");}}/>}
         {page==='Workflow Monitor'&&<WorkflowMonitor data={data} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage('Role repository');}}/>}
         {page==='Candidates'&&candidateId&&<CandidateProfile key={candidateId} id={candidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} onBack={()=>setCandidateId('')} onRole={id=>{setSelected(id);setRepoTab('Candidate mappings');setPage('Role repository');}}/>}
