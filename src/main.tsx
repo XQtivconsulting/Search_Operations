@@ -408,7 +408,7 @@ function App() {
             {error}
           </div>
         )}
-        {!["Account settings","Role repository","My Work","Workflow Monitor","Company universe","Teams","Candidates","People & access"].includes(page)  && page !== "Integrations" && page !== "Weekly plan" && (
+        {!["Searches","Account settings","Role repository","My Work","Workflow Monitor","Company universe","Teams","Candidates","People & access"].includes(page)  && page !== "Integrations" && page !== "Weekly plan" && (
           <div className="filters">
             <label>
               From
@@ -559,9 +559,8 @@ function App() {
             </div>
             <div className="search-list">
               {list
-                .filter((s: Row) => !selected || s.id === selected)
                 .map((s: Row) => {
-                  const es = filtered.filter((e: Row) => e.search_id === s.id),
+                  const es = data.entries.filter((e: Row) => e.search_id === s.id),
                     m = aggregate(es as any);
                   return (
                     <details className="search-card" key={s.id}>

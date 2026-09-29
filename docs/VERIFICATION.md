@@ -1,5 +1,9 @@
 # Verification status
 
+## Searches filter cleanup — 2026-09-28
+
+Removed the shared From/Through and All searches controls, including Clear filters, from Searches. Portfolio cards and totals now ignore those shared filters; the client/role/CRM text search remains. Typecheck, all 122 tests and production build passed locally. Signed-in browser verification was not performed. Deployment is verified separately through GitHub Actions.
+
 ## Completed
 
 - Document-only regression tests verify cross-role title/client isolation, clearing previous partner/link fields, source-text validation, multi-line titles, PDF line reconstruction, column reading order, visible save/publish controls, and atomic publication rollback. The downloadable XLSX was rendered, inspected and read through the same import library; all columns map and the Companies sheet contains no sample records.
