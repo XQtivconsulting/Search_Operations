@@ -1,4 +1,3 @@
-import {RoleMultiFilter} from './RoleMultiFilter';
 import {roleDisplayId} from './RolePicker';
 import {CoverageMetrics} from './CoverageMetrics';
 import './role-page.css';
@@ -6,7 +5,6 @@ import {CandidateRolePage} from './RolePageView';
 import {PeoplePanel} from './PeoplePanel';
 import {Candidates,CandidateProfile} from './Candidates';
 import {MyWork} from './MyWork';
-import {WorkflowMonitor} from './WorkflowMonitor';
 import {AccountSettings} from './AccountSettings';
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -28,7 +26,7 @@ import {
 import {hasRole,roleList,roleLabel, aggregate } from "./domain";
 import {CompanyUniverse} from "./CompanyUniverse";
 import {PeerSetup} from "./PeerSetup";
-import {DailyWork} from "./DailyWork";
+import {DeliveryMonitor} from "./DeliveryMonitor";
 import {WeeklyPlanner} from './WeeklyPlanner';
 import {TeamsPanel} from './TeamsPanel';
 import { CRMPanel } from "./CRMPanel";
@@ -76,7 +74,8 @@ function App() {
     [modal, setModal] = useState<Row | null>(null),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState("");
-  const [dailyRoles,setDailyRoles]=useState<string[]|null>(null);
+  const [deliveryStart,setDeliveryStart]=useState<{view:'daily'|'pipeline';roles:string[]|null}>({view:'daily',roles:null});
+  const [allocationStart,setAllocationStart]=useState<{date:string;view:'decisions'|'allocation'}>({date:'',view:'decisions'});
   const [repoTab,setRepoTab]=useState("Candidate mappings");
   const [sheetDirty, setSheetDirty] = useState(false);
   useEffect(()=>{const warn=(e:BeforeUnloadEvent)=>{if(sheetDirty){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[sheetDirty]);
@@ -230,7 +229,7 @@ function App() {
     (e: Row) =>
       (!from || e.work_date >= from) &&
       (!to || e.work_date <= to) &&
-      (page==="Daily work"?(dailyRoles===null||dailyRoles.includes(e.search_id)):(!selected || e.search_id === selected)),
+      (!selected || e.search_id === selected),
   );
   const totals = aggregate(filtered),
     flagged = filtered.filter((e: Row) => e.flag).length;
@@ -238,7 +237,7 @@ function App() {
     (a: Row) =>
       (!from || a.work_date >= from) &&
       (!to || a.work_date <= to) &&
-      (page==="Daily work"?(dailyRoles===null||dailyRoles.includes(a.search_id)):(!selected || a.search_id === selected)),
+      (!selected || a.search_id === selected),
   );
   const list = data.searches.filter((s: Row) =>
     (s.title + " " + s.client + " " + s.external_id)
@@ -253,8 +252,7 @@ function App() {
     ['Candidates',Users,'Research'],
     ['Company universe',Briefcase,'Research'],
     ['Weekly plan',CalendarBlank,'Delivery'],
-    ['Daily work',ClipboardText,'Delivery'],
-    ['Workflow Monitor',ChartBar,'Delivery'],
+    ['Delivery Monitor',ClipboardText,'Delivery'],
     ['Performance',ChartBar,'Delivery'],
     ['Teams',Users,'Organization'],
     ...(isAdmin?[['People & access',Users,'Organization'] as [string,React.ElementType,string],['Integrations',Briefcase,'Organization'] as [string,React.ElementType,string]]:[]),
@@ -337,6 +335,8 @@ function App() {
                 if (sheetDirty && !confirm("Discard unsaved changes?")) return;
                 setSheetDirty(false);
                 if(label==='Role repository')setRepoTab("Candidate mappings");
+                if(label==='Delivery Monitor')setDeliveryStart({view:'daily',roles:null});
+                if(label==='Weekly plan')setAllocationStart({date:'',view:'decisions'});
                 setPage(label);
                 setNotice("");
               }}
@@ -368,7 +368,7 @@ function App() {
           </button>
         </div>
       </aside>
-      <main className={"main"+(["Role repository","Company universe","Candidates","Daily work"].includes(page)?" compact-workspace":"")}>
+      <main className={"main"+(["Role repository","Company universe","Candidates","Delivery Monitor"].includes(page)?" compact-workspace":"")}>
         <header>
           <div>
             <p className="eyebrow">{data.name} / {page === "Role repository" ? "ROLE REPOSITORY" : "OPERATIONS"}</p>
@@ -382,8 +382,8 @@ function App() {
                     "The complete search portfolio, with the details one click away.",
                   "Weekly plan":
                     "Set priorities and allocate teams across all seven days.",
-                  "Daily work":
-                    "Team assignments and individual contributions, together.",
+                  "Delivery Monitor":
+                    "Track delivery and clear outstanding reviews.",
                   Candidates: "One candidate record, linked to every mapped client and role.",
                   Performance: "Trace every result to the work behind it.",
                   "People & access": "Accounts, invitations and combined responsibilities.",
@@ -391,7 +391,7 @@ function App() {
               }
             </p>
           </div>
-          {planner && ["Overview","Daily work"].includes(page) && (
+          {planner && ["Overview"].includes(page) && (
             <button
               className="primary"
               onClick={() =>
@@ -413,7 +413,7 @@ function App() {
             {error}
           </div>
         )}
-        {!["Searches","Account settings","Role repository","My Work","Workflow Monitor","Company universe","Teams","Candidates","People & access"].includes(page)  && page !== "Integrations" && page !== "Weekly plan" && (
+        {!["Searches","Account settings","Role repository","My Work","Delivery Monitor","Company universe","Teams","Candidates","People & access"].includes(page)  && page !== "Integrations" && page !== "Weekly plan" && (
           <div className="filters">
             <label>
               From
@@ -433,7 +433,7 @@ function App() {
                 onChange={(e) => setTo(e.target.value)}
               />
             </label>
-            {page==="Daily work"?<RoleMultiFilter searches={data.searches} value={dailyRoles} onChange={setDailyRoles} disabled={sheetDirty}/>:(<label className="search-filter">
+            {<label className="search-filter">
               Search
               <select
                 value={selected}
@@ -447,14 +447,14 @@ function App() {
                   </option>
                 ))}
               </select>
-            </label>)}
+            </label>}
             <button
               onClick={() => {
                 if (sheetDirty) return;
                 setFrom("");
                 setTo("");
                 setSelected("");
-                setDailyRoles(null);
+
               }}
             >
               Clear filters
@@ -473,7 +473,7 @@ function App() {
                     <p className="eyebrow">NEXT ACTIONS</p>
                     <h2>Reviews waiting on a decision</h2>
                   </div>
-                  <button onClick={() => setPage("Workflow Monitor")}>
+                  <button onClick={() => {setDeliveryStart({view:'pipeline',roles:null});setPage('Delivery Monitor');}}>
                     View all <ArrowRight />
                   </button>
                 </div>
@@ -483,7 +483,7 @@ function App() {
                     key={e.id}
                     onClick={() => {
                       setSelected(e.role_id);
-                      setPage("Workflow Monitor");
+                      setDeliveryStart({view:'pipeline',roles:[e.role_id]});setPage("Delivery Monitor");
                     }}
                   >
                     <span className="monogram">
@@ -532,8 +532,8 @@ function App() {
             <section className="panel">
               <div className="section-head">
                 <h2>Recent work</h2>
-                <button onClick={() => setPage("Daily work")}>
-                  Open daily work <ArrowRight />
+                <button onClick={() => {setDeliveryStart({view:'daily',roles:null});setPage('Delivery Monitor');}}>
+                  Open delivery monitor <ArrowRight />
                 </button>
               </div>
               {assignments.slice(0, 5).map((a: Row) => (
@@ -597,7 +597,7 @@ function App() {
                           <button
                             onClick={() => {
                               setSelected(s.id);
-                              setPage("Daily work");
+                              setDeliveryStart({view:'daily',roles:[s.id]});setPage('Delivery Monitor');
                             }}
                           >
                             Sourcing work
@@ -629,15 +629,15 @@ function App() {
             </div>
           </>
         )}
-        {page === "Weekly plan" && <WeeklyPlanner data={data} api={api} reload={load} initialSearch={selected} onDirty={setSheetDirty} onTeams={()=>setPage('Teams')}/>}
+        {page === "Weekly plan" && <WeeklyPlanner data={data} api={api} reload={load} initialSearch={selected} initialDate={allocationStart.date} initialView={allocationStart.view} onDirty={setSheetDirty} onTeams={()=>setPage('Teams')}/>}
         {page==='My Work'&&<MyWork data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage("Role repository");}}/>}
         {page==='Role repository'&&<ResearchPanel onEditPartner={s=>open({kind:"search-owner",...s})} onRoleChange={setSelected} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} key={page} data={data} api={api} reload={load} view={page} initialRole={page==='Role repository'?selected:''} initialTab={repoTab} onDirty={setSheetDirty} onCompanies={id=>{setSelected(id);setPage("Company universe");}}/>}
         {page === 'Company universe'&&<CompanyUniverse data={data} api={api} reload={load} onDirty={setSheetDirty} initialRole={selected} onOpen={id=>{setSelected(id);setRepoTab("Target companies");setPage("Role repository");}}/>}
-        {page==='Workflow Monitor'&&<WorkflowMonitor data={data} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage('Role repository');}}/>}
+
         {page==='Candidates'&&candidateId&&<CandidateProfile key={candidateId} id={candidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} onBack={()=>setCandidateId('')} onRole={id=>{setSelected(id);setRepoTab('Candidate mappings');setPage('Role repository');}}/>}
         {page==='Candidates'&&!candidateId&&<Candidates onCandidate={setCandidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} onOpen={id=>{setSelected(id);setRepoTab("Candidate mappings");setPage("Role repository");}}/>}
         {page==='Teams'&&<><TeamsPanel data={data} api={api} reload={load} onAdd={()=>open({kind:'team'})}/>{planner?<PeerSetup data={data} api={api} reload={load}/>:<p>Team planners manage peer-review pairings.</p>}</>}
-        {page === "Daily work" && <DailyWork data={data} assignments={assignments} entries={filtered} renderEntries={entryRows} onOpen={id=>{setSelected(id);setRepoTab("Candidate mappings");setPage("Role repository");}}/>}
+        {page === "Delivery Monitor" && <DeliveryMonitor data={data} initialView={deliveryStart.view} initialRoles={deliveryStart.roles} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage('Role repository');}} onCandidate={id=>{setCandidateId(id);setPage('Candidates');}} onAllocate={(id,date)=>{setSelected(id);setAllocationStart({date,view:'allocation'});setPage('Weekly plan');}}/>}
         {page === "Performance" && (
           <>
             {cards(filtered)}

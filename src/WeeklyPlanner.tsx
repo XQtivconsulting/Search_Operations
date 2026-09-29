@@ -7,12 +7,12 @@ import {hasRole,canPlan,canPartnerReview,roleList,roleLabel} from './domain';
 import React,{useEffect,useState} from 'react';
 import {addDays,weekStart,weekDays} from './planning';
 type Row=Record<string,any>;
-type Props={data:Row;api:(path:string,body?:unknown)=>Promise<any>;reload:()=>Promise<void>;initialSearch?:string;onDirty:(dirty:boolean)=>void;onTeams:()=>void};
+type Props={data:Row;api:(path:string,body?:unknown)=>Promise<any>;reload:()=>Promise<void>;initialSearch?:string;initialDate?:string;initialView?:'decisions'|'allocation';onDirty:(dirty:boolean)=>void;onTeams:()=>void};
 const label=(date:string)=>new Date(date+'T12:00:00').toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
-export function WeeklyPlanner({data,api,reload,initialSearch='',onDirty,onTeams}:Props) {
- const [week,setWeek]=useState(()=>weekStart(new Date().toLocaleDateString('en-CA'))),[mode,setMode]=useState<'search'|'team'>('search');
+export function WeeklyPlanner({data,api,reload,initialSearch='',initialDate='',initialView='decisions',onDirty,onTeams}:Props) {
+ const [week,setWeek]=useState(()=>weekStart(initialDate||new Date().toLocaleDateString('en-CA'))),[mode,setMode]=useState<'search'|'team'>('search');
  const [gridSort,setGridSort]=useState({key:'name',descending:false});
- const [view,setView]=useState<'decisions'|'allocation'>('decisions'),[decisionFilter,setDecisionFilter]=useState('');
+ const [view,setView]=useState<'decisions'|'allocation'>(initialView),[decisionFilter,setDecisionFilter]=useState('');
  const [roles,setRoles]=useState<string[]|null>(initialSearch?[initialSearch]:null);
  const [filter,setFilter]=useState(''),[editor,setEditor]=useState<Row|null>(null),[priority,setPriority]=useState<Row|null>(null),[change,setChange]=useState<Row|null>(null);
  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[dirty,setDirty]=useState(false);

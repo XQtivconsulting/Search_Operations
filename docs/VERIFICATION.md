@@ -1,3 +1,7 @@
+## Delivery Monitor consolidation — September 29, 2026
+
+Combined navigation, daily period/team/role filtering, attention indicators, an all-date review pipeline, candidate/repository links and contextual Team Allocation navigation. Retained coverage/blocker details and existing backend permission checks. Added synthetic tests for date boundaries, role selection, prior-period pending work, daily reconciliation, future/current-day attention rules, combined rendering and multi-researcher unplanned work. Typecheck, 139 tests and production build passed. No live user data used; browser visual verification remains unavailable.
+
 ## Shared content styling — September 29, 2026
 
 Implemented Team Allocation table density/palette in shared main-content CSS; navigation is excluded. Removed the global third-column minimum width and constrained Search Decisions columns with wrapping headers. Standardized row labels, secondary text, compact decision badges/actions. Typecheck, 133 tests and production build passed. No browser visual verification was available; responsive behavior should be checked in the live app.

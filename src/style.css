@@ -1264,3 +1264,18 @@ input[type=checkbox] { accent-color:var(--xqtiv-navy); }
 .app .table-sort-heading span{flex:none;color:#677e9c}
 .app .company-master .sheet-table th,.app .company-master .sheet-table td{ text-align:left; }
 .app .company-master .sheet-table th button{ text-align:left;justify-content:flex-start; }
+/* Delivery Monitor shares the compact planning table treatment. */
+.app .delivery-summary{display:flex;flex-wrap:wrap;gap:8px 22px;padding:8px 0 12px;color:#60718b}
+.app .delivery-summary strong{color:#22304a}
+.app .delivery-monitor .sheet-toolbar{align-items:end;flex-wrap:wrap}
+.app .delivery-monitor .research-tabs [aria-selected=true]{background:#e1eafa;border-color:#819bc2;color:#173b78}
+.app .delivery-monitor :is(.delivery-grid,.delivery-pipeline){white-space:normal;min-width:960px;table-layout:fixed}
+.app .delivery-monitor :is(th,td){text-align:left;vertical-align:top;overflow-wrap:anywhere}
+.app .delivery-grid th:first-child{width:190px}
+.app .delivery-grid th:nth-child(3){width:150px}
+.app .delivery-grid th:nth-last-child(-n+2){width:145px}
+.app .delivery-monitor .row-actions{display:flex;flex-wrap:wrap;gap:4px}
+.app .delivery-monitor td button{min-height:24px;padding:2px 5px;box-shadow:none}
+.app .delivery-monitor>details{margin-top:14px}
+.app .delivery-monitor>details>summary{cursor:pointer;color:#315f99}
+.app .delivery-monitor .table-sort-heading{align-items:flex-start}

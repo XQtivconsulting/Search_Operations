@@ -28,3 +28,11 @@ Click **Move / unassign** on an allocation, or open its editor and choose **Move
 ## Select individual researchers
 
 Open a role/team allocation in Weekly Assignment. Each working day has Researcher checkboxes; select one or more members of that team and Save week. New plans initially select the team roster. Unstarted allocations can change researchers; recorded work protects the allocation. Daily targets remain team totals. Candidate mappings independently store actual mapper account, staff ID, team, role and review history; plan changes never rewrite mapping attribution. Role Candidate mappings displays Mapped by / team, and submitted/approved work drives researcher/team/role metrics.
+
+## Delivery Monitor
+
+Daily Work and the separate Workflow Monitor navigation are replaced by Delivery Monitor. Daily delivery defaults to Today in US Eastern time, with Yesterday, This week, or a chosen date. Each row is a search/team/work date, including submitted work without an allocation. Researchers are visible alongside their team; targets are partner-approved candidate targets, mapped excludes drafts, and approvals reflect the current status of candidates attributed to that work date (not the date their approval occurred).
+
+No mappings yet, pending reviews, and past work dates below their approval target are attention indicators. Future plans are not flagged as late; current-day targets are not flagged as missed. Pending review counts open the role's entire outstanding pipeline, including earlier work. The pipeline includes Peer review, Partner review, Needs information and Hold; its role filter is shared with daily delivery, but daily period/team filters do not hide outstanding reviews. Candidate links open profiles, and Open mappings leads to the existing permission-controlled repository review actions. Company coverage and other workflow blockers remain available in an expandable section.
+
+Adjust allocation is visible to planners/admins and opens the relevant search and week on Team Allocation. All existing decision gating, write permissions, optimistic versions and audit behavior remain unchanged. My Work remains the individual execution screen.
