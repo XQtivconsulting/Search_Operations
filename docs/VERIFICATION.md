@@ -1,5 +1,9 @@
 # Verification status
 
+## Consistent sourcing colors — 2026-09-28
+
+Start uses light green, Continue a deeper green, and Pause soft red. Decision/history badges and team-allocation cards use the same background, foreground and border palette. Typecheck, all 132 tests and production build passed. Browser visual verification was not performed. Deployment is checked separately.
+
 ## Shared application typography — 2026-09-28
 
 Added typography.css as the single application type scale and removed 127 competing size/weight declarations from component styling, preserving font-face definitions, sign-in styling and candidate-facing role-document typography. Page headings use 23px, section headings 16px, table/body text 13px, controls and dropdown rows 12px, supporting text 11px, and compact weekly annotations 10px. Weights use 400/500/600 for content/controls/emphasis. Representative Weekly Plan, Candidates, Company Universe and Repository components rendered to static HTML with synthetic data. Typecheck, all 132 tests and production build passed. Browser computed-style/visual checking could not run: the browser executable was unavailable and its download was invalid. No authenticated browser verification occurred. Deployment is checked separately.

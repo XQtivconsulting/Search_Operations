@@ -1011,10 +1011,10 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .error { background:#fff0f2; color:#a1142e; border-left:3px solid var(--xqtiv-red); }
 input[type=checkbox] { accent-color:var(--xqtiv-navy); }
 .priority-legend { display:flex; flex-wrap:wrap; gap:7px; margin:10px 0; }
-.badge.priority-start { color:#16458f; background:#e9f1ff; border-color:#93b4ef; }
-.badge.priority-continue { color:#fff; background:#001b50; border-color:#001b50; }
+.badge.priority-start { color:#245c32; background:#e8f5e9; border-color:#81b58d; }
+.badge.priority-continue { color:#174c30; background:#cdebd8; border-color:#559d72; }
 .badge.priority-recalibrate { color:#8d3c00; background:#ffecd9; border-color:#f67f00; }
-.badge.priority-pause { color:#6c4b00; background:#fff5ce; border-color:#fcbf4a; }
+.badge.priority-pause { color:#8d2935; background:#fce4e6; border-color:#d58a94; }
 .badge.priority-stop { color:#a20b25; background:#ffe8ec; border-color:#ef233c; }
 .badge.priority-none { color:#52627d; background:#edf2f5; border-color:#c9d0dc; }
 /* Multi-column filtering keeps existing sorting and compact row spacing. */
@@ -1045,10 +1045,10 @@ input[type=checkbox] { accent-color:var(--xqtiv-navy); }
 @font-face { font-family:"Poppins"; font-style:normal; font-weight:500; font-display:swap; src:url("/fonts/poppins-500.woff2") format("woff2"); }
 @font-face { font-family:"Poppins"; font-style:normal; font-weight:600; font-display:swap; src:url("/fonts/poppins-600.woff2") format("woff2"); }
 @font-face { font-family:"Poppins"; font-style:normal; font-weight:700; font-display:swap; src:url("/fonts/poppins-700.woff2") format("woff2"); }
-.app .plan-slot.priority-start { border-left:3px solid #416fd0; background:#f0f5ff; }
-.app .plan-slot.priority-continue { border-left:3px solid #001b50; background:#edf2f8; }
+.app .plan-slot.priority-start { color:#245c32; border-left:3px solid #81b58d; background:#e8f5e9; }
+.app .plan-slot.priority-continue { color:#174c30; border-left:3px solid #559d72; background:#cdebd8; }
 .app .plan-slot.priority-recalibrate { border-left:3px solid #f67f00; background:#fff3e8; }
-.app .plan-slot.priority-pause { border-left:3px solid #fcbf4a; background:#fff9e6; }
+.app .plan-slot.priority-pause { color:#8d2935; border-left:3px solid #d58a94; background:#fce4e6; }
 .app .plan-slot.priority-stop { border-left:3px solid #ef233c; background:#fff0f3; }
 .crm-panel .sheet-table td:nth-child(3) { white-space:normal; }
 
