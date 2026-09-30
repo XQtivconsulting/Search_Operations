@@ -227,8 +227,8 @@ test('team lead reviews own mapping and lead changes reroute pending team review
 test('approved criteria require per-criterion evidence or explained not-applicable on submission',async()=>{
  const f=fixture(),t=await setup(f),id=await mapping(f,t);const strategy=(await f.state()).research.records.find(r=>r.kind==='strategy')!;
  await f.run(admin,{...strategy,action:'strategy-save',content:'Updated',criteria:[{id:'location',label:'Location',requirement:'Can work in London'}]});await f.run(admin,{...await f.rec(strategy.id),action:'strategy-approve'});
- await assert.rejects(f.run(mapper,{...await f.rec(id),action:'mapping-submit'}),/Provide evidence/);
- await f.run(mapper,{...await f.rec(id),action:'mapping-edit',rationale:'Relevant',evidence:{location:{text:'Candidate confirms relocation',not_applicable:false}}});await f.run(mapper,{...await f.rec(id),action:'mapping-submit'});
+ await assert.rejects(f.run(mapper,{...await f.rec(id),action:'mapping-submit'}),/Rate the candidate|Provide evidence/);
+ await f.run(mapper,{...await f.rec(id),action:'mapping-edit',rationale:'Relevant',evidence:{location:{text:'Candidate confirms relocation',not_applicable:false,rating:4}}});await f.run(mapper,{...await f.rec(id),action:'mapping-submit'});
  assert.equal((await f.rec(id)).criteria_snapshot[0].label,'Location');assert.equal((await f.rec(id)).evidence.location.text,'Candidate confirms relocation');f.db.close();
 });
 test('original brief is stored and read without creating or publishing a web page',async()=>{
@@ -257,7 +257,7 @@ test('new inline mapping persists criterion justification and approved requireme
  const f=fixture();await setup(f);const strategy=(await f.state()).research.records.find(r=>r.kind==='strategy')!;
  await f.run(admin,{...strategy,action:'strategy-save',content:'Fit strategy',criteria:[{id:'scope',label:'Leadership scope',requirement:'Multiple sites'}]});
  await f.run(admin,{...await f.rec(strategy.id),action:'strategy-approve'});
- const result=await f.run(mapper,{action:'mapping-inline',role_id:'r',team_id:'t',first_name:'Case',last_name:'Example',url:'https://linkedin.com/in/criterion-case',rationale:'Relevant scope',evidence:{scope:{text:'Led quality at three sites'}}});
+ const result=await f.run(mapper,{action:'mapping-inline',role_id:'r',team_id:'t',first_name:'Case',last_name:'Example',url:'https://linkedin.com/in/criterion-case',rationale:'Relevant scope',evidence:{scope:{text:'Led quality at three sites',rating:5}}});
  const m=await f.rec(result.ids[0]);assert.equal(m.evidence.scope.text,'Led quality at three sites');assert.equal(m.criteria_snapshot[0].requirement,'Multiple sites');assert.equal(m.status,'Draft');
  await f.run(mapper,{...m,action:'mapping-submit'});assert.equal((await f.rec(m.id)).status,'Peer review');f.db.close();
 });

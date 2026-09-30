@@ -127,3 +127,9 @@ Candidate mappings show Mapping date (creation date), default latest first, and 
 
 ## Fit criteria entry and justification
 The strategy editor uses numbered criterion cards with a name and parameters/requirements, explicit Add and Remove controls, and no fixed criterion-count limit. Approved criteria appear directly in the new mapping form as well as draft editing and My Work. Draft evidence may be incomplete; submission requires a justification for every criterion, including an explanation for Not applicable. New mappings persist the approved requirement snapshot and evidence together. Additional details and review show the same criterion, requirement and justification layout. Draft strategy changes take effect only after approval.
+
+## Researcher fit ratings
+Each applicable criterion now has a researcher-entered 1–5 rating alongside justification: Does not fit, Limited fit, Partial fit, Meets requirement, Strong fit. Submission requires both; Not applicable requires explanation and is excluded from the average. Total fit is the equal-weight average out of 5, shown only after all applicable criteria are rated. No AI fit judgments or automatic review decisions are made.
+Candidate mappings can sort by Total fit, filter for all criteria rated 4+, filter by overall average, or require a minimum rating on selected criteria. All-criteria filtering excludes N/A. Changed criterion IDs, names or requirements make historical mappings non-comparable to the current approved criteria; their saved evidence remains visible in Additional details. Missing historical ratings are not invented.
+
+Mapping lists display 25 rows per page. My Work opens one selected mapping in a separate fit panel, with save/submit actions and unsaved-change protection; criterion fields are not repeated inside rows. New mapping entry starts collapsed. Repository sorting and fit filters apply across the entire result set before pagination.
