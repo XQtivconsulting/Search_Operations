@@ -1440,3 +1440,4 @@ input[type=checkbox] { accent-color:var(--xqtiv-navy); }
 .plan-team-dots{display:inline-flex;gap:3px;margin-left:3px}.plan-team-dots>span{width:7px;height:7px;border-radius:50%}
 .app .plan-task-mini{padding:6px;border-top:1px solid #e8ecf1}.app .plan-task-mini strong{display:block;font-size:12px;font-weight:500}.app .plan-task-mini small{display:block;margin-top:2px;line-height:1.35}
 .app .plan-load-warning{margin:4px 0;font-size:11px;color:#805519}.app .plan-load-warning summary{cursor:pointer;line-height:1.4}.app .plan-load-warning small{display:block;margin:3px 0}
+.app .plan-other-tasks{position:relative}.app .plan-task-popover{position:absolute;z-index:8;top:100%;left:0;width:260px;max-height:260px;overflow:auto;background:white;border:1px solid #d8dfe9;border-radius:5px;box-shadow:0 6px 18px #14213d22;text-align:left}.app .plan-task-popover .plan-task-mini{padding:9px}.app .plan-task-popover .plan-team-badge{white-space:nowrap}
