@@ -1,6 +1,6 @@
 import React,{useEffect,useState} from 'react';
 import {canPlan,hasRole} from './domain';
-import {engagementRows,engagementStages,defaultSequence,interactionTypes} from './engagement';
+import {engagementRows,engagementStages,defaultSequence,interactionTypes} from './engagement-domain';
 import {displayDate} from './dates';
 import {RolePicker} from './RolePicker';
 import {teamColor} from './team-colors';

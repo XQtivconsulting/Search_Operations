@@ -1,6 +1,6 @@
 import React,{useEffect,useState} from 'react';
 import {canPlan,hasRole} from './domain';
-import {interactionTypes,engagementRows} from './engagement';
+import {interactionTypes,engagementRows} from './engagement-domain';
 import {displayDate,displayDateTime} from './dates';
 type R=Record<string,any>;
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'}).format(new Date());
