@@ -201,3 +201,8 @@ Lifecycle regression: a weekly Stop sourcing decision still permits engagement s
 First engagement publish attempt passed GitHub tests/build but failed before upload because Wrangler resolved a case-colliding module name. Renamed the server module to engagement-domain.ts. Typecheck, 186 tests, production build and Wrangler deployment dry-run then passed locally; the retry deployment is verified separately.
 
 Search-level engagement assignment correction: supersedes candidate ownership in the initial release. The API rejects the retired candidate-assignment action. Tests cover multiple engagement members working on the same candidate queue, search reassignment revoking former-member access, and later partner approvals inheriting search membership without any candidate allocation. Interaction authorship remains immutable; sourcing and search-partner attribution stay unchanged. Local typecheck, 188 tests, build and Worker dry-run are the release gates for this correction.
+
+## Global engagement pipeline (30 September 2026)
+- Replaced per-search sequence controls with a global Admin stage configuration and separate Engagement navigation for Pipeline / Search assignments.
+- Synthetic coverage now includes global admin permissions, stale configuration and record versions, occupied-stage removal protection, immutable transition notes/duration, same-stage age preservation, multiple search assignees, later handoffs, exited/late funnel classification, unknown historical ages, and closed-search restrictions independent of sourcing Stop.
+- Local typecheck, all 190 tests, production build and Worker dry-run passed. Live production data is not changed for QA; browser checks inspect navigation, board/list, Admin and unsaved movement controls only.

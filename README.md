@@ -44,3 +44,7 @@ This is a sourcing pilot, not the entire long-term ERP. Attachments, reusable st
 Customer workbooks, extraction data, tokens, invitations and generated dependencies must never be committed. The source archive excludes them. Cloudflare hosts the application and database. Resend is optional for invitation delivery; recovery and SSO remain future work.
 
 See [People, permissions and candidate identity](docs/ACCESS-AND-PEOPLE.md) for the current account and navigation model.
+
+## Engagement pipeline
+
+Engagement → Pipeline shows a search Kanban and candidate list with stage age. Engagement → Search assignments assigns searches to shared engagement members. Organization → Admin configures one global hiring/outreach pipeline, funnel groups and aging thresholds, plus engagement teams. See [Research workflow](docs/RESEARCH-WORKFLOW.md) for movement history, permissions and sourcing/engagement separation.

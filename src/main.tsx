@@ -1,3 +1,4 @@
+import {EngagementAdmin} from './EngagementAdmin';
 import {Engagement} from './Engagement';
 import {roleDisplayId} from './RolePicker';
 import {Performance} from './Performance';
@@ -251,12 +252,13 @@ function App() {
     ['Search repository',Briefcase,'Research'],
     ['Candidates',Users,'Research'],
     ['Company universe',Briefcase,'Research'],
-    ['Engagement',Users,'Delivery'],
-    ['Weekly plan',CalendarBlank,'Delivery'],
-    ['Delivery Monitor',ClipboardText,'Delivery'],
-    ['Performance',ChartBar,'Delivery'],
+    ['Weekly plan',CalendarBlank,'Sourcing'],
+    ['Delivery Monitor',ClipboardText,'Sourcing'],
+    ['Performance',ChartBar,'Sourcing'],
+    ['Pipeline',Users,'Engagement'],
+    ['Search assignments',ClipboardText,'Engagement'],
     ['Teams',Users,'Organization'],
-    ...(isAdmin?[['People & access',Users,'Organization'] as [string,React.ElementType,string],['Integrations',Briefcase,'Organization'] as [string,React.ElementType,string]]:[]),
+    ...(isAdmin?[['People & access',Users,'Organization'] as [string,React.ElementType,string],['Integrations',Briefcase,'Organization'] as [string,React.ElementType,string],['Admin',ClipboardText,'Organization'] as [string,React.ElementType,string]]:[]),
   ];
   const open = (m: Row) => {
     setError("");
@@ -362,7 +364,7 @@ function App() {
           </button>
         </div>
       </aside>
-      <main className={"main"+(["Search repository","Company universe","Candidates","Delivery Monitor","Performance","Engagement"].includes(page)?" compact-workspace":"")}>
+      <main className={"main"+(["Search repository","Company universe","Candidates","Delivery Monitor","Performance","Engagement","Pipeline","Search assignments","Admin"].includes(page)?" compact-workspace":"")}>
         <header>
           <div>
             <p className="eyebrow">{data.name} / {page === "Search repository" ? "SEARCH REPOSITORY" : "OPERATIONS"}</p>
@@ -378,7 +380,9 @@ function App() {
                   "Delivery Monitor":
                     "Track delivery and clear outstanding reviews.",
                   Candidates: "One candidate record, linked to every mapped client and role.",
-                  Engagement: "Candidate outreach and hiring progress, from partner approval onward.",
+                  Pipeline: "Candidate progress and days in stage, by search.",
+                  "Search assignments": "Assign searches to the engagement members who will work them.",
+                  Admin: "Workspace-wide engagement configuration.",
                   Performance: "Compare researcher output and the return on sourcing effort.",
                   "People & access": "Accounts, invitations and combined responsibilities.",
                 }[page]
@@ -396,7 +400,7 @@ function App() {
             {error}
           </div>
         )}
-        {!["Searches","Account settings","Search repository","My Work","Delivery Monitor","Performance","Company universe","Teams","Candidates","People & access","Engagement"].includes(page)  && page !== "Integrations" && page !== "Weekly plan" && (
+        {!["Searches","Account settings","Search repository","My Work","Delivery Monitor","Performance","Company universe","Teams","Candidates","People & access","Engagement","Pipeline","Search assignments","Admin"].includes(page)  && page !== "Integrations" && page !== "Weekly plan" && (
           <div className="filters">
             <label>
               From
@@ -524,7 +528,8 @@ function App() {
           </>
         )}
         {page === "Weekly plan" && <WeeklyPlanner data={data} api={api} reload={load} initialSearch={selected} initialDate={allocationStart.date} initialView={allocationStart.view} onDirty={setSheetDirty} onTeams={()=>setPage('Teams')}/>}
-        {page==='Engagement'&&<Engagement data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
+        {['Pipeline','Search assignments'].includes(page)&&<Engagement key={page} section={page} data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
+        {page==='Admin'&&isAdmin&&<EngagementAdmin data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page==='My Work'&&hasRole(data.actor,'engagement')&&<Engagement mine data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page==='My Work'&&(!hasRole(data.actor,'engagement')||hasRole(data.actor,'researcher')||hasRole(data.actor,'partner'))&&<MyWork data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage("Search repository");}}/>}
         {page==='Search repository'&&<ResearchPanel onEditPartner={s=>open({kind:"search-owner",...s})} onRoleChange={setSelected} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} key={page} data={data} api={api} reload={load} view={page} initialRole={page==='Search repository'?selected:''} initialTab={repoTab} onDirty={setSheetDirty} onCompanies={id=>{setSelected(id);setPage("Company universe");}}/>}

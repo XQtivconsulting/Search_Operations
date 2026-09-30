@@ -1,0 +1,22 @@
+type R=Record<string,any>;
+export const funnelGroups=['Top Funnel','Outreach','Engaged','Screening','Shortlist','Client Process','Placed','Exited'] as const;
+export type PipelineStage={id:string;label:string;group:string;threshold:number};
+export const funnelColors:Record<string,string>={'Top Funnel':'#326cba',Outreach:'#8056a8',Engaged:'#358367',Screening:'#967719',Shortlist:'#b76926','Client Process':'#b54755',Placed:'#27764e',Exited:'#697586'};
+const defaults:[string,string,string][]=[
+ ['ready','Ready for outreach','Top Funnel'],['assigned','Assigned','Top Funnel'],
+ ['linkedin','LinkedIn Connections Sent','Outreach'],['salesnav','SalesNav Message Sent','Outreach'],['email1','Email 1 Sent','Outreach'],['text1','Text Message 1 Sent','Outreach'],['phone1','Phone Call 1 Placed','Outreach'],['email2','Email Follow up (second email sent)','Outreach'],['text2','Text Message 2 Sent','Outreach'],['phone2','Phone Call 2 Placed','Outreach'],['email3','Email Follow up (3rd email) sent','Outreach'],['closing','Closing / Last follow up email sent','Outreach'],
+ ['engaged-linkedin','Engaged via LinkedIn / Sales Nav','Engaged'],['engaged-email','Engaged via Email','Engaged'],['engaged-phone','Engaged via Phone/Text','Engaged'],['screening','Initial Screening Call','Screening'],['shortlist','To be recommended to client','Shortlist'],['recommended','Recommended to Client (REC)','Shortlist'],['accepted','Accepted by client; interview to be scheduled','Client Process'],['interviews','Client Interviews in progress','Client Process'],['offer','Offer Negotiation','Client Process'],['placed','Placed','Placed'],
+ ['unresponsive','Candidate Unresponsive','Exited'],['warm','On hold / Keep Warm','Exited'],['candidate-rejected','Rejected by Candidate','Exited'],['client-rejected','Rejected by Client','Exited'],['xqtiv-rejected','Rejected by XQtiv','Exited'],['withdrawn','Withdrawn','Exited']
+];
+export const defaultPipeline:PipelineStage[]=defaults.map(([id,label,group])=>({id,label,group,threshold:0}));
+export const pipelineConfig=(records:R[])=>records.find(r=>r.kind==='engagement-pipeline');
+export const pipelineStages=(records:R[]):PipelineStage[]=>pipelineConfig(records)?.stages||defaultPipeline;
+const legacy:Record<string,string>={'Ready for outreach':'ready',Contacting:'legacy-contacting',Engaged:'legacy-engaged','Screening scheduled':'legacy-screening-scheduled',Screened:'legacy-screened','Recommended to client':'recommended',Interviewing:'interviews',Offered:'offer',Placed:'placed','Candidate declined':'candidate-rejected','Client rejected':'client-rejected',Unresponsive:'unresponsive','Keep warm':'warm'};
+// Preserve ambiguous historical stages rather than inventing a contact channel or completed call.
+export const legacyStages:PipelineStage[]=[{id:'legacy-contacting',label:'Contacting (legacy)',group:'Outreach',threshold:0},{id:'legacy-engaged',label:'Engaged (channel not recorded)',group:'Engaged',threshold:0},{id:'legacy-screening-scheduled',label:'Screening scheduled (legacy)',group:'Screening',threshold:0},{id:'legacy-screened',label:'Screened (legacy)',group:'Screening',threshold:0}];
+export const stageId=(record:R)=>record.stage_id||legacy[record.stage]||record.stage;
+export function resolvedStage(record:R,stages:PipelineStage[]):PipelineStage{return stages.find(s=>s.id===stageId(record))||legacyStages.find(s=>s.id===stageId(record))||{id:stageId(record),label:record.stage||'Unknown stage',group:'Top Funnel',threshold:0};}
+export const stageDays=(record:R,now=Date.now()):number|null=>{const start=Date.parse(record.stage_at||record.handoff_at||'');return Number.isFinite(start)?Math.max(0,Math.floor((now-start)/86400000)):null;};
+export const isActiveStage=(stage:PipelineStage)=>!['Exited','Placed'].includes(stage.group);
+export const isLateStage=(stage:PipelineStage)=>['Shortlist','Client Process'].includes(stage.group);
+export const stageOverdue=(record:R,stage:PipelineStage,now=Date.now())=>stage.threshold>0&&(stageDays(record,now)??-1)>=stage.threshold;
