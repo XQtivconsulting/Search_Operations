@@ -22,3 +22,5 @@ test('three allocations sum to exactly one day and no roster-based effort is inv
  assert.equal(effectiveEffort(d,'2026-09-29').reduce((n,r)=>n+r.days,0),1);
  assert.ok(effectiveEffort(d,'2026-09-29').every(r=>r.staff_id==='s'));
 });
+
+test('setup tasks contribute effort without duplicating sourcing allocations',()=>{const research={records:[{id:'task',kind:'task',role_id:'r',team_id:'t',staff_id:'s',work_date:'2026-09-27',status:'Planned'}]};assert.equal(effectiveEffort({research},'2026-09-29')[0].days,1);const rows=effectiveEffort({...data,research},'2026-09-29');assert.equal(rows.length,2);assert.equal(rows.reduce((n,r)=>n+r.days,0),1);});

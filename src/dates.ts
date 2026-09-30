@@ -1,0 +1,2 @@
+export function displayDate(value?:string|null){if(!value)return '—';const d=new Date(value.length===10?value+'T12:00:00Z':value);return Number.isNaN(d.getTime())?value:new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric',...(value.length===10?{timeZone:'UTC'}:{})}).format(d);}
+export function displayDateTime(value:string){return new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(value));}

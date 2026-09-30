@@ -175,3 +175,7 @@ Verified locally: typecheck, 156 passing tests, production build. Added actual S
 ## 2026-09-29 — named clean baseline
 
 Added original-owner-only, non-destructive Save clean baseline action and named snapshot listing. SQLite test verifies non-empty rejection, preserved owner staff, saved contents, idempotence and admin rejection. Typecheck, all 157 tests and production build passed. The preceding live reset was successfully executed: all displayed operating counts were zero, only the owner and their researcher identity remained, and recovery snapshot 5c37649a-c12f-4caa-8f09-eaf4380c049a was reported saved. Baseline creation requires the separate live owner action after deployment.
+
+## 2026-09-30 — search workflow revision
+
+Typecheck, 166 tests and production build passed before deployment. Added actual SQLite tests for original-document storage independent of publication, strategy evidence enforcement, lead self-review/pending rerouting, returned information, rejection of Hold decisions, permission-scoped setup tasks, roster transfer preserving history and canonical alias matching. Added person-day task deduplication and date formatting tests. Updated superseded UI/auto-pairing expectations to explicit team lead and optional publication behavior. No production records were created, reset or used as test fixtures. Existing baseline and reset snapshots remain intact. Browser validation follows deployment; local tests do not establish visual quality or live behavior.

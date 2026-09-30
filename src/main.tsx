@@ -54,7 +54,7 @@ const fmt = (n: number) => new Intl.NumberFormat().format(n);
 const today = () => new Date().toLocaleDateString("en-CA");
 const dateLabel = (v: string) =>
   v
-    ? new Date(v + "T12:00:00").toLocaleDateString(undefined, {
+    ? new Date(v + "T12:00:00").toLocaleDateString("en-GB", {
         month: "short",
         day: "numeric",
         year: "numeric",
@@ -247,7 +247,7 @@ function App() {
   const queue=(data.research?.records||[]).filter((m:Row)=>m.kind==='mapping'&&['Peer review','Partner review'].includes(m.status));
   const nav: [string, React.ElementType,string][] = [
     ['My Work',ClipboardText,'Work'],
-    ['Role repository',Briefcase,'Research'],
+    ['Search repository',Briefcase,'Research'],
     ['Candidates',Users,'Research'],
     ['Company universe',Briefcase,'Research'],
     ['Weekly plan',CalendarBlank,'Delivery'],
@@ -267,7 +267,7 @@ function App() {
     return (
       <div className="metrics">
         <Metric label="Profiles mapped" value={fmt(m.mapped)} />
-        <Metric label="Peer approved" value={fmt(m.peer)} />
+        <Metric label="Team approved" value={fmt(m.peer)} />
         <Metric label="Partner approved" value={fmt(m.partner)} />
         <Metric
           label="Partner / mapped"
@@ -306,7 +306,7 @@ function App() {
           <strong>{e.partner ?? "Pending"}</strong>
         </div>
         <div className="row-actions">
-          {e.source==='candidates'&&<button onClick={()=>{setSelected(e.search_id);setRepoTab("Candidate mappings");setPage("Role repository");}}>View mappings</button>}
+          {e.source==='candidates'&&<button onClick={()=>{setSelected(e.search_id);setRepoTab("Candidate mappings");setPage("Search repository");}}>View mappings</button>}
         </div>
       </div>
     ));
@@ -326,7 +326,7 @@ function App() {
               onClick={() => {
                 if (sheetDirty && !confirm("Discard unsaved changes?")) return;
                 setSheetDirty(false);
-                if(label==='Role repository')setRepoTab("Candidate mappings");
+                if(label==='Search repository')setRepoTab("Candidate mappings");
                 if(label==='Delivery Monitor')setDeliveryStart({view:'daily',roles:null});
                 if(label==='Weekly plan')setAllocationStart({date:'',view:'decisions'});
                 setPage(label);
@@ -360,15 +360,15 @@ function App() {
           </button>
         </div>
       </aside>
-      <main className={"main"+(["Role repository","Company universe","Candidates","Delivery Monitor","Performance"].includes(page)?" compact-workspace":"")}>
+      <main className={"main"+(["Search repository","Company universe","Candidates","Delivery Monitor","Performance"].includes(page)?" compact-workspace":"")}>
         <header>
           <div>
-            <p className="eyebrow">{data.name} / {page === "Role repository" ? "ROLE REPOSITORY" : "OPERATIONS"}</p>
-            <h1>{page === "Role repository" && sBy[selected] ? sBy[selected].title : page}</h1>
+            <p className="eyebrow">{data.name} / {page === "Search repository" ? "ROLE REPOSITORY" : "OPERATIONS"}</p>
+            <h1>{page === "Search repository" && sBy[selected] ? sBy[selected].title : page}</h1>
             <p className="subheading">
               {
                 {
-                  "Role repository": sBy[selected] ? `${sBy[selected].client} · Role ID: ${roleDisplayId(sBy[selected])} · ${sBy[selected].status || "Status not set"} · Partner: ${sBy[selected].partner || "Not assigned"}` : "Choose a role to open its repository.",
+                  "Search repository": sBy[selected] ? `${sBy[selected].client} · Role ID: ${roleDisplayId(sBy[selected])} · ${sBy[selected].status || "Status not set"} · Partner: ${sBy[selected].partner || "Not assigned"}` : "Choose a role to open its repository.",
                   Searches:
                     "The complete search portfolio, with the details one click away.",
                   "Weekly plan":
@@ -393,7 +393,7 @@ function App() {
             {error}
           </div>
         )}
-        {!["Searches","Account settings","Role repository","My Work","Delivery Monitor","Performance","Company universe","Teams","Candidates","People & access"].includes(page)  && page !== "Integrations" && page !== "Weekly plan" && (
+        {!["Searches","Account settings","Search repository","My Work","Delivery Monitor","Performance","Company universe","Teams","Candidates","People & access"].includes(page)  && page !== "Integrations" && page !== "Weekly plan" && (
           <div className="filters">
             <label>
               From
@@ -483,7 +483,7 @@ function App() {
                         <div className="search-meta"><span>Engagement partner: <strong>{s.partner||'Not assigned'}</strong></span>{s.start_date&&<span>Search start: {dateLabel(s.start_date)}</span>}</div>
                         {s.notes && <p>{s.notes}</p>}
                         <div className="row-actions search-actions">
-                          <button onClick={()=>{setSelected(s.id);setRepoTab("Target companies");setPage("Role repository");}}>Role repository</button>
+                          <button onClick={()=>{setSelected(s.id);setRepoTab("Target companies");setPage("Search repository");}}>Search repository</button>
 
                           <button
                             onClick={() => {
@@ -521,14 +521,14 @@ function App() {
           </>
         )}
         {page === "Weekly plan" && <WeeklyPlanner data={data} api={api} reload={load} initialSearch={selected} initialDate={allocationStart.date} initialView={allocationStart.view} onDirty={setSheetDirty} onTeams={()=>setPage('Teams')}/>}
-        {page==='My Work'&&<MyWork data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage("Role repository");}}/>}
-        {page==='Role repository'&&<ResearchPanel onEditPartner={s=>open({kind:"search-owner",...s})} onRoleChange={setSelected} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} key={page} data={data} api={api} reload={load} view={page} initialRole={page==='Role repository'?selected:''} initialTab={repoTab} onDirty={setSheetDirty} onCompanies={id=>{setSelected(id);setPage("Company universe");}}/>}
-        {page === 'Company universe'&&<CompanyUniverse data={data} api={api} reload={load} onDirty={setSheetDirty} initialRole={selected} onOpen={id=>{setSelected(id);setRepoTab("Target companies");setPage("Role repository");}}/>}
+        {page==='My Work'&&<MyWork data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage("Search repository");}}/>}
+        {page==='Search repository'&&<ResearchPanel onEditPartner={s=>open({kind:"search-owner",...s})} onRoleChange={setSelected} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} key={page} data={data} api={api} reload={load} view={page} initialRole={page==='Search repository'?selected:''} initialTab={repoTab} onDirty={setSheetDirty} onCompanies={id=>{setSelected(id);setPage("Company universe");}}/>}
+        {page === 'Company universe'&&<CompanyUniverse data={data} api={api} reload={load} onDirty={setSheetDirty} initialRole={selected} onOpen={id=>{setSelected(id);setRepoTab("Target companies");setPage("Search repository");}}/>}
 
-        {page==='Candidates'&&candidateId&&<CandidateProfile key={candidateId} id={candidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} onBack={()=>setCandidateId('')} onRole={id=>{setSelected(id);setRepoTab('Candidate mappings');setPage('Role repository');}}/>}
-        {page==='Candidates'&&!candidateId&&<Candidates onCandidate={setCandidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} onOpen={id=>{setSelected(id);setRepoTab("Candidate mappings");setPage("Role repository");}}/>}
+        {page==='Candidates'&&candidateId&&<CandidateProfile key={candidateId} id={candidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} onBack={()=>setCandidateId('')} onRole={id=>{setSelected(id);setRepoTab('Candidate mappings');setPage('Search repository');}}/>}
+        {page==='Candidates'&&!candidateId&&<Candidates onCandidate={setCandidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} onOpen={id=>{setSelected(id);setRepoTab("Candidate mappings");setPage("Search repository");}}/>}
         {page==='Teams'&&<><TeamsPanel data={data} api={api} reload={load} onAdd={()=>open({kind:'team'})}/>{planner?<PeerSetup data={data} api={api} reload={load}/>:<p>Team planners manage peer-review pairings.</p>}</>}
-        {page === "Delivery Monitor" && <DeliveryMonitor data={data} initialView={deliveryStart.view} initialRoles={deliveryStart.roles} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage('Role repository');}} onCandidate={id=>{setCandidateId(id);setPage('Candidates');}} onAllocate={(id,date)=>{setSelected(id);setAllocationStart({date,view:'allocation'});setPage('Weekly plan');}}/>}
+        {page === "Delivery Monitor" && <DeliveryMonitor data={data} initialView={deliveryStart.view} initialRoles={deliveryStart.roles} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage('Search repository');}} onCandidate={id=>{setCandidateId(id);setPage('Candidates');}} onAllocate={(id,date)=>{setSelected(id);setAllocationStart({date,view:'allocation'});setPage('Weekly plan');}}/>}
         {page === "Performance" && <Performance data={data} api={api} reload={load} onDirty={setSheetDirty} onDecision={id=>{setSelected(id);setAllocationStart({date:'',view:'decisions'});setPage('Weekly plan');}}/>}
         {page==='People & access'&&isAdmin&&<PeoplePanel data={data} api={api} reload={load} onDirty={setSheetDirty}/>}
         <footer>
@@ -611,7 +611,7 @@ function App() {
                     <span>
                       <strong>{m.name}</strong>
                       <small>
-                        {m.email} · {m.role} · {m.status}
+                        {m.email} · {m.role} · {m.status==='Peer review'?'Team review':m.status}
                       </small>
                     </span>
                     {m.id !== actor.id && m.status === "active" && (
@@ -662,7 +662,7 @@ function App() {
                       name="approved"
                       label={
                         modal.stage === "peer"
-                          ? "Profiles passing peer review"
+                          ? "Profiles passing team review"
                           : "Profiles approved by partner"
                       }
                       type="number"

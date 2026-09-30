@@ -1,3 +1,4 @@
+import {exactCompany,companyNames,normalizedCompany} from './company-match';
 import {resetSchema,resetSnapshot,clearWorkspace,saveCleanBaseline} from './workspace-reset';
 import {effortSchema,saveEffort} from './effort';
 import {isWorkingDecision} from './search-decisions';
@@ -28,11 +29,15 @@ export class Workspace extends DurableObject {
     super(ctx, env);
     ctx.storage.sql.exec(workspaceSchema);
     ctx.storage.sql.exec(resetSchema);
+    this.rows('CREATE TABLE IF NOT EXISTS brief_files(id TEXT PRIMARY KEY,role_id TEXT NOT NULL,name TEXT NOT NULL,mime TEXT NOT NULL,created_at TEXT NOT NULL)');
+    this.rows('CREATE TABLE IF NOT EXISTS brief_file_chunks(file_id TEXT NOT NULL REFERENCES brief_files(id),part INTEGER NOT NULL,data TEXT NOT NULL,PRIMARY KEY(file_id,part))');
     ctx.storage.sql.exec(effortSchema);
     this.rows('CREATE TABLE IF NOT EXISTS time_off(staff_id TEXT NOT NULL REFERENCES staff(id),work_date TEXT NOT NULL,pto INTEGER NOT NULL DEFAULT 0,version INTEGER NOT NULL DEFAULT 1,PRIMARY KEY(staff_id,work_date))');
     ctx.storage.sql.exec(researchSchema);
     ctx.storage.sql.exec(candidateSchema);
     this.rows("CREATE TABLE IF NOT EXISTS crm_partners(external_id TEXT PRIMARY KEY,partner_id TEXT NOT NULL DEFAULT '',partner TEXT NOT NULL DEFAULT '',version INTEGER NOT NULL DEFAULT 1)");
+    // Retire Hold without losing its review history or reviewer feedback.
+    ctx.storage.transactionSync(()=>{for(const r of this.rows("SELECT * FROM research_records WHERE kind='mapping' AND json_extract(data,'$.status')='Hold'")){const old=JSON.parse(r.data),next={...old,status:'Needs information',last_feedback:old.last_feedback||'Returned from the retired Hold stage. Please update the evidence and resubmit.'};this.rows('UPDATE research_records SET data=?,version=version+1 WHERE id=?',JSON.stringify(next),r.id);this.audit({id:'system-migration'} as Actor,'retire-hold',r.id,old,next);}});
     if(!this.rows('PRAGMA table_info(crm_jobs)').some(c=>c.name === 'company_name'))
       this.rows("ALTER TABLE crm_jobs ADD COLUMN company_name TEXT NOT NULL DEFAULT ''");
     if(!this.rows('PRAGMA table_info(searches)').some(c=>c.name === 'partner_id'))
@@ -74,6 +79,15 @@ export class Workspace extends DurableObject {
     return backup;
   }
   async research(a: Actor,b:any,members:Member[]):Promise<any> {await this.syncPeople(members);return this.ctx.storage.transactionSync(()=>{
+      if(['brief-file-save','brief-file-list','brief-file-read'].includes(b.action)) {
+        const search=this.rows('SELECT * FROM searches WHERE id=?',text(b.role_id))[0];requireThat(search,'Search not found.',404);
+        if(b.action==='brief-file-list')return this.rows('SELECT * FROM brief_files WHERE role_id=? ORDER BY created_at DESC',b.role_id);
+        if(b.action==='brief-file-read'){const f=this.rows('SELECT * FROM brief_files WHERE id=? AND role_id=?',b.file_id,b.role_id)[0];requireThat(f,'File not found.',404);return {...f,base64:this.rows('SELECT data FROM brief_file_chunks WHERE file_id=? ORDER BY part',f.id).map(r=>r.data).join('')};}
+        requireThat(canPlan(a)||hasRole(a,'partner')&&search.partner_id===a.id||researchState(this).records.some(t=>t.kind==='task'&&t.role_id===b.role_id&&t.owner_id===a.id&&t.task_type==='Role brief'&&t.status!=='Cancelled'),'Search management permission required.',403);
+        const name=text(b.name,200),base64=String(b.base64||'');requireThat(/\.(pdf|docx|doc)$/i.test(name)&&base64.length>0&&base64.length<=7e6&&/^[A-Za-z0-9+/]*={0,2}$/.test(base64),'Upload PDF or Word up to 5 MB.');
+        const id=uuid(),mime=/\.pdf$/i.test(name)?'application/pdf':/\.docx$/i.test(name)?'application/vnd.openxmlformats-officedocument.wordprocessingml.document':'application/msword';
+        this.rows('INSERT INTO brief_files VALUES(?,?,?,?,?)',id,b.role_id,name,mime,now());for(let i=0;i<base64.length;i+=131072)this.rows('INSERT INTO brief_file_chunks VALUES(?,?,?)',id,i,base64.slice(i,i+131072));this.audit(a,'brief-file-save',id,null,{name,role_id:b.role_id});return {id};
+      }
       if(b.action==='mapping-inline') {
         requireThat(hasRole(a,'researcher'),'Researcher access required.',403);
         const records=researchState(this).records,url=linkedin(b.url),candidate=records.find(r=>r.kind==='candidate'&&r.url===url);
@@ -81,8 +95,8 @@ export class Workspace extends DurableObject {
         const role=text(b.role_id),team=text(b.team_id);
         requireThat(!candidate||!records.some(r=>r.kind==='mapping'&&r.role_id===role&&r.candidate_id===candidate.id),'This candidate is already mapped to this role.',409);
         const companyName=text(candidate?.company||b.company,200),normalize=(s:string)=>s.trim().toLowerCase().replace(/\s+/g,' ');
-        let company=records.find(r=>r.kind==='company'&&normalize(r.name)===normalize(companyName)),target:any=null;
-        if(b.company_id){const selected=records.find(r=>r.id===b.company_id&&r.kind==='company');requireThat(selected&&normalize(selected.name)===normalize(companyName),'Select the matching company.');company=selected;}
+        let company=exactCompany(records.filter(r=>r.kind==='company'),companyName),target:any=null;
+        if(b.company_id){const selected=records.find(r=>r.id===b.company_id&&r.kind==='company');requireThat(selected&&companyNames(selected).includes(normalizedCompany(companyName)),'Select the matching company.');company=selected;}
         requireThat(!companyName||company||b.create_company===true,'Choose an existing company or explicitly add the new company.');
         if(companyName){
           target=company?records.find(r=>r.kind==='target'&&r.role_id===role&&r.company_id===company!.id):null;
@@ -339,6 +353,15 @@ export class Workspace extends DurableObject {
         this.audit(a,kind,b.id,old,{name,email,archived,version:old.version+1});
         return {id:b.id};
       }
+      if(kind==='team-transfer') {
+        requireThat(canPlan(a),'Planning permission required.',403);requireThat(b.from!==b.to,'Choose different teams.');
+        for(const [team,version] of [[b.from,b.from_version],[b.to,b.to_version]]){requireThat(this.rows('SELECT id FROM teams WHERE id=?',team).length,'Team not found.',404);requireThat((this.rows('SELECT version FROM team_rosters WHERE team_id=?',team)[0]?.version||0)===Number(version),'Team roster changed. Reload.',409);}
+        requireThat(this.assignableStaff(b.staff_id)&&this.rows('SELECT 1 FROM team_members WHERE team_id=? AND staff_id=?',b.from,b.staff_id).length,'Choose a current team member.');
+        const lead=researchState(this).records.find(r=>r.kind==='team-reviewer'&&r.team_id===b.from);requireThat(!lead||!this.rows('SELECT 1 FROM account_researchers WHERE user_id=? AND staff_id=?',lead.reviewer_id,b.staff_id).length,'Assign a replacement team lead before moving this researcher.');
+        this.rows('DELETE FROM team_members WHERE team_id=? AND staff_id=?',b.from,b.staff_id);this.rows('INSERT OR IGNORE INTO team_members VALUES(?,?)',b.to,b.staff_id);
+        for(const team of [b.from,b.to])this.rows('INSERT INTO team_rosters VALUES(?,1) ON CONFLICT(team_id) DO UPDATE SET version=version+1',team);
+        this.audit(a,kind,b.staff_id,{team:b.from},{team:b.to});return {id:b.staff_id};
+      }
       if(kind === 'team-members') {
         requireThat(canPlan(a),'Planning permission required.',403);
         requireThat(this.rows('SELECT id FROM teams WHERE id=?',b.id).length,'Team not found.',404);
@@ -347,6 +370,7 @@ export class Workspace extends DurableObject {
         requireThat(Array.isArray(b.staff_ids),'Select team members.');
         const ids=[...new Set<string>(b.staff_ids)];
         for(const id of ids) requireThat(this.assignableStaff(id)&&this.rows('SELECT s.id FROM staff s LEFT JOIN staff_profiles p ON p.staff_id=s.id WHERE s.id=? AND COALESCE(p.archived,0)=0',id).length,'Unknown researcher or archived record. Choose an active researcher.');
+        const lead=researchState(this).records.find(r=>r.kind==='team-reviewer'&&r.team_id===b.id);const leadStaff=lead?this.rows('SELECT staff_id FROM account_researchers WHERE user_id=?',lead.reviewer_id)[0]?.staff_id:null;requireThat(!leadStaff||ids.includes(leadStaff),'Assign a replacement team lead before removing the current lead.');
         const before=this.rows('SELECT staff_id FROM team_members WHERE team_id=?',b.id);
         this.rows('DELETE FROM team_members WHERE team_id=?',b.id);
         for(const id of ids) this.rows('INSERT INTO team_members VALUES(?,?)',b.id,id);

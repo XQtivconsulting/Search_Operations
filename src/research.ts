@@ -1,3 +1,5 @@
+import {companyNames,normalizedCompany} from './company-match';
+import {cleanCriteria,cleanEvidence} from './strategy-criteria';
 import {cleanRolePage} from './role-page';
 import {cleanCompany} from './company-import';
 import {hasRole,canPartnerReview,roleList,Actor,canPlan,requireThat,text,day,count,safeLink} from './domain';
@@ -19,38 +21,31 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
  const member=(id:string)=>{const m=active.find(m=>m.id===id);requireThat(m,'Choose an active workspace member.');return m;};
  const researcher=(id:string)=>{const m=member(id);requireThat(hasRole(m,'researcher')&&(m.staff_id||m.staffId),'Choose a researcher linked to a staff record.');return m;};
  const teammate=(id:string,team:string,exclude='')=>{const m=researcher(id),sid=m.staff_id||m.staffId;requireThat(sid!==exclude,'Self-review is not allowed.');requireThat(db.rows('SELECT staff_id FROM team_members WHERE team_id=? AND staff_id=?',team,sid).length,'The peer reviewer must be a researcher in the same team.');return m;};
- const resolvePeer=(team:string,staff:string)=>{
-  const candidates=active.filter(m=>hasRole(m,'researcher')&&(m.staff_id||m.staffId)!==staff&&db.rows('SELECT staff_id FROM team_members WHERE team_id=? AND staff_id=?',team,m.staff_id||m.staffId||'').length);
-  const route=db.rows("SELECT data FROM research_records WHERE kind='peer-route' AND record_key=?",team+':'+staff)[0];
-  const pairing=route?JSON.parse(route.data):null;
-  if(pairing?.reviewer_staff_id) {
-    const matched=candidates.filter(m=>(m.staff_id||m.staffId)===pairing.reviewer_staff_id);
-    requireThat(matched.length===1,'The selected teammate reviewer needs one active researcher account in this team. Update the pairing in Teams or activate their account.');
-    return matched[0].id;
-  }
-  const selected=pairing?.reviewer_id||'';
-  const matched=candidates.find(m=>m.id===selected);if(matched)return matched.id;
-  requireThat(!selected,'The selected teammate reviewer is no longer active in this team. Update the pairing in Teams.');
-  const unique=[...new Set(candidates.map(m=>m.staff_id||m.staffId))];
-  if(unique.length===1)return candidates[0].id;
-  const legacy=db.rows("SELECT data FROM research_records WHERE kind='team-reviewer' AND record_key=?",team)[0];
-  const fallback=legacy?candidates.find(m=>m.id===JSON.parse(legacy.data).reviewer_id):null;
-  requireThat(fallback,'Set this researcher’s teammate reviewer in Teams before submitting.');return fallback.id;
- };
+ const lead=(team:string)=>{const r=db.rows("SELECT data FROM research_records WHERE kind='team-reviewer' AND record_key=?",team)[0];return r?JSON.parse(r.data).reviewer_id:'';};
+ const resolvePeer=(team:string,_staff:string)=>{const id=lead(team);requireThat(id,'Choose a team lead in Teams before submitting.');teammate(id,team);return id;};
  const old=b.id?get(db,text(b.id)):null;
  if(old)requireThat(Number(b.version)===old.version,'This record changed. Reload before saving.',409);
  const role=old?.role_id||text(b.role_id);
  const search=role?db.rows('SELECT * FROM searches WHERE id=?',role)[0]:null;
  if(role)requireThat(search,'Role not found.',404);
  const manager=canPlan(a)||hasRole(a,'partner')&&search?.partner_id===a.id;
- const manage=()=>requireThat(manager,'Role management permission required.',403);
+ const assignedSetup=researchState(db).records.some(t=>t.kind==='task'&&t.role_id===role&&t.owner_id===a.id&&t.status!=='Cancelled'&&((b.action==='brief-save'&&t.task_type==='Role brief')||(b.action==='strategy-save'&&t.task_type==='Search strategy')));
+ const manage=()=>requireThat(manager||assignedSetup,'Role management permission required.',403);
  let next:any,id=old?.id||crypto.randomUUID(),kind=old?.kind||'',key='';
  const find=(k:string,rk:string)=>db.rows('SELECT id FROM research_records WHERE kind=? AND record_key=?',k,rk)[0];
  const save=(k:string,r:string,rk:string,d:any,existing:any=null)=>{
   const rid=existing?.id||crypto.randomUUID();
   db.rows('INSERT INTO research_records(id,kind,role_id,record_key,data,version) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET record_key=excluded.record_key,data=excluded.data,version=excluded.version',rid,k,r,rk,JSON.stringify(d),(existing?.version||0)+1);return rid;
  };
- if(b.action==='candidate-save') {
+ if(b.action==='task-save') {
+  requireThat(canPlan(a),'Planning permission required.',403);requireThat(search,'Choose a search.');requireThat(!old||old.kind==='task','Choose a task.');
+  const person=researcher(b.owner_id),team=text(b.team_id);requireThat(db.rows('SELECT 1 FROM team_members WHERE team_id=? AND staff_id=?',team,person.staff_id||person.staffId).length,'Assign a member of this team.');
+  requireThat(['Role brief','Search strategy','Target companies','Sourcing','Other'].includes(b.task_type),'Choose a task type.');
+  requireThat(['Planned','In progress','Completed','Cancelled'].includes(b.status||'Planned'),'Choose a task status.');
+  kind='task';key=old?.id||id;next={...old,task_type:b.task_type,title:text(b.title,200)||b.task_type,team_id:team,owner_id:b.owner_id,staff_id:person.staff_id||person.staffId,work_date:day(b.work_date),status:b.status||'Planned',notes:text(b.notes,5000)};
+ } else if(b.action==='task-status') {
+  requireThat(old?.kind==='task','Task not found.');requireThat(canPlan(a)||old.owner_id===a.id,'Only the assignee or planner can update this task.',403);requireThat(['Planned','In progress','Completed','Cancelled'].includes(b.status),'Choose a task status.');kind='task';key=old.id;next={...old,status:b.status};
+ } else if(b.action==='candidate-save') {
   requireThat(canPlan(a)||hasRole(a,'researcher')||hasRole(a,'partner'),'Candidate editing permission required.',403);
   requireThat(!old||old.kind==='candidate','Choose a candidate record.');
   const url=linkedin(b.url),first_name=text(b.first_name,100),last_name=text(b.last_name,100),email=text(b.email,254).toLowerCase(),phone=text(b.phone,60);
@@ -69,6 +64,7 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
   requireThat(!find(kind,key)||find(kind,key)?.id===old?.id,'This company is already in the master list.',409);
   const tags=(v:any)=>[...new Set(String(v||'').split(',').map(v=>text(v,100)).filter(Boolean))].slice(0,30);
   next=cleanCompany(b);
+  const names=companyNames(next);requireThat(!researchState(db).records.some(c=>c.kind==='company'&&c.id!==old?.id&&companyNames(c).some(n=>names.includes(n))),'This name or alias is already assigned to another company.',409);
  } else if(b.action==='peer-route') {
   requireThat(canPlan(a),'Planning permission required.',403);requireThat(db.rows('SELECT staff_id FROM team_members WHERE team_id=? AND staff_id=?',b.team_id,b.staff_id).length,'This researcher is not in the team.');
   requireThat(!old||old.kind==='peer-route','Wrong record type.');
@@ -82,12 +78,14 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
   kind='team-reviewer';key=text(b.team_id);teammate(b.reviewer_id,key);
   const found=find(kind,key);requireThat(old?.id===found?.id,'Reviewer configuration changed. Reload.',409);
   next={team_id:key,reviewer_id:b.reviewer_id};
+  for(const row of db.rows("SELECT * FROM research_records WHERE kind='mapping' AND json_extract(data,'$.team_id')=? AND json_extract(data,'$.status')='Peer review'",key)) {const previous={...JSON.parse(row.data),id:row.id,version:row.version},updated={...previous,reviewer_id:b.reviewer_id,reviewer_override:false};save('mapping',row.role_id,row.record_key,updated,previous);db.audit(a,'team-lead-reroute',row.id,previous,updated);}
+
  } else if(['brief-save','strategy-save','brief-approve','strategy-approve','brief-publish','brief-unpublish'].includes(b.action)) {
   manage();requireThat(search,'Choose a role.');kind=b.action.startsWith('brief')?'brief':'strategy';key=role;
   requireThat(!old||old.kind===kind,'Wrong record type.');requireThat(old?.id===find(kind,key)?.id,'A document already exists. Reload.',409);
   next={...old};delete next.version;
-  if(b.action.endsWith('-save')) {const page=kind==='brief'&&b.page?cleanRolePage(b.page):null;const content=page?[page.title,...page.sections.map(s=>s.heading+'\n\n'+s.body)].filter(Boolean).join('\n\n'):text(b.content,40000);requireThat(content,'Enter document content.');next.draft=content;if(page)next.draft_page=page;else if(kind==='brief')delete next.draft_page;next.status='Draft';}
-  if(b.action.endsWith('-approve')) {requireThat(old?.draft,'Save a draft first.');next.active=old.draft;if(kind==='brief')next.active_page=old.draft_page||null;next.revision=(old.revision||0)+1;next.approved_by=a.id;next.approved_at=iso();next.status='Approved';
+  if(b.action.endsWith('-save')) {const page=kind==='brief'&&b.page?cleanRolePage(b.page):null;const content=page?[page.title,...page.sections.map(s=>s.heading+'\n\n'+s.body)].filter(Boolean).join('\n\n'):text(b.content,40000);requireThat(content,'Enter document content.');next.draft=content;if(kind==='strategy')next.criteria=cleanCriteria(b.criteria||old?.criteria||[]);if(page)next.draft_page=page;else if(kind==='brief')delete next.draft_page;next.status='Draft';}
+  if(b.action.endsWith('-approve')) {requireThat(old?.draft,'Save a draft first.');next.active=old.draft;if(kind==='strategy')next.active_criteria=old.criteria||[];if(kind==='brief')next.active_page=old.draft_page||null;next.revision=(old.revision||0)+1;next.approved_by=a.id;next.approved_at=iso();next.status='Approved';
    if(kind==='strategy'&&!old.cutover){const today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'}).format(new Date()),date=b.cutover?day(b.cutover):today;requireThat(date>=today,'Candidate tracking cannot start in the past.');requireThat(!db.rows('SELECT e.id FROM entries e JOIN assignments a ON a.id=e.assignment_id WHERE a.search_id=? AND a.work_date>=? AND (e.mapped IS NOT NULL OR e.peer IS NOT NULL OR e.partner IS NOT NULL)',role,date).length,'This role has manual output on or after that date. Choose a later start date to preserve those records.');next.cutover=date;}
   }
   if(b.action==='brief-publish') {requireThat(old?.active,'Approve a candidate-safe brief first.');db.rows('DELETE FROM brief_shares WHERE role_id=?',role);db.rows('INSERT OR REPLACE INTO role_publications VALUES(?,?)',role,JSON.stringify({title:old.active_page?.origin==='document'?old.active_page.title:search.title,client:old.active_page?.origin==='document'?(old.active_page.client||''):search.client,content:old.active,page:old.active_page?{...old.active_page,source_text:undefined}:null,revision:old.revision}));next.published_revision=old.revision;next.share_token='';}
@@ -151,14 +149,14 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
   }return {ids};
  } else if(['mapping-edit','mapping-submit','mapping-review','mapping-reassign','mapping-reopen'].includes(b.action)) {
   requireThat(old?.kind==='mapping','Mapping not found.');kind='mapping';key=role+':'+old.candidate_id;next={...old};
-  if(b.action==='mapping-edit'){requireThat(old.mapper_id===a.id&&['Draft','Needs information'].includes(old.status),'Only the mapper can edit a draft or returned mapping.',403);requireThat(text(b.rationale),'Enter a fit rationale.');next.rationale=text(b.rationale,5000);}
-  if(b.action==='mapping-submit'){researcher(a.id);requireThat(text(old.rationale),'Add a fit rationale before submitting.');requireThat(old.mapper_id===a.id&&['Draft','Needs information','Hold'].includes(old.status),'This mapping cannot be submitted by you.',403);const reviewerId=old.reviewer_override?old.reviewer_id:resolvePeer(old.team_id,old.staff_id);teammate(reviewerId,old.team_id,old.staff_id);next.reviewer_id=reviewerId;const p=member(search.partner_id);requireThat(canPartnerReview(p),'Assign an engagement partner to this role.');const strategy=find('strategy',role);const cutover=strategy?get(db,strategy.id).cutover:null;requireThat(cutover&&new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'}).format(new Date())>=cutover,'Candidate submissions open on '+cutover+'. Keep this mapping as a draft until then.');next.strategy_revision=old.strategy_revision||(strategy?get(db,strategy.id).revision:null);next.status='Peer review';next.submitted_at=old.submitted_at||iso();next.stage_at=iso();next.work_date=old.work_date||new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'}).format(new Date());next.peer_decision=null;next.partner_decision=null;next.cycle=(old.cycle||0)+1;}
+  if(b.action==='mapping-edit'){requireThat(old.mapper_id===a.id&&['Draft','Needs information'].includes(old.status),'Only the mapper can edit a draft or returned mapping.',403);requireThat(text(b.rationale),'Enter a fit rationale.');next.rationale=text(b.rationale,5000);const strategy=find('strategy',role);const criteria=strategy?get(db,strategy.id).active_criteria||[]:[];next.evidence=cleanEvidence(b.evidence||old.evidence,criteria);next.criteria_snapshot=criteria;}
+  if(b.action==='mapping-submit'){researcher(a.id);requireThat(text(old.rationale),'Add a fit rationale before submitting.');requireThat(old.mapper_id===a.id&&['Draft','Needs information','Hold'].includes(old.status),'This mapping cannot be submitted by you.',403);const reviewerId=resolvePeer(old.team_id,old.staff_id);teammate(reviewerId,old.team_id,lead(old.team_id)===reviewerId?'':old.staff_id);next.reviewer_id=reviewerId;const p=member(search.partner_id);requireThat(canPartnerReview(p),'Assign an engagement partner to this role.');const strategy=find('strategy',role);const cutover=strategy?get(db,strategy.id).cutover:null;const criteria=strategy?get(db,strategy.id).active_criteria||[]:[];next.evidence=cleanEvidence(old.evidence,criteria,true);next.criteria_snapshot=criteria;requireThat(cutover&&new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'}).format(new Date())>=cutover,'Candidate submissions open on '+cutover+'. Keep this mapping as a draft until then.');next.strategy_revision=strategy?get(db,strategy.id).revision:null;next.status='Peer review';next.submitted_at=old.submitted_at||iso();next.stage_at=iso();next.work_date=old.work_date||new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'}).format(new Date());next.peer_decision=null;next.partner_decision=null;next.cycle=(old.cycle||0)+1;}
   if(b.action==='mapping-review') {
    const stage=old.status==='Peer review'?'peer':old.status==='Partner review'?'partner':'';requireThat(stage,'This mapping is not awaiting review.',409);
-   requireThat(a.id!==old.mapper_id&&(!a.staffId||a.staffId!==old.staff_id),'Self-review is not allowed.',403);
+   requireThat(stage==='peer'&&lead(old.team_id)===a.id||a.id!==old.mapper_id&&(!a.staffId||a.staffId!==old.staff_id),'Self-review is not allowed.',403);
    requireThat(stage==='peer'?old.reviewer_id===a.id:search.partner_id===a.id,'This review is assigned to another person.',403);
-   if(stage==='peer')teammate(a.id,old.team_id,old.staff_id);else requireThat(canPartnerReview(a),'Partner permission required.',403);
-   requireThat(['Approve','Reject','Hold','Needs information'].includes(b.decision),'Choose a decision.');
+   if(stage==='peer')teammate(a.id,old.team_id,lead(old.team_id)===a.id?'':old.staff_id);else requireThat(canPartnerReview(a),'Partner permission required.',403);
+   requireThat(['Approve','Reject','Needs information'].includes(b.decision),'Choose a decision.');
    requireThat(b.decision==='Approve'||text(b.notes),'Add a reason or requested information.');
    requireThat(b.decision!=='Reject'||['Wrong level','Wrong function','Insufficient scale','Industry mismatch','Geography mismatch','Insufficient evidence','Compensation mismatch','Other'].includes(b.reason),'Select a rejection reason.');
    next[stage+'_decision']=b.decision;next.status=b.decision==='Approve'?(stage==='peer'?'Partner review':'Approved'):b.decision==='Reject'?'Rejected':b.decision;next.stage_at=iso();next.last_feedback=text(b.notes,5000);next.reason=text(b.reason);next.last_review_hours=Math.max(0,(Date.now()-Date.parse(old.stage_at))/3600000);
