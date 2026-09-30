@@ -62,14 +62,14 @@ test('targets use assignment versions and duplicate batches are rejected',async(
   await assert.rejects(w.bulk(actor,[{kind:'assignment-edit',id:'a',version:1,target:20}]),/changed this assignment/);
   await assert.rejects(w.bulk(actor,[{kind:'entry',id:'e',version:1,mapped:5},{kind:'entry',id:'e',version:1,mapped:7}]),/only once/); db.close();
 });
-test('CRM preview never overwrites searches until applied and stale edits abort',async()=>{
+test('CRM refresh propagates existing search fields and stale edits abort',async()=>{
   const {db,w}=fixture();
   db.exec("UPDATE searches SET external_id='1' WHERE id='r'");
   await w.stageCRM(actor,[{external_id:'1',title:'Updated role',status:'On Hold',company_slug:'c',company_name:'CRM Company'}]);
-  assert.equal(db.prepare("SELECT title FROM searches WHERE id='r'").get()?.title,'Test role');
+  assert.equal(db.prepare("SELECT title FROM searches WHERE id='r'").get()?.title,'Updated role');
   const snapshot=await w.crmState(actor),job=snapshot.jobs[0];
   await assert.rejects(w.applyCRM(actor,[{...job,search_id:'r',version:99}]),/local search changed/);
-  await w.applyCRM(actor,[{...job,search_id:'r',version:1}]);
+  await w.applyCRM(actor,[{...job,search_id:'r',version:2}]);
   assert.equal(db.prepare("SELECT title FROM searches WHERE id='r'").get()?.title,'Updated role');
   assert.equal(db.prepare("SELECT client FROM searches WHERE id='r'").get()?.client,'CRM Company');
   assert.equal(db.prepare('SELECT COUNT(*) n FROM entries').get()?.n,2);db.close();
@@ -82,7 +82,7 @@ test('CRM company names create clients and missing names preserve existing clien
  const search=db.prepare("SELECT * FROM searches WHERE external_id='new'").get()!;
  assert.equal(search.client,'Imported Company');
  await w.stageCRM(actor,[{external_id:'new',title:'New',status:'Closed',company_slug:'co'}]);
- job=(await w.crmState(actor)).jobs[0];await w.applyCRM(actor,[{...job,search_id:search.id,version:search.version}]);
+ job=(await w.crmState(actor)).jobs[0];await w.applyCRM(actor,[{...job,search_id:search.id,version:(await w.state(actor)).searches.find((s:any)=>s.id===search.id)!.version}]);
  assert.equal(db.prepare("SELECT client FROM searches WHERE external_id='new'").get()?.client,'Imported Company');
  db.close();
 });
@@ -344,4 +344,18 @@ test('clean baseline refuses operational data and then saves an immutable non-de
  assert.equal(db.prepare('SELECT COUNT(*) n FROM staff').get()?.n,1);
  assert.equal((await w.saveCleanBaseline(owner,people)).baselineId,saved.baselineId);
  await assert.rejects(w.saveCleanBaseline(actor,people),/permission/);db.close();
+});
+
+test('CRM refresh preserves local ownership and history, ignores new jobs and unchanged refreshes',async()=>{
+ const {db,w}=fixture();db.exec("UPDATE searches SET external_id='linked',partner_id='p',partner='Local partner' WHERE id='r'");
+ const before=db.prepare("SELECT * FROM searches WHERE id='r'").get()!;
+ const jobs=[{external_id:'linked',title:'Renamed',status:'Closed',company_slug:'co',company_name:'Renamed client'},{external_id:'not-added',title:'New CRM job',status:'Open',company_slug:'co',company_name:'Client'}];
+ const result=await w.stageCRM(actor,jobs);assert.equal(result.updated,1);
+ const current=(await w.state(actor)).searches.find((s:any)=>s.id==='r')!;
+ assert.equal(current.title,'Renamed');assert.equal(current.client,'Renamed client');assert.equal(current.status,'Closed');assert.equal(current.partner_id,'p');assert.equal(current.partner,'Local partner');assert.equal(current.version,Number(before.version)+1);
+ assert.equal(db.prepare("SELECT count(*) n FROM searches WHERE external_id='not-added'").get()?.n,0);
+ assert.equal(db.prepare('SELECT count(*) n FROM entries').get()?.n,2);
+ assert.equal((await w.stageCRM(actor,jobs)).updated,0);
+ assert.equal((await w.state(actor)).searches.find((s:any)=>s.id==='r')!.version,current.version);
+ await w.stageCRM(actor,[]);assert.equal((await w.state(actor)).searches.find((s:any)=>s.id==='r')!.title,'Renamed');db.close();
 });

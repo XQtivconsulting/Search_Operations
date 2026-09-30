@@ -24,7 +24,7 @@ export function CRMPanel({searches,partners,api,reload}:{searches:any[];partners
   useEffect(()=>{load().catch(e=>setError(e.message));},[]);
   async function fetchPreview() {
     setBusy(true);setError('');setNotice('');
-    try{await api('crm/fetch',{});setSelected(new Set());setClients({});await load();await reload();setNotice('Jobs fetched. Repository statuses now reflect this RecruitCRM snapshot. Save partner assignments independently, or select roles to add/update.');}catch(e:any){setError(e.message);}finally{setBusy(false);}
+    try{const result=await api('crm/fetch',{});setSelected(new Set());setClients({});await load();await reload();setNotice(`RecruitCRM refreshed. ${result.updated||0} existing searches updated across the app. Select new searches to add them to the repository.`);}catch(e:any){setError(e.message);}finally{setBusy(false);}
   }
   async function apply() {
     setBusy(true);setError('');setNotice('');
@@ -36,7 +36,7 @@ export function CRMPanel({searches,partners,api,reload}:{searches:any[];partners
       const result=await api('crm/apply',{jobs});setSelected(new Set());setOwners(v=>Object.fromEntries(Object.entries(v).filter(([id])=>!selected.has(id))));await reload();await load();setNotice(`${result.count} searches updated. Sourcing output and planning history are preserved.`);
     }catch(e:any){setError(e.message);}finally{setBusy(false);}
   }
-  return <section className="panel crm-panel"><div className="section-head"><div><h2>RecruitCRM</h2><p>Save engagement partners without adding roles. Select roles only when you want to add or update them in Search Repository.</p></div><button className="primary" disabled={!state?.configured||busy} onClick={fetchPreview}>{busy?'Working…':'Fetch job preview'}</button></div>
+  return <section className="panel crm-panel"><div className="section-head"><div><h2>RecruitCRM</h2><p>Refresh updates job titles, client names and statuses for existing searches throughout the app. Select new searches to add them. Engagement partners can be saved independently.</p></div><button className="primary" disabled={!state?.configured||busy} onClick={fetchPreview}>{busy?'Working…':'Refresh from RecruitCRM'}</button></div>
     {state&&!state.configured&&<p className="source-note">Not connected. Your administrator needs to configure the workspace’s RecruitCRM API token on the server.</p>}
     <p className="fine">RecruitCRM owns job titles, company names and status. This workspace owns weekly plans, targets, mappings and internal approvals. Outreach remains in RecruitCRM.</p>
     {error&&<p className="error" role="alert">{error}</p>}{notice&&<p className="notice" role="status">{notice}</p>}

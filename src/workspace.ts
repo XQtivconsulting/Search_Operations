@@ -228,12 +228,22 @@ export class Workspace extends DurableObject {
   async stageCRM(a: Actor, jobs: CRMJob[]) {
     requireThat(hasRole(a,'admin'), 'Administrator permission required.',403);
     return this.ctx.storage.transactionSync(() => {
-      // Replace only the staging snapshot, never the operating records.
+      // Refresh CRM-owned fields on existing searches; never activate new jobs.
       this.rows('DELETE FROM crm_jobs');
-      for(const j of jobs) this.rows('INSERT INTO crm_jobs(external_id,title,status,company_slug,fetched_at,company_name) VALUES(?,?,?,?,?,?)',j.external_id,j.title,j.status,j.company_slug,now(),j.company_name || '');
+      let updated=0;
+      for(const j of jobs) {
+        this.rows('INSERT INTO crm_jobs(external_id,title,status,company_slug,fetched_at,company_name) VALUES(?,?,?,?,?,?)',j.external_id,j.title,j.status,j.company_slug,now(),j.company_name || '');
+        const matches=this.rows('SELECT * FROM searches WHERE external_id=?',j.external_id);
+        requireThat(matches.length<=1,'Multiple searches share this CRM ID. Reconcile before refreshing.',409);
+        const old=matches[0];if(!old)continue;
+        const client=j.company_name||old.client;
+        if(old.title===j.title&&old.status===j.status&&old.client===client)continue;
+        this.rows('UPDATE searches SET title=?,status=?,client=?,version=version+1 WHERE id=?',j.title,j.status,client,old.id);
+        this.audit(a,'crm-refresh',old.id,old,{...old,title:j.title,status:j.status,client,version:old.version+1});updated++;
+      }
       this.rows('INSERT INTO integration_runs VALUES(?,?,?,?,?)',uuid(),a.id,'staged',jobs.length,now());
       this.audit(a,'crm-stage','recruitcrm',null,{count:jobs.length});
-      return {count:jobs.length};
+      return {count:jobs.length,updated};
     });
   }
   async applyCRM(a: Actor, jobs: any[]) {
