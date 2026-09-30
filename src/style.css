@@ -1337,3 +1337,58 @@ input[type=checkbox] { accent-color:var(--xqtiv-navy); }
 .mapping-fit-overview{display:block;margin-top:16px;font-size:13px}
 .fit-rating{margin-top:12px;font-size:13px}.fit-rating select{display:block;width:100%;margin-top:6px;font-size:13px}.fit-filter-options{padding:12px;border:1px solid #dce3ec;border-radius:4px;background:white;display:grid;gap:8px}.fit-filter-options label{display:flex;gap:8px;align-items:center}.fit-filter-options input[type=checkbox]{width:auto}.fit-filters{margin:12px 0}.fit-filters summary{cursor:pointer;font-size:13px}
 .mapping-pagination{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:12px 0;font-size:12px;color:#667085}.mapping-pagination>span:first-child{margin-right:auto}.new-mapping-disclosure{margin:12px 0;border:1px solid #dce3ec;border-radius:6px;padding:12px}.new-mapping-disclosure>summary{cursor:pointer;font-size:13px;font-weight:500}.fit-panel-actions{position:sticky;bottom:0;background:white;padding:12px 0;display:flex;gap:8px;border-top:1px solid #dce3ec}.mapping-fit-panel textarea{width:100%;box-sizing:border-box}
+
+/* Performance detail: one subject and one information layer at a time. */
+.app .performance-focus{background:#fff;padding:24px}
+.performance-focus-header{display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap;margin-bottom:22px}
+.performance-focus-header>div{flex:1;min-width:230px}
+.app .performance-focus-header h2{margin:3px 0;font-size:20px;line-height:1.4;font-weight:600}
+.app .performance-kicker{font-size:11px;letter-spacing:.08em;color:#667085;margin:0}
+.app .performance-focus-title{font-size:14px;line-height:1.5;margin:4px 0;color:#344054}
+.app .performance-period{font-size:12px;color:#667085;margin:7px 0 0}
+.performance-key-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid #dfe5ec;border-radius:7px;background:#f8fafc;margin-bottom:22px}
+.performance-key-metrics>div{padding:16px 20px;border-right:1px solid #dfe5ec;display:grid;gap:5px}
+.performance-key-metrics>div:last-child{border-right:0}
+.app .performance-key-metrics span{font-size:12px;color:#475467}
+.app .performance-key-metrics strong{font-size:25px;font-weight:600;line-height:1.2;color:#10294e}
+.app .performance-key-metrics small{font-size:12px;color:#667085}
+.performance-detail-tabs{display:flex;gap:20px;border-bottom:1px solid #dfe5ec;margin-bottom:22px;flex-wrap:wrap}
+.app .performance-detail-tabs button{border:0;border-radius:0;background:transparent;box-shadow:none;padding:10px 2px;color:#667085;border-bottom:2px solid transparent}
+.app .performance-detail-tabs button[aria-pressed=true]{border-bottom-color:#163a7a;color:#163a7a;font-weight:600}
+.performance-detail-body{min-height:260px}
+.performance-overview-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-bottom:24px}
+.app .performance-focus h3{font-size:14px;font-weight:600;margin:0 0 12px}
+.performance-focus dl{margin:0;display:grid;gap:0}
+.performance-focus dl>div{display:flex;justify-content:space-between;gap:18px;border-bottom:1px solid #edf0f4;padding:9px 0}
+.app .performance-focus dt{font-size:13px;color:#667085}
+.app .performance-focus dd{margin:0;font-size:13px;font-weight:500;color:#24354e;text-align:right}
+.performance-block-heading{display:flex;justify-content:space-between;align-items:start;gap:16px;margin:8px 0 16px}
+.app .performance-block-heading p,.app .performance-next-detail p,.app .performance-footnote{font-size:12px;color:#667085;line-height:1.6;margin:4px 0}
+.app .performance-focus .sheet-table{min-width:620px;width:100%;border-collapse:collapse}
+.app .performance-focus .sheet-table th{background:#f4f6f9;color:#475467;font-size:12px;font-weight:500;padding:10px 12px}
+.app .performance-focus .sheet-table td{background:white;font-size:13px;padding:12px;border-bottom:1px solid #e6eaf0}
+.app .performance-focus .sheet-table tbody tr:nth-child(even) td{background:#fafbfd}
+.app .performance-focus .sheet-table td strong{font-size:13px;font-weight:500}
+.app .performance-focus .sheet-table small{display:block;font-size:11px;color:#667085;margin-top:4px}
+.performance-next-detail{border-top:1px solid #e6eaf0;padding:18px 0;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.app .performance-supporting{margin-top:20px;padding:14px 0;border-top:1px solid #e6eaf0}
+.performance-supporting dl{max-width:520px;margin-top:12px}
+.app .performance-footnote{border-top:1px solid #e6eaf0;margin-top:24px;padding-top:12px}
+.app .performance-data-note{padding:10px 12px;border-left:3px solid #b78622;background:#fffbf1;font-size:12px;color:#795c21;margin-bottom:18px}
+.performance-daily-scroll{max-height:430px;overflow:auto}
+.performance-daily-scroll thead{position:sticky;top:0}
+.performance-empty{padding:20px;color:#667085;font-size:13px}
+@media(max-width:760px){.performance-key-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.performance-key-metrics>div{border-bottom:1px solid #dfe5ec}.performance-overview-grid{grid-template-columns:1fr;gap:20px}.app .performance-focus{padding:16px}.performance-focus-header{gap:12px}.performance-focus-header>button:first-child{width:100%}.performance-next-detail{align-items:start;flex-direction:column}}
+.app .performance-focus .sheet-table{table-layout:fixed}
+.app .performance-focus .sheet-table th:first-child{width:32%}
+.app .performance-focus .sheet-table :is(td,th):not(:first-child){text-align:right}
+.app .performance-focus .sheet-table td{padding:8px 10px;line-height:1.4}
+.app .performance-focus .sheet-table th{padding:8px 10px}
+.app .performance-focus .sheet-table td:first-child{overflow-wrap:anywhere}
+.app .performance-key-metrics-compact>div{padding:9px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.app .performance-key-metrics-compact strong{font-size:18px}
+.app .performance-key-metrics-compact small{display:none}
+.app .performance-table{min-width:780px;table-layout:fixed}
+.app .performance-table>thead>tr>th:first-child{width:24%}
+.app .performance-table>tbody>tr>td{padding:8px 10px;line-height:1.4}
+.app .performance-table>tbody>tr>td:first-child{overflow-wrap:anywhere}
