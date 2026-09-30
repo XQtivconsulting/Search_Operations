@@ -1392,3 +1392,43 @@ input[type=checkbox] { accent-color:var(--xqtiv-navy); }
 .app .performance-table>thead>tr>th:first-child{width:24%}
 .app .performance-table>tbody>tr>td{padding:8px 10px;line-height:1.4}
 .app .performance-table>tbody>tr>td:first-child{overflow-wrap:anywhere}
+
+/* Compact criteria and evidence entry. */
+.app .compact-criteria-editor .fit-criteria-list{gap:8px;margin:10px 0}
+.app .compact-criteria-editor .criteria-edit-row{display:grid;grid-template-columns:24px minmax(0,1fr) 86px;gap:10px;padding:10px;border:1px solid #dce3ec;border-radius:5px}
+.app .compact-criteria-editor label{margin:0;font-size:12px}
+.app .compact-criteria-editor .criterion-fields{display:grid;gap:6px}
+.app .compact-criteria-editor textarea{min-height:50px;padding:6px 8px}
+.app .compact-criteria-editor input{margin-top:3px}
+.app .criterion-weight-editor{display:grid;align-content:start;gap:8px}
+.app .weight-mode{display:flex;gap:8px;align-items:center;font-size:12px;margin:0}
+.app .weight-mode select{width:auto}
+.criteria-total,.criteria-editor-actions{display:flex;gap:12px;align-items:center;font-size:12px}
+.criteria-total{color:#667085;margin:8px 0}
+.criterion-weight{margin-left:auto;white-space:nowrap;font-size:12px;color:#56657a;font-weight:500}
+.app .fit-evidence{margin:12px 0}
+.app .fit-evidence .fit-criteria-list{gap:8px}
+.app .fit-evidence .fit-criterion{display:grid;grid-template-columns:minmax(0,1fr) 190px;gap:6px 12px;padding:10px 12px;border:1px solid #dce3ec}
+.app .fit-evidence .fit-criterion-heading{grid-column:1/-1;margin:0;font-size:13px}
+.app .fit-evidence .fit-requirement{background:transparent;padding:0}
+.app .fit-evidence .fit-requirement p{margin:2px 0;font-size:12px;line-height:1.5}
+.app .fit-evidence .fit-rating{margin:0}
+.app .fit-evidence .fit-rating label{margin:0;font-size:12px}
+.app .fit-evidence .fit-justification{grid-column:1/-1;margin:0}
+.app .fit-evidence .fit-justification label{margin:5px 0;font-size:12px}
+.app .fit-evidence textarea{min-height:52px;padding:6px 8px;line-height:1.5}
+.app .fit-evidence .fit-exception{margin:5px 0 0}
+.fit-analysis-toolbar{display:flex;flex-wrap:wrap;align-items:end;gap:10px;margin:12px 0}
+.fit-analysis-toolbar label{font-size:12px}
+.fit-analysis-toolbar input{max-width:120px}
+.criterion-filter-builder{border:1px solid #dce3ec;border-radius:5px;padding:9px 12px;margin:8px 0}
+.criterion-filter-builder summary{cursor:pointer;font-size:12px;font-weight:500}
+.criterion-filter-heading{display:flex;align-items:center;gap:12px;margin:10px 0}
+.criterion-filter-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 18px}
+.criterion-filter-row{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid #edf0f4;padding:6px 0}
+.app .criterion-filter-row label{display:flex;align-items:center;gap:7px;font-size:12px;margin:0}
+.criterion-filter-row select{width:95px;flex-shrink:0}
+.fit-score-note{margin:8px 0}
+.app .mappings-panel .research-table :is(th,td){text-align:left}
+.app .mappings-panel .research-table td{padding:8px;line-height:1.4}
+@media(max-width:700px){.criterion-filter-grid{grid-template-columns:1fr}.app .fit-evidence .fit-criterion{grid-template-columns:1fr}.app .fit-evidence .fit-rating{grid-column:1}.criterion-filter-heading{align-items:start;flex-direction:column}}

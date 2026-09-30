@@ -21,3 +21,19 @@ test('submitted justification needs a valid human rating or explained N/A',()=>{
  assert.equal(cleanEvidence({a:{text:'Evidence',rating:4}},[criteria[0]],true).a.rating,4);
  assert.equal(cleanEvidence({a:{text:'Not required',not_applicable:true,rating:5}},[criteria[0]],true).a.rating,null);
 });
+
+test('custom weights calculate a weighted score and weight-only changes recalculate existing ratings',()=>{
+ const weighted=[{...criteria[0],weight:60},{...criteria[1],weight:40}],evidence={a:{rating:4},b:{rating:3}};
+ assert.equal(fitSummary(weighted,evidence).score,3.6);
+ assert.equal(mappingFit({criteria_snapshot:criteria,evidence},weighted).score,3.6);
+ assert.equal(fitSummary(weighted,{a:{rating:4},b:{not_applicable:true}}).score,4);
+ assert.equal(fitSummary(weighted,{a:{rating:4}}).score,null);
+});
+test('criterion filters support different thresholds and all/any combinations',async()=>{
+ const {matchesCriterionFilters}=await import('../src/fit-score');
+ const e={a:{rating:5},b:{rating:3}};
+ assert.equal(matchesCriterionFilters(e,{a:5,b:3}),true);
+ assert.equal(matchesCriterionFilters(e,{a:5,b:4}),false);
+ assert.equal(matchesCriterionFilters(e,{a:5,b:4},'any'),true);
+ assert.equal(matchesCriterionFilters({a:{not_applicable:true,rating:5}},{a:4}),false);
+});

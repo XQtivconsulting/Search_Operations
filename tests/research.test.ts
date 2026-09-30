@@ -261,3 +261,12 @@ test('new inline mapping persists criterion justification and approved requireme
  const m=await f.rec(result.ids[0]);assert.equal(m.evidence.scope.text,'Led quality at three sites');assert.equal(m.criteria_snapshot[0].requirement,'Multiple sites');assert.equal(m.status,'Draft');
  await f.run(mapper,{...m,action:'mapping-submit'});assert.equal((await f.rec(m.id)).status,'Peer review');f.db.close();
 });
+
+test('strategy weights persist through approval and invalid totals leave the saved draft untouched',async()=>{
+ const f=fixture();await setup(f);const s=(await f.state()).research.records.find(r=>r.kind==='strategy')!;
+ await f.run(admin,{...s,action:'strategy-save',content:'Weighted strategy',criteria:[{id:'scope',label:'Scope',requirement:'Multi-site',weight:60},{id:'qualification',label:'Qualification',requirement:'Certification',weight:40}]});
+ const saved=await f.rec(s.id);await assert.rejects(f.run(admin,{...saved,action:'strategy-save',content:'Invalid weights',criteria:[{id:'scope',label:'Scope',weight:90}]}),/100/);
+ assert.equal((await f.rec(s.id)).version,saved.version);
+ await f.run(admin,{...saved,action:'strategy-approve'});
+ assert.deepEqual((await f.rec(s.id)).active_criteria.map((c:any)=>c.weight),[60,40]);f.db.close();
+});
