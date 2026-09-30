@@ -298,7 +298,7 @@ function App() {
           <strong>{e.mapped ?? "—"}</strong>
         </div>
         <div>
-          <small>Peer</small>
+          <small>Team review</small>
           <strong>{e.peer ?? "Pending"}</strong>
         </div>
         <div>
@@ -527,7 +527,7 @@ function App() {
 
         {page==='Candidates'&&candidateId&&<CandidateProfile key={candidateId} id={candidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} onBack={()=>setCandidateId('')} onRole={id=>{setSelected(id);setRepoTab('Candidate mappings');setPage('Search repository');}}/>}
         {page==='Candidates'&&!candidateId&&<Candidates onCandidate={setCandidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} onOpen={id=>{setSelected(id);setRepoTab("Candidate mappings");setPage("Search repository");}}/>}
-        {page==='Teams'&&<><TeamsPanel data={data} api={api} reload={load} onAdd={()=>open({kind:'team'})}/>{planner?<PeerSetup data={data} api={api} reload={load}/>:<p>Team planners manage peer-review pairings.</p>}</>}
+        {page==='Teams'&&<><TeamsPanel data={data} api={api} reload={load} onAdd={()=>open({kind:'team'})}/>{planner?<PeerSetup data={data} api={api} reload={load}/>:<p>Team planners designate the team review lead.</p>}</>}
         {page === "Delivery Monitor" && <DeliveryMonitor data={data} initialView={deliveryStart.view} initialRoles={deliveryStart.roles} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage('Search repository');}} onCandidate={id=>{setCandidateId(id);setPage('Candidates');}} onAllocate={(id,date)=>{setSelected(id);setAllocationStart({date,view:'allocation'});setPage('Weekly plan');}}/>}
         {page === "Performance" && <Performance data={data} api={api} reload={load} onDirty={setSheetDirty} onDecision={id=>{setSelected(id);setAllocationStart({date:'',view:'decisions'});setPage('Weekly plan');}}/>}
         {page==='People & access'&&isAdmin&&<PeoplePanel data={data} api={api} reload={load} onDirty={setSheetDirty}/>}
@@ -559,7 +559,7 @@ function App() {
                       entry: "Log sourcing output",
                       review:
                         modal.stage === "peer"
-                          ? "Peer review"
+                          ? "Team review"
                           : "Partner review",
                       reopen: "Reopen reviewed output",
                       invite: "Invite a colleague",
