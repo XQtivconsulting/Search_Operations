@@ -143,7 +143,8 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
    const cid=candidate?.id||save('candidate','',url,candidateData);
    if(!candidate)db.audit(a,'candidate-save',cid,null,candidateData);
    requireThat(!find('mapping',role+':'+cid),'This candidate is already mapped to this role. Open the existing mapping; no duplicate was created.',409);
-   const mapped={candidate_id:cid,target_id:target?.id||'',name:candidate?.name||candidateData.name,title:candidate?.title||text(item.title,300),url,rationale:text(item.rationale,5000),company,company_id,mapper_id:a.id,staff_id:person.staff_id||person.staffId,team_id:team,reviewer_id:'',status:'Draft',created_at:iso(),strategy_revision:target?.strategy_revision||null};
+   const strategy=find('strategy',role),criteria=strategy?get(db,strategy.id).active_criteria||[]:[];
+   const mapped={evidence:cleanEvidence(item.evidence,criteria),criteria_snapshot:criteria,candidate_id:cid,target_id:target?.id||'',name:candidate?.name||candidateData.name,title:candidate?.title||text(item.title,300),url,rationale:text(item.rationale,5000),company,company_id,mapper_id:a.id,staff_id:person.staff_id||person.staffId,team_id:team,reviewer_id:'',status:'Draft',created_at:iso(),strategy_revision:target?.strategy_revision||null};
    const mid=save('mapping',role,role+':'+cid,mapped);db.audit(a,b.action,mid,null,mapped);ids.push(mid);
    db.rows('INSERT INTO research_events VALUES(?,?,?,?,?,?)',crypto.randomUUID(),mid,a.id,b.action,JSON.stringify({before:null,after:mapped}),iso());
   }return {ids};

@@ -252,3 +252,12 @@ test('company alias matches canonical identity during mapping and conflicting al
  const result=await f.run(mapper,{action:'mapping-inline',role_id:'r',team_id:'t',first_name:'Alex',last_name:'Example',url:'https://linkedin.com/in/alias-synthetic',company:'Example',company_id:c.id});
  const m=await f.rec(result.ids[0]);assert.equal(m.company_id,c.id);assert.equal(m.company,'Example Formova');assert.equal((await f.state()).research.records.filter(r=>r.kind==='company').length,1);f.db.close();
 });
+
+test('new inline mapping persists criterion justification and approved requirements before submission',async()=>{
+ const f=fixture();await setup(f);const strategy=(await f.state()).research.records.find(r=>r.kind==='strategy')!;
+ await f.run(admin,{...strategy,action:'strategy-save',content:'Fit strategy',criteria:[{id:'scope',label:'Leadership scope',requirement:'Multiple sites'}]});
+ await f.run(admin,{...await f.rec(strategy.id),action:'strategy-approve'});
+ const result=await f.run(mapper,{action:'mapping-inline',role_id:'r',team_id:'t',first_name:'Case',last_name:'Example',url:'https://linkedin.com/in/criterion-case',rationale:'Relevant scope',evidence:{scope:{text:'Led quality at three sites'}}});
+ const m=await f.rec(result.ids[0]);assert.equal(m.evidence.scope.text,'Led quality at three sites');assert.equal(m.criteria_snapshot[0].requirement,'Multiple sites');assert.equal(m.status,'Draft');
+ await f.run(mapper,{...m,action:'mapping-submit'});assert.equal((await f.rec(m.id)).status,'Peer review');f.db.close();
+});

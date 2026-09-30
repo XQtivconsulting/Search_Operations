@@ -1,3 +1,4 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {cleanCriteria,cleanEvidence} from '../src/strategy-criteria';import {displayDate} from '../src/dates';
 test('criteria have stable unique IDs and require explained evidence including not applicable',()=>{assert.throws(()=>cleanCriteria([{id:'x',label:'Location'},{id:'x',label:'Experience'}]));const c=cleanCriteria([{id:'q',label:'Qualification'}]);assert.throws(()=>cleanEvidence({q:{not_applicable:true}},c,true));assert.equal(cleanEvidence({q:{not_applicable:true,text:'Not required for this remit'}},c,true).q.not_applicable,true);});
 test('calendar dates have an unambiguous month-name format',()=>{assert.equal(displayDate('2026-09-29'),'29 Sept 2026');});
+test('criteria lists are not limited to thirty entries',()=>{assert.equal(cleanCriteria(Array.from({length:40},(_,i)=>({id:String(i),label:'Qualification '+i}))).length,40);});

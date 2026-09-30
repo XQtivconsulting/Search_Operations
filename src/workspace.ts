@@ -104,7 +104,7 @@ export class Workspace extends DurableObject {
           else if(!target.owner_id&&target.team_id===team){researchMutation(this,a,{...target,action:'company-claim'},members);target={...target,owner_id:a.id};}
         }
         const linked=target?.owner_id===a.id&&target.team_id===team?target.id:'';
-        return researchMutation(this,a,{action:'mapping-add',role_id:role,team_id:team,target_id:linked,items:[{candidate_id:candidate?.id,url,first_name:b.first_name,last_name:b.last_name,company:company?.name||companyName,company_id:company?.id||''}]},members);
+        return researchMutation(this,a,{action:'mapping-add',role_id:role,team_id:team,target_id:linked,items:[{rationale:b.rationale,evidence:b.evidence,candidate_id:candidate?.id,url,first_name:b.first_name,last_name:b.last_name,company:company?.name||companyName,company_id:company?.id||''}]},members);
       }
       if(b.action==='candidate-import'||b.action==='candidate-assign') {
         requireThat(canPlan(a)||hasRole(a,'researcher')||hasRole(a,'partner'),'Candidate editing permission required.',403);
