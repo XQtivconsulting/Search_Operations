@@ -363,7 +363,7 @@ function App() {
       <main className={"main"+(["Search repository","Company universe","Candidates","Delivery Monitor","Performance"].includes(page)?" compact-workspace":"")}>
         <header>
           <div>
-            <p className="eyebrow">{data.name} / {page === "Search repository" ? "ROLE REPOSITORY" : "OPERATIONS"}</p>
+            <p className="eyebrow">{data.name} / {page === "Search repository" ? "SEARCH REPOSITORY" : "OPERATIONS"}</p>
             <h1>{page === "Search repository" && sBy[selected] ? sBy[selected].title : page}</h1>
             <p className="subheading">
               {
