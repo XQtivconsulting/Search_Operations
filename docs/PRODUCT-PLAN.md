@@ -23,3 +23,7 @@ Connect the specified GitHub repository and the owner’s Cloudflare account. De
 7. Reusable search maps and human-approved AI assistance.
 
 Business Object Model v3 takes precedence where the older capability document separates Mandate and Role. They represent one canonical Role; a Position is a seat. Do not conflate operating responsibilities with security roles.
+
+## Next phase: native search engagement creation alongside RecruitCRM
+
+Owner direction, 30 Sep 2026: support both CRM-imported and directly-created search engagements after the current candidate-engagement release. Both sources must share sourcing, partner approval handoff, engagement and hiring workflows. Retain optional RecruitCRM connectivity during transition; explicitly track origin/external identity and field ownership, prevent duplicate linking and conflicting updates. Native search creation and removal of CRM dependency are not part of this release; the existing CRM-only creation guard remains active.

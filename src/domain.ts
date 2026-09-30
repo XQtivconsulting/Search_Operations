@@ -4,7 +4,8 @@ export type AccessRole =
   | "founder"
   | "planner"
   | "partner"
-  | "researcher";
+  | "researcher"
+  | "engagement";
 export type Actor = {
   id: string;
   name: string;
@@ -21,6 +22,7 @@ export const roles: AccessRole[] = [
   "planner",
   "partner",
   "researcher",
+  "engagement",
 ];
 export function roleList(a: {role?: unknown;roles?: unknown}): AccessRole[] {
   return (Array.isArray(a.roles)?a.roles:[a.role]).filter((v):v is AccessRole=>roles.includes(v as AccessRole));

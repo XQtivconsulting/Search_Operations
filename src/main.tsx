@@ -1,3 +1,4 @@
+import {Engagement} from './Engagement';
 import {roleDisplayId} from './RolePicker';
 import {Performance} from './Performance';
 import './role-page.css';
@@ -85,7 +86,7 @@ function App() {
   async function load() {
     try {
       const next=await api('state');expectedUser=next.actor.id;
-      setPage(current=>current||((hasRole(next.actor,'researcher')&&!['admin','planner','partner','founder'].some(r=>hasRole(next.actor,r as any)))?'My Work':'Delivery Monitor'));
+      setPage(current=>current||(((hasRole(next.actor,'researcher')||hasRole(next.actor,'engagement'))&&!['admin','planner','partner','founder'].some(r=>hasRole(next.actor,r as any)))?'My Work':'Delivery Monitor'));
       // Operational totals come only from candidate mappings. Historical aggregates remain in storage.
       setData({...next,entries:next.entries.map((e:Row)=>e.source==='candidates'?e:{...e,mapped:null,peer:null,partner:null,peer_at:null,partner_at:null,flag:null,automated:true,notes:''})});
       setError("");
@@ -250,6 +251,7 @@ function App() {
     ['Search repository',Briefcase,'Research'],
     ['Candidates',Users,'Research'],
     ['Company universe',Briefcase,'Research'],
+    ['Engagement',Users,'Delivery'],
     ['Weekly plan',CalendarBlank,'Delivery'],
     ['Delivery Monitor',ClipboardText,'Delivery'],
     ['Performance',ChartBar,'Delivery'],
@@ -360,7 +362,7 @@ function App() {
           </button>
         </div>
       </aside>
-      <main className={"main"+(["Search repository","Company universe","Candidates","Delivery Monitor","Performance"].includes(page)?" compact-workspace":"")}>
+      <main className={"main"+(["Search repository","Company universe","Candidates","Delivery Monitor","Performance","Engagement"].includes(page)?" compact-workspace":"")}>
         <header>
           <div>
             <p className="eyebrow">{data.name} / {page === "Search repository" ? "SEARCH REPOSITORY" : "OPERATIONS"}</p>
@@ -376,6 +378,7 @@ function App() {
                   "Delivery Monitor":
                     "Track delivery and clear outstanding reviews.",
                   Candidates: "One candidate record, linked to every mapped client and role.",
+                  Engagement: "Candidate outreach and hiring progress, from partner approval onward.",
                   Performance: "Compare researcher output and the return on sourcing effort.",
                   "People & access": "Accounts, invitations and combined responsibilities.",
                 }[page]
@@ -393,7 +396,7 @@ function App() {
             {error}
           </div>
         )}
-        {!["Searches","Account settings","Search repository","My Work","Delivery Monitor","Performance","Company universe","Teams","Candidates","People & access"].includes(page)  && page !== "Integrations" && page !== "Weekly plan" && (
+        {!["Searches","Account settings","Search repository","My Work","Delivery Monitor","Performance","Company universe","Teams","Candidates","People & access","Engagement"].includes(page)  && page !== "Integrations" && page !== "Weekly plan" && (
           <div className="filters">
             <label>
               From
@@ -521,7 +524,9 @@ function App() {
           </>
         )}
         {page === "Weekly plan" && <WeeklyPlanner data={data} api={api} reload={load} initialSearch={selected} initialDate={allocationStart.date} initialView={allocationStart.view} onDirty={setSheetDirty} onTeams={()=>setPage('Teams')}/>}
-        {page==='My Work'&&<MyWork data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage("Search repository");}}/>}
+        {page==='Engagement'&&<Engagement data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
+        {page==='My Work'&&hasRole(data.actor,'engagement')&&<Engagement mine data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
+        {page==='My Work'&&(!hasRole(data.actor,'engagement')||hasRole(data.actor,'researcher')||hasRole(data.actor,'partner'))&&<MyWork data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage("Search repository");}}/>}
         {page==='Search repository'&&<ResearchPanel onEditPartner={s=>open({kind:"search-owner",...s})} onRoleChange={setSelected} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} key={page} data={data} api={api} reload={load} view={page} initialRole={page==='Search repository'?selected:''} initialTab={repoTab} onDirty={setSheetDirty} onCompanies={id=>{setSelected(id);setPage("Company universe");}}/>}
         {page === 'Company universe'&&<CompanyUniverse data={data} api={api} reload={load} onDirty={setSheetDirty} initialRole={selected} onOpen={id=>{setSelected(id);setRepoTab("Target companies");setPage("Search repository");}}/>}
 

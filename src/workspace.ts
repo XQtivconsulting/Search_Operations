@@ -1,3 +1,4 @@
+import {engagementMutation} from './engagement';
 import {exactCompany,companyNames,normalizedCompany} from './company-match';
 import {resetSchema,resetSnapshot,clearWorkspace,saveCleanBaseline} from './workspace-reset';
 import {effortSchema,saveEffort} from './effort';
@@ -29,6 +30,8 @@ export class Workspace extends DurableObject {
     super(ctx, env);
     ctx.storage.sql.exec(workspaceSchema);
     ctx.storage.sql.exec(resetSchema);
+    this.rows('CREATE TABLE IF NOT EXISTS candidate_files(id TEXT PRIMARY KEY,candidate_id TEXT NOT NULL,name TEXT NOT NULL,mime TEXT NOT NULL,category TEXT NOT NULL,actor_id TEXT NOT NULL,created_at TEXT NOT NULL)');
+    this.rows('CREATE TABLE IF NOT EXISTS candidate_file_chunks(file_id TEXT NOT NULL REFERENCES candidate_files(id),part INTEGER NOT NULL,data TEXT NOT NULL,PRIMARY KEY(file_id,part))');
     this.rows('CREATE TABLE IF NOT EXISTS brief_files(id TEXT PRIMARY KEY,role_id TEXT NOT NULL,name TEXT NOT NULL,mime TEXT NOT NULL,created_at TEXT NOT NULL)');
     this.rows('CREATE TABLE IF NOT EXISTS brief_file_chunks(file_id TEXT NOT NULL REFERENCES brief_files(id),part INTEGER NOT NULL,data TEXT NOT NULL,PRIMARY KEY(file_id,part))');
     ctx.storage.sql.exec(effortSchema);
@@ -79,6 +82,16 @@ export class Workspace extends DurableObject {
     return backup;
   }
   async research(a: Actor,b:any,members:Member[]):Promise<any> {await this.syncPeople(members);return this.ctx.storage.transactionSync(()=>{
+      if(['candidate-file-save','candidate-file-list','candidate-file-read'].includes(b.action)) {
+        const c=this.rows("SELECT id FROM research_records WHERE id=? AND kind='candidate'",text(b.candidate_id))[0];requireThat(c,'Candidate not found.',404);
+        if(b.action==='candidate-file-list')return this.rows('SELECT * FROM candidate_files WHERE candidate_id=? ORDER BY created_at DESC',c.id);
+        if(b.action==='candidate-file-read'){const f=this.rows('SELECT * FROM candidate_files WHERE id=? AND candidate_id=?',b.file_id,c.id)[0];requireThat(f,'File not found.',404);return {...f,base64:this.rows('SELECT data FROM candidate_file_chunks WHERE file_id=? ORDER BY part',f.id).map(r=>r.data).join('')};}
+        requireThat(canPlan(a)||hasRole(a,'researcher')||hasRole(a,'partner')||hasRole(a,'engagement'),'Candidate editing permission required.',403);
+        const name=text(b.name,200),base64=String(b.base64||'');requireThat(/\.(pdf|docx|doc|txt|eml|mp3|m4a|wav)$/i.test(name)&&base64.length>0&&base64.length<=7e6&&/^[A-Za-z0-9+/]*={0,2}$/.test(base64),'Upload PDF, Word, text, email or audio up to 5 MB.');
+        requireThat(['Resume','Candidate information','Transcript','Email exchange','Recording','Assessment','Other'].includes(b.category),'Choose a file category.');
+        const id=uuid();this.rows('INSERT INTO candidate_files VALUES(?,?,?,?,?,?,?)',id,c.id,name,'application/octet-stream',b.category,a.id,now());for(let i=0;i<base64.length;i+=131072)this.rows('INSERT INTO candidate_file_chunks VALUES(?,?,?)',id,i,base64.slice(i,i+131072));this.audit(a,'candidate-file-save',id,null,{name,candidate_id:c.id,category:b.category});return {id};
+      }
+      if(String(b.action).startsWith('engagement-')||['candidate-note','candidate-tags'].includes(b.action))return engagementMutation(this,a,b,members);
       if(['brief-file-save','brief-file-list','brief-file-read'].includes(b.action)) {
         const search=this.rows('SELECT * FROM searches WHERE id=?',text(b.role_id))[0];requireThat(search,'Search not found.',404);
         if(b.action==='brief-file-list')return this.rows('SELECT * FROM brief_files WHERE role_id=? ORDER BY created_at DESC',b.role_id);
@@ -107,7 +120,7 @@ export class Workspace extends DurableObject {
         return researchMutation(this,a,{action:'mapping-add',role_id:role,team_id:team,target_id:linked,items:[{rationale:b.rationale,evidence:b.evidence,candidate_id:candidate?.id,url,first_name:b.first_name,last_name:b.last_name,company:company?.name||companyName,company_id:company?.id||''}]},members);
       }
       if(b.action==='candidate-import'||b.action==='candidate-assign') {
-        requireThat(canPlan(a)||hasRole(a,'researcher')||hasRole(a,'partner'),'Candidate editing permission required.',403);
+        requireThat(canPlan(a)||hasRole(a,'researcher')||hasRole(a,'engagement')||hasRole(a,'partner'),'Candidate editing permission required.',403);
         const records=researchState(this).records,candidates=records.filter(r=>r.kind==='candidate');
         const assigning=b.action==='candidate-assign';
         if(assigning)requireThat(Array.isArray(b.candidate_ids)&&b.candidate_ids.length>0&&b.candidate_ids.length<=500&&new Set(b.candidate_ids).size===b.candidate_ids.length,'Select 1–500 distinct candidates.');

@@ -1,3 +1,4 @@
+import {handoffEngagement} from './engagement';
 import {submissionReadiness} from './submission-readiness';
 import {companyNames,normalizedCompany} from './company-match';
 import {cleanCriteria,cleanEvidence} from './strategy-criteria';
@@ -47,7 +48,7 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
  } else if(b.action==='task-status') {
   requireThat(old?.kind==='task','Task not found.');requireThat(canPlan(a)||old.owner_id===a.id,'Only the assignee or planner can update this task.',403);requireThat(['Planned','In progress','Completed','Cancelled'].includes(b.status),'Choose a task status.');kind='task';key=old.id;next={...old,status:b.status};
  } else if(b.action==='candidate-save') {
-  requireThat(canPlan(a)||hasRole(a,'researcher')||hasRole(a,'partner'),'Candidate editing permission required.',403);
+  requireThat(canPlan(a)||hasRole(a,'researcher')||hasRole(a,'engagement')||hasRole(a,'partner'),'Candidate editing permission required.',403);
   requireThat(!old||old.kind==='candidate','Choose a candidate record.');
   const url=linkedin(b.url),first_name=text(b.first_name,100),last_name=text(b.last_name,100),email=text(b.email,254).toLowerCase(),phone=text(b.phone,60);
   requireThat(first_name&&last_name,'First name and last name are required.');
@@ -168,6 +169,7 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
  } else throw new Error('Unknown research action.');
  requireThat(!old||old.kind===kind,'Wrong record type.');
  id=save(kind,['candidate','company','peer-route','team-reviewer'].includes(kind)?'':role,key,next,old);
+ if(kind==='mapping'&&next.status==='Approved')handoffEngagement(db,a,{...next,id,role_id:role});
  const event={before:old,after:next,decision:b.decision||null,reason:b.reason||null,notes:text(b.notes,5000)};
  db.rows('INSERT INTO research_events VALUES(?,?,?,?,?,?)',crypto.randomUUID(),id,a.id,b.action,JSON.stringify(event),iso());db.audit(a,b.action,id,old,next);return {id};
 }

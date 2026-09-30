@@ -2,7 +2,7 @@ import {createHash} from 'node:crypto';
 import {Actor,hasRole,requireThat} from './domain';
 type DB={rows:(q:string,...p:any[])=>any[];audit:(a:Actor,k:string,id:string,b:any,n:any)=>void};
 // Children first: checked with foreign keys enabled in the reset tests.
-export const resetTables=['brief_file_chunks','brief_files','candidate_sessions','candidate_codes','candidate_invites','candidate_limits','role_publications','brief_shares','research_records','effort_records','effort_days','time_off','reviews','entries','assignments','weekly_priorities','weekly_decisions','team_members','team_rosters','staff_profiles','account_researchers','staff','teams','searches','crm_partners','crm_jobs','integration_runs','imports','issues'] as const;
+export const resetTables=['candidate_file_chunks','candidate_files','brief_file_chunks','brief_files','candidate_sessions','candidate_codes','candidate_invites','candidate_limits','role_publications','brief_shares','research_records','effort_records','effort_days','time_off','reviews','entries','assignments','weekly_priorities','weekly_decisions','team_members','team_rosters','staff_profiles','account_researchers','staff','teams','searches','crm_partners','crm_jobs','integration_runs','imports','issues'] as const;
 export const resetSchema=`CREATE TABLE IF NOT EXISTS reset_backups(id TEXT PRIMARY KEY,actor TEXT NOT NULL,created_at TEXT NOT NULL,data TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS reset_backup_rows(backup_id TEXT NOT NULL REFERENCES reset_backups(id),table_name TEXT NOT NULL,row_no INTEGER NOT NULL,data TEXT NOT NULL,PRIMARY KEY(backup_id,table_name,row_no));`;
 export function resetSnapshot(db:DB,a:Actor){
