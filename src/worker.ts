@@ -229,6 +229,7 @@ export default {
           else if(url.pathname==='/api/workspace-reset'&&req.method==='POST') {
             const people=await identity.resetTestPeople(a,{preview:true}); // Verifies original owner, not merely admin.
             if(body.action==='preview')res=json({people,...await workspace.previewReset(a)});
+            else if(body.action==='save-baseline')res=json(await workspace.saveCleanBaseline(a,{...people,members:await identity.members(a.tenant)}));
             else if(body.action==='backups')res=json(await workspace.resetBackups(a));
             else if(body.action==='backup')res=json(await workspace.resetBackup(a,text(body.id,100)));
             else {

@@ -1,4 +1,4 @@
-import {resetSchema,resetSnapshot,clearWorkspace} from './workspace-reset';
+import {resetSchema,resetSnapshot,clearWorkspace,saveCleanBaseline} from './workspace-reset';
 import {effortSchema,saveEffort} from './effort';
 import {isWorkingDecision} from './search-decisions';
 import {planCandidates} from './candidate-import';
@@ -61,9 +61,10 @@ export class Workspace extends DurableObject {
       now(),
     );
   }
+  async saveCleanBaseline(a:Actor,people:any) {return this.ctx.storage.transactionSync(()=>saveCleanBaseline(this,a,people));}
   async previewReset(a:Actor) {const {signature,counts}=resetSnapshot(this,a);return {signature,counts};}
   async resetWorkspace(a:Actor,b:any,people:any) {return this.ctx.storage.transactionSync(()=>clearWorkspace(this,a,b.signature,people));}
-  async resetBackups(a:Actor) {requireThat(hasRole(a,'super_admin'),'Workspace owner permission required.',403);return this.rows('SELECT id,created_at FROM reset_backups WHERE actor=? ORDER BY created_at DESC',a.id);}
+  async resetBackups(a:Actor) {requireThat(hasRole(a,'super_admin'),'Workspace owner permission required.',403);return this.rows("SELECT id,created_at,json_extract(data,'$.label') label,json_extract(data,'$.kind') kind FROM reset_backups WHERE actor=? ORDER BY created_at DESC",a.id);}
   async resetBackup(a:Actor,id:string) {
     requireThat(hasRole(a,'super_admin'),'Workspace owner permission required.',403);
     const row=this.rows('SELECT data FROM reset_backups WHERE id=? AND actor=?',id,a.id)[0];

@@ -333,3 +333,15 @@ test('reset rolls back deletions and snapshot when a dependency prevents deletio
  await assert.rejects(w.resetWorkspace(owner,{signature:preview.signature},{}),/FOREIGN KEY/);
  assert.equal(db.prepare('SELECT COUNT(*) n FROM entries').get()?.n,2);assert.equal(db.prepare('SELECT COUNT(*) n FROM reset_backups').get()?.n,0);db.close();
 });
+
+test('clean baseline refuses operational data and then saves an immutable non-destructive owner checkpoint',async()=>{
+ const {db,w}=fixture();const owner={...actor,roles:['super_admin'] as any},people={keep:{id:actor.id},remove:[],invitations:0,members:[{id:actor.id,staff_id:'s'}]};
+ await assert.rejects(w.saveCleanBaseline(owner,people),/operational data/);
+ const preview=await w.previewReset(owner);await w.resetWorkspace(owner,{signature:preview.signature},people);
+ db.exec("INSERT INTO staff VALUES('s','Owner')");
+ const saved=await w.saveCleanBaseline(owner,people);const backup=await w.resetBackup(owner,saved.baselineId);
+ assert.equal(backup.label,'Clean baseline');assert.equal(backup.counts.searches,0);assert.equal(backup.tables.staff[0].id,'s');
+ assert.equal(db.prepare('SELECT COUNT(*) n FROM staff').get()?.n,1);
+ assert.equal((await w.saveCleanBaseline(owner,people)).baselineId,saved.baselineId);
+ await assert.rejects(w.saveCleanBaseline(actor,people),/permission/);db.close();
+});
