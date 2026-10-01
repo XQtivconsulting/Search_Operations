@@ -1137,23 +1137,23 @@ input[type=checkbox] { accent-color:var(--xqtiv-navy); }
 .app .inline-mapping{background:#e0eafa;border-color:#9eb8dc;border-top:4px solid #245a9c}
 .app [hidden]{display:none!important}
 .app .wave-cell{white-space:nowrap;min-width:75px}
-.app .role-picker{position:relative;flex:1 1 480px;min-width:260px}
-.app .role-picker-controls{display:flex;gap:8px;align-items:end}
-.app .role-picker-controls>label:first-child{flex:1;min-width:180px}
-.app .role-picker input{width:100%;min-width:0;max-width:none}
-.app .role-picker-menu{position:absolute;top:100%;left:0;right:0;z-index:30;background:white;border:1px solid #819bc2;box-shadow:0 8px 24px #001b5029;border-radius:6px;padding:8px}
-.app .role-picker-menu [role=listbox]{max-height:320px;overflow:auto;margin-top:6px}
-.app .role-picker-menu button{display:flex;gap:12px;width:100%;text-align:left;border:0;border-radius:0;box-shadow:none;padding:9px;background:#fff;white-space:normal}
-.app .role-picker-menu button:nth-child(even){background:#eaf0fa}
-.app .role-picker-menu button.highlighted,.app .role-picker-menu button:hover{background:#d3e1f6}
-.app .role-picker-menu button[aria-selected=true]{border-left:4px solid #001b50}
-.app .role-picker-menu strong{flex:0 0 90px;overflow-wrap:anywhere}
-@media(max-width:650px){.app .role-picker-controls{flex-wrap:wrap}.app .role-picker{min-width:0}}
+.app .search-picker{position:relative;flex:1 1 480px;min-width:260px}
+.app .search-picker-controls{display:flex;gap:8px;align-items:end}
+.app .search-picker-controls>label:first-child{flex:1;min-width:180px}
+.app .search-picker input{width:100%;min-width:0;max-width:none}
+.app .search-picker-menu{position:absolute;top:100%;left:0;right:0;z-index:30;background:white;border:1px solid #819bc2;box-shadow:0 8px 24px #001b5029;border-radius:6px;padding:8px}
+.app .search-picker-menu [role=listbox]{max-height:320px;overflow:auto;margin-top:6px}
+.app .search-picker-menu button{display:flex;gap:12px;width:100%;text-align:left;border:0;border-radius:0;box-shadow:none;padding:9px;background:#fff;white-space:normal}
+.app .search-picker-menu button:nth-child(even){background:#eaf0fa}
+.app .search-picker-menu button.highlighted,.app .search-picker-menu button:hover{background:#d3e1f6}
+.app .search-picker-menu button[aria-selected=true]{border-left:4px solid #001b50}
+.app .search-picker-menu strong{flex:0 0 90px;overflow-wrap:anywhere}
+@media(max-width:650px){.app .search-picker-controls{flex-wrap:wrap}.app .search-picker{min-width:0}}
 
 .app .repository-toolbar{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,240px);align-items:end;gap:16px}
-.app .repository-toolbar .role-picker{min-width:0}
-.app .repository-toolbar .role-picker-menu button{display:grid;grid-template-columns:110px minmax(0,1fr);align-items:start;gap:12px}
-.app .repository-toolbar .role-picker-menu button span{overflow-wrap:anywhere}
+.app .repository-toolbar .search-picker{min-width:0}
+.app .repository-toolbar .search-picker-menu button{display:grid;grid-template-columns:110px minmax(0,1fr);align-items:start;gap:12px}
+.app .repository-toolbar .search-picker-menu button span{overflow-wrap:anywhere}
 @media(max-width:800px){.app .repository-toolbar{grid-template-columns:1fr}}
 
 .app .candidate-search{flex:1;max-width:650px}.app .candidate-search input{max-width:none;width:100%}
@@ -1189,8 +1189,8 @@ input[type=checkbox] { accent-color:var(--xqtiv-navy); }
 .app .compact-menu>summary{cursor:pointer;white-space:nowrap;padding:6px 9px;border:1px solid #99adc8;border-radius:5px;background:#f4f7fc}
 .app .compact-menu-content{position:absolute;right:0;top:100%;z-index:35;background:white;border:1px solid #9aacc7;box-shadow:0 6px 18px #001b5026;border-radius:5px;padding:8px;min-width:210px;display:flex;flex-direction:column;gap:6px}
 .app .compact-menu-content button{text-align:left}
-.app .role-picker-menu>label{display:flex;flex-direction:row;align-items:center;gap:8px;margin:0 0 8px}
-.app .role-picker-menu>label select{width:auto}
+.app .search-picker-menu>label{display:flex;flex-direction:row;align-items:center;gap:8px;margin:0 0 8px}
+.app .search-picker-menu>label select{width:auto}
 .app .compact-workspace .company-master{padding:10px 12px}
 .app .compact-workspace .company-filters{display:flex;flex-wrap:wrap;align-items:end;gap:8px}
 .app .compact-workspace .company-filters .search-filter{flex:1;max-width:none;min-width:220px}
@@ -1205,17 +1205,17 @@ input[type=checkbox] { accent-color:var(--xqtiv-navy); }
 .app .compact-workspace .research-panel{gap:6px}
 .app .compact-workspace .compact-menu{margin-top:0}
 @media(max-width:600px){.app .compact-workspace .repository-toolbar{grid-template-columns:1fr}.app .compact-workspace .compact-menu-content{right:auto;left:0}.app .mapping-toolbar{align-items:flex-start;flex-wrap:wrap}}
-.app .plan-toolbar .role-picker{flex:1 1 320px}
-.app .plan-toolbar .role-picker-controls>label{max-width:none;width:100%}
+.app .plan-toolbar .search-picker{flex:1 1 320px}
+.app .plan-toolbar .search-picker-controls>label{max-width:none;width:100%}
 
 .app .compact-workspace .candidate-directory{padding:10px 12px}
 .app .compact-workspace .candidate-directory>.section-head{margin-bottom:6px}
 .app .compact-workspace .candidate-directory>.section-head p{margin:0}
-.app .plan-toolbar .role-picker-menu button{display:grid;grid-template-columns:85px minmax(0,1fr);gap:10px;justify-content:start;align-items:start}
-.app .plan-toolbar .role-picker-menu button strong,.app .plan-toolbar .role-picker-menu button span{text-align:left;min-width:0;overflow-wrap:anywhere}
-.app .plan-toolbar .role-picker-menu>label{max-width:none;justify-content:flex-start}
-.app .plan-toolbar .role-picker-menu>label select{max-width:160px;margin:0}
-.app .plan-toolbar .role-picker-controls{justify-content:flex-start}
+.app .plan-toolbar .search-picker-menu button{display:grid;grid-template-columns:85px minmax(0,1fr);gap:10px;justify-content:start;align-items:start}
+.app .plan-toolbar .search-picker-menu button strong,.app .plan-toolbar .search-picker-menu button span{text-align:left;min-width:0;overflow-wrap:anywhere}
+.app .plan-toolbar .search-picker-menu>label{max-width:none;justify-content:flex-start}
+.app .plan-toolbar .search-picker-menu>label select{max-width:160px;margin:0}
+.app .plan-toolbar .search-picker-controls{justify-content:flex-start}
 .app .plan-grid tbody tr>th,.app .plan-grid tbody tr>td{border-bottom:2px solid #8ea5c4;border-right:1px solid #ccd6e4;padding:7px 8px}
 .app .plan-grid tbody tr:nth-child(even)>td,.app .plan-grid tbody tr:nth-child(even)>th{background:#eaf0f8}
 .app .plan-grid tbody tr:nth-child(odd)>td,.app .plan-grid tbody tr:nth-child(odd)>th{background:#fff}
@@ -1237,21 +1237,21 @@ input[type=checkbox] { accent-color:var(--xqtiv-navy); }
 .app .plan-grid .plan-priority-edit{display:inline;min-height:0;padding:0;border:0;background:none;box-shadow:none;line-height:1.3;color:#315f99;text-decoration:underline;text-underline-offset:2px}
 .app .plan-grid .plan-priority-edit:hover{color:#001b50;background:none}
 
-.app .role-multi-filter{position:relative;min-width:220px;flex:1 1 280px;max-width:430px}
-.app .role-multi-filter .filter-label{display:block;margin-bottom:4px}
-.app .role-multi-filter .filter-menu{width:430px;max-width:85vw;left:0;right:auto}
-.app .role-multi-filter .filter-menu>input{width:100%;max-width:none}
-.app .role-multi-filter .checkbox{display:flex;flex-direction:row;align-items:center;gap:7px;max-width:none}
-.app .role-multi-filter .checkbox input{width:14px;height:14px;min-height:0;flex:none}
-.app .role-multi-filter .role-client{padding:7px 4px;background:#eaf0f8;margin-top:5px}
-.app .role-multi-filter .role-choice{padding:5px 4px 5px 20px;white-space:normal}
-.app .role-multi-filter .role-choice small{color:#687d98}
+.app .search-multi-filter{position:relative;min-width:220px;flex:1 1 280px;max-width:430px}
+.app .search-multi-filter .filter-label{display:block;margin-bottom:4px}
+.app .search-multi-filter .filter-menu{width:430px;max-width:85vw;left:0;right:auto}
+.app .search-multi-filter .filter-menu>input{width:100%;max-width:none}
+.app .search-multi-filter .checkbox{display:flex;flex-direction:row;align-items:center;gap:7px;max-width:none}
+.app .search-multi-filter .checkbox input{width:14px;height:14px;min-height:0;flex:none}
+.app .search-multi-filter .search-client{padding:7px 4px;background:#eaf0f8;margin-top:5px}
+.app .search-multi-filter .search-choice{padding:5px 4px 5px 20px;white-space:normal}
+.app .search-multi-filter .search-choice small{color:#687d98}
 .app .plan-grid tbody tr>th,.app .plan-grid tbody tr>td{border-bottom:1px solid #d3dce9;border-right:1px solid #e0e6ef}
 .app .plan-grid tbody tr:nth-child(even)>td,.app .plan-grid tbody tr:nth-child(even)>th{background:#f3f6fa}
 .app .plan-grid thead th{border-bottom:1px solid #a9b9ce;box-shadow:0 1px 0 #a9b9ce}
 .app .plan-grid .plan-priority-badge{line-height:1.3;padding:3px 6px;border-radius:3px}
-.app .role-multi-filter:has(details[open]){z-index:40}
-.app .role-multi-filter .filter-menu{z-index:40}
+.app .search-multi-filter:has(details[open]){z-index:40}
+.app .search-multi-filter .filter-menu{z-index:40}
 .app .decision-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:8px 0}
 .app .decision-grid{min-width:1100px}
 .app .decision-grid th,.app .decision-grid td{padding:9px;border-bottom:1px solid #d6dfeb;vertical-align:top}
@@ -1301,8 +1301,8 @@ input[type=checkbox] { accent-color:var(--xqtiv-navy); }
 /* Match Performance filters to the compact planning controls. */
 .app .performance-controls{gap:8px;align-items:flex-end}
 .app .performance-controls>label{flex:0 1 150px;min-width:130px;gap:4px;margin:0}
-.app .performance-controls>.role-multi-filter{flex:1 1 240px;min-width:220px;max-width:340px}
-.app .performance-controls .role-multi-filter .filter-label{margin:0 0 4px}
+.app .performance-controls>.search-multi-filter{flex:1 1 240px;min-width:220px;max-width:340px}
+.app .performance-controls .search-multi-filter .filter-label{margin:0 0 4px}
 .app .performance-controls .column-filter{margin:0}
 .app .performance-controls>label :is(input,select),.app .performance-controls .column-filter>summary{width:100%;height:32px;min-height:32px;box-sizing:border-box;padding:5px 8px;border:1px solid #c9d0dc;border-radius:4px;background:#fff;color:#22304a;box-shadow:none;margin:0}
 .app .performance-controls .column-filter>summary{align-items:center}
@@ -1313,7 +1313,7 @@ input[type=checkbox] { accent-color:var(--xqtiv-navy); }
 .app .metric-definitions>summary{padding:3px 0;color:#315f99}
 .app .metric-definitions ul{max-width:900px;margin:10px 0 0;padding-left:20px;color:#22304a;list-style:disc}
 .app .metric-definitions li{padding-left:3px;margin:0 0 8px}
-@media(max-width:600px){.app .performance-controls>label,.app .performance-controls>.role-multi-filter{flex:1 1 150px;max-width:none;min-width:0}.app .performance-controls>.role-multi-filter{flex-basis:100%}}
+@media(max-width:600px){.app .performance-controls>label,.app .performance-controls>.search-multi-filter{flex:1 1 150px;max-width:none;min-width:0}.app .performance-controls>.search-multi-filter{flex-basis:100%}}
 
 /* Shared fit criteria: clear labels, restrained typography and readable evidence. */
 .fit-editor,.fit-evidence{margin:20px 0;text-align:left}
@@ -1451,4 +1451,4 @@ input[type=checkbox] { accent-color:var(--xqtiv-navy); }
 /* Interview rounds keep scheduling, progression, and rejection distinct. */
 .interview-legend{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.round-state{display:inline-block;padding:3px 6px;border-radius:4px;font-size:11px}.progressing{background:#e7f4eb;color:#226744}.rejected{background:#fdebed;color:#a53245}.scheduled{background:#eaf1fc;color:#325f9e}.awaiting{background:#fff5d9;color:#7e641b}.neutral{background:#f3f5f7;color:#6b7280}.app .interview-grid{max-height:calc(100vh - 290px);overflow:auto}.app .interview-grid table{min-width:1200px;border-collapse:separate;border-spacing:0}.app .interview-grid th,.app .interview-grid td{min-width:150px;vertical-align:top;border-bottom:1px solid #e4e9f0}.app .interview-grid thead th{position:sticky;top:0;z-index:2;background:#edf2f7}.app .interview-grid td:first-child{min-width:180px;position:sticky;left:0;background:#fff;z-index:1}.app .interview-grid .interview-search-row th{background:#e8edf4;padding:8px 10px;text-align:left}.interview-search-row small{display:block;font-size:11px;color:#5e6a7c;margin-top:3px}.app .interview-cell{width:100%;min-height:52px;text-align:left;border:1px solid transparent;border-radius:4px;padding:7px;box-shadow:none;font-size:12px;white-space:normal}.app .interview-cell:hover{border-color:#aebdd0}.app .interview-cell:disabled{opacity:1;cursor:default}.app .interview-cell small{display:block;margin-top:3px;font-size:11px}.app .interview-cell strong{font-size:12px;font-weight:500}.round-feedback{margin-top:6px;font-size:11px}.round-feedback summary{cursor:pointer}.round-feedback p{white-space:pre-wrap;max-width:220px;max-height:150px;overflow:auto}.app .edit-recommendation{display:block;font-size:11px;margin-top:4px}.rejection-detail{color:#a53245}.engagement-search-heading>button{align-self:flex-start;font-size:12px}
 .app .interview-cell{display:block}.app .interview-cell.progressing{background:#e7f4eb;color:#226744}.app .interview-cell.rejected{background:#fdebed;color:#a53245}.app .interview-cell.scheduled{background:#eaf1fc;color:#325f9e}.app .interview-cell.awaiting{background:#fff5d9;color:#7e641b}.app .interview-cell.neutral{background:#f3f5f7;color:#6b7280}
-.app .main:has(.interview-tracker){min-width:0}.app .interview-tracker{max-width:100%}.app .interview-tracker .role-picker{flex:1 1 300px;min-width:220px;max-width:420px}.app .interview-tracker .sheet-toolbar .checkbox{flex-direction:row;align-items:center;white-space:normal;max-width:250px;font-size:11px}.app .interview-tracker .sheet-toolbar .checkbox input{flex:none}.app .interview-grid td:nth-child(3){white-space:normal;max-width:230px}.app .interview-grid .interview-search-row button{white-space:normal;justify-content:flex-start}
+.app .main:has(.interview-tracker){min-width:0}.app .interview-tracker{max-width:100%}.app .interview-tracker .search-picker{flex:1 1 300px;min-width:220px;max-width:420px}.app .interview-tracker .sheet-toolbar .checkbox{flex-direction:row;align-items:center;white-space:normal;max-width:250px;font-size:11px}.app .interview-tracker .sheet-toolbar .checkbox input{flex:none}.app .interview-grid td:nth-child(3){white-space:normal;max-width:230px}.app .interview-grid .interview-search-row button{white-space:normal;justify-content:flex-start}

@@ -11,10 +11,10 @@ Target repository: https://github.com/XQtivconsulting/Search_Operations
 - Invitation-based sign-in, protected workspace super admin and multiple roles per person. People & access shows accounts, invitations and unlinked researcher records.
 - Optional Resend invitation email with explicit delivery status and private-link fallback; requires Worker email configuration.
 - Search portfolio, weekly priorities, daily team assignments and researcher output.
-- Role repositories with versioned briefs/strategies, company ownership, reusable candidates, per-role mappings, peer/partner review, My Work queues and workflow monitoring. See [Research workflow](docs/RESEARCH-WORKFLOW.md).
+- Search repositories with versioned briefs/strategies, company ownership, reusable candidates, per-search mappings, team/partner review, My Work queues and workflow monitoring. See [Research workflow](docs/RESEARCH-WORKFLOW.md).
 - Candidate-derived daily output and revocable client-safe approved brief links.
 - Peer and partner approvals, immutable review events, correction/reopening history.
-- Candidate directory: required first/last names and unique LinkedIn identity, optional contact details, reusable across roles with independent mapping ownership and review history. Manual count entry and spreadsheet navigation are retired.
+- Candidate directory: required first/last names and unique LinkedIn identity, optional contact details, reusable across searches with independent mapping ownership and review history. Manual count entry and spreadsheet navigation are retired.
 - Atomic batches up to 200 rows: a stale or unauthorized row rolls back the entire batch and its audit records.
 - Performance: researcher/team throughput and quality comparisons, search effort/yield, and plan-based person-days with PTO exclusions. See [Performance](docs/PERFORMANCE.md).
 - RecruitCRM job preview and selected import/update, with server-only tenant credentials and explicit field ownership. The connector has synthetic tests; it has not been connected to XQtiv’s live CRM.
@@ -28,9 +28,9 @@ Cloudflare Wrangler emulates the Worker and SQLite Durable Objects locally. Deve
 
 See [Deployment](docs/DEPLOYMENT.md), [Architecture](docs/ARCHITECTURE.md), [Workbook migration](docs/MIGRATION.md), [Verification](docs/VERIFICATION.md), and [Roadmap](docs/PRODUCT-PLAN.md).
 
-## New role pages and company imports
+## New search pages and company imports
 
-- Role repository → Role brief: upload Word/PDF text, edit and preview a branded long-scroll page, add a partner video link, approve and publish, then invite selected mapped candidates with email verification. Legacy anonymous brief links are disabled.
+- Search repository → Role brief: upload Word/PDF text, edit and preview a branded long-scroll page, add a partner video link, approve and publish, then invite selected mapped candidates with email verification. Legacy anonymous brief links are disabled.
 - Company universe → Import Excel: regular XLSX imports with preview, duplicate matching and tag union. Profiles support public website/LinkedIn/revenue suggestions and manual edits.
 - Target companies: role-specific research waves, including bulk wave assignment.
 - Account settings: self-service password changes with current-password verification and revocation of other sessions.
@@ -47,6 +47,6 @@ See [People, permissions and candidate identity](docs/ACCESS-AND-PEOPLE.md) for 
 
 ## Engagement pipeline
 
-Engagement → Pipeline shows a search Kanban and candidate list with stage age. Engagement → Search assignments assigns searches to shared engagement members. Organization → Admin configures one global hiring/outreach pipeline, funnel groups and aging thresholds, plus engagement teams. See [Research workflow](docs/RESEARCH-WORKFLOW.md) for movement history, permissions and sourcing/engagement separation.
+Engagement → Pipeline shows a search Kanban and candidate list with stage age. Engagement → Search assignments assigns searches to shared engagement members. Organization → Engagement Config configures one global hiring/outreach pipeline, funnel groups and aging thresholds. Organization → Teams manages sourcing teams and engagement teams in one place. See [Research workflow](docs/RESEARCH-WORKFLOW.md) for movement history, permissions and sourcing/engagement separation.
 
 Engagement → Interview tracker adds a client/search/candidate grid with manually entered recommendation dates, interview rounds, dated outcomes and feedback. Pipeline candidate search immediately displays matching results even without a selected search. CRM search status and engagement stage are labeled separately.

@@ -40,13 +40,13 @@
 .app :is(.metric strong,.portfolio-number){font-size:24px;font-weight:var(--weight-emphasis);line-height:1.2}
 .app :is(.metric p,.portfolio-number small){font-size:var(--type-caption);font-weight:var(--weight-regular)}
 /* Shared dropdown density: applies to weekly/daily multi-select and role picker. */
-.app :is(.filter-menu,.role-picker-menu){font-size:var(--type-control);font-weight:var(--weight-regular)}
-.app :is(.filter-menu label,.filter-menu .checkbox,.role-picker-menu [role=option],.role-picker-menu [role=option] span){font-size:var(--type-control);font-weight:var(--weight-regular);line-height:1.35}
-.app :is(.filter-menu strong,.role-picker-menu strong){font-size:var(--type-control);font-weight:var(--weight-medium)}
-.app :is(.filter-menu small,.role-picker-menu small){font-size:var(--type-micro);font-weight:var(--weight-regular)}
-.app .role-multi-filter .role-client{padding:5px 4px}
-.app .role-multi-filter .role-choice{padding-top:4px;padding-bottom:4px}
-.app :is(.filter-menu input,.filter-menu select,.role-picker-menu select){font-size:var(--type-control);font-weight:var(--weight-regular)}
+.app :is(.filter-menu,.search-picker-menu){font-size:var(--type-control);font-weight:var(--weight-regular)}
+.app :is(.filter-menu label,.filter-menu .checkbox,.search-picker-menu [role=option],.search-picker-menu [role=option] span){font-size:var(--type-control);font-weight:var(--weight-regular);line-height:1.35}
+.app :is(.filter-menu strong,.search-picker-menu strong){font-size:var(--type-control);font-weight:var(--weight-medium)}
+.app :is(.filter-menu small,.search-picker-menu small){font-size:var(--type-micro);font-weight:var(--weight-regular)}
+.app .search-multi-filter .search-client{padding:5px 4px}
+.app .search-multi-filter .search-choice{padding-top:4px;padding-bottom:4px}
+.app :is(.filter-menu input,.filter-menu select,.search-picker-menu select){font-size:var(--type-control);font-weight:var(--weight-regular)}
 /* The compact weekly cards are the reference for dense in-cell controls. */
 .app .plan-grid .plan-slot{font-size:var(--type-caption);font-weight:var(--weight-regular)}
 .app .plan-grid :is(.plan-slot small,.plan-priority-text,.plan-priority-edit,.plan-priority-badge){font-size:var(--type-micro)}
@@ -91,3 +91,30 @@
 .app .performance-panel .delivery-summary{font-size:var(--type-control);line-height:1.4}
 .app .metric-definitions li{font-size:var(--type-body);font-weight:var(--weight-regular);line-height:1.6}
 .app .metric-definitions strong{font-weight:var(--weight-emphasis)}
+
+/* Search pickers use the same compact, left-aligned layout on every screen. */
+.app .main .search-picker-menu [role=option]{display:grid;grid-template-columns:85px minmax(0,1fr);justify-content:start;align-items:start;gap:10px;text-align:left;padding:7px 8px}
+.app .main .search-picker-menu [role=option] :is(strong,span){text-align:left;min-width:0;overflow-wrap:anywhere}
+.app .main .search-picker-controls>label{max-width:none}
+.app .main .search-picker-menu>label{justify-content:flex-start;text-align:left;max-width:none}
+.app .main .search-picker-menu>label select{margin:0;max-width:180px}
+/* Profile: identity first, colored section accents, static tags, bounded history. */
+.app .candidate-profile{padding:0;overflow:visible;background:#fff;border-radius:10px}
+.app .candidate-profile>.profile-hero{padding:22px 24px 18px;background:linear-gradient(110deg,#e9f1fa,#f7fafc);border-top:4px solid #47759b;border-radius:10px 10px 0 0;margin:0 0 16px;align-items:flex-start}
+.app .profile-identity{display:flex;align-items:center;gap:16px;min-width:0}
+.app .profile-avatar{display:grid;place-items:center;flex:0 0 60px;height:60px;border-radius:50%;background:#d4e4f1;color:#294e72;font-size:22px;font-weight:600}
+.app .profile-identity h2{font-size:22px;margin:0 0 5px}.app .profile-identity p{margin:0 0 6px;color:#465b70}.app .profile-identity a{font-size:12px}
+.app .candidate-profile>.candidate-fields,.app .candidate-profile>form{margin:0 24px 12px}.app .candidate-profile>button{margin-left:24px}
+.app .candidate-profile>.candidate-fields{display:flex;gap:36px;flex-wrap:wrap}.app .candidate-profile>.candidate-fields strong{font-size:13px;font-weight:400}.app .candidate-profile>.candidate-fields small{display:block;margin-bottom:4px;color:#64748b}
+.app .candidate-360{margin:18px 0 0;padding:14px 24px 24px;border-top:1px solid #e3e9ef}
+.app .candidate-tags{align-items:center;gap:8px}.app .profile-tag{display:inline-block;background:#edf3f9;color:#405d79;font-size:11px;line-height:1.5;padding:2px 7px;border:0;border-radius:3px;cursor:default;box-shadow:none}
+.app .candidate-360>.research-tabs{margin:14px 0 18px;border-bottom:1px solid #dce4ec;gap:18px;flex-wrap:wrap}
+.app .candidate-360>.research-tabs button{background:transparent;border:0;border-bottom:2px solid transparent;border-radius:0;box-shadow:none;padding:8px 0;color:#526375;font-size:12px}
+.app .candidate-360>.research-tabs button.primary{border-bottom-color:#285d87;color:#234e74;font-weight:600}
+.app .profile-note-toolbar{justify-content:space-between;margin-bottom:14px}.app .profile-note-toolbar label{max-width:400px}
+.app .profile-notes,.app .profile-history{max-width:980px}.app .profile-note{border:1px solid #e1e7ee;border-left:3px solid #7395b1;border-radius:5px;margin:0 0 9px;background:#fff;overflow:hidden}
+.app .profile-note.transcript-note{border-left-color:#729785}.app .profile-note-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;width:100%;background:#f8fafc;border:0;box-shadow:none;border-radius:0;text-align:left;padding:12px 14px;color:#263c50;white-space:normal}
+.app .profile-note-heading>span:first-child{min-width:0;flex:1}.app .profile-note-heading:hover{background:#f0f5f9}.app .note-type{font-size:12px;font-weight:600;margin-right:14px}.app .note-date{font-size:11px;color:#65758a;font-weight:400}.app .note-preview{display:block;margin:6px 0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;font-weight:400;color:#405164}.app .profile-note-heading small{display:block;font-size:11px;color:#68798c;font-weight:400}
+.app .profile-note-body{padding:4px 16px 16px}.app .transcript-summary{background:#f0f7f3;border:1px solid #d9e9df;border-radius:5px;padding:12px 16px;margin:10px 0 12px}.app .transcript-summary h3{color:#355d49;font-size:13px;margin:0 0 5px}.app .transcript-summary ul{padding-left:18px;margin:8px 0 0}.app .transcript-summary li{font-size:13px;line-height:1.55;margin:7px 0;overflow-wrap:anywhere}
+.app .full-transcript{max-height:380px;overflow:auto;margin-top:12px;padding:14px;background:#f8fafb;border:1px solid #e1e7ee}.app .profile-pagination{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:14px;font-size:11px;color:#65758a}.app .profile-pagination button{padding:4px 8px;font-size:11px}.app .profile-empty{background:#f7f9fc;color:#64748b;padding:22px;border-radius:6px;font-size:13px}.app .profile-search-link{border:0;background:none;padding:0;box-shadow:none;color:#285d87;text-align:left}
+@media(max-width:650px){.app .candidate-profile>.profile-hero{padding:16px;gap:14px;flex-wrap:wrap}.app .candidate-360{padding:14px}.app .profile-avatar{flex-basis:44px;height:44px;font-size:17px}.app .profile-identity h2{font-size:19px}.app .note-date{display:block;margin-top:5px}.app .candidate-360>.research-tabs{gap:12px}}

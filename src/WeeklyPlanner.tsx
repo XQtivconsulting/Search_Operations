@@ -7,7 +7,7 @@ import {compareTableValues} from './table-sort';
 import {SearchDecisions} from './SearchDecisions';
 import {effectiveDecision,isWorkingDecision,sourcingDecisions} from './search-decisions';
 import {Plus,ArrowsLeftRight} from '@phosphor-icons/react';
-import {RoleMultiFilter} from './RoleMultiFilter';
+import {SearchMultiFilter} from './SearchMultiFilter';
 import {hasRole,canPlan,canPartnerReview,roleList,roleLabel} from './domain';
 import React,{useEffect,useState} from 'react';
 import {addDays,weekStart,weekDays} from './planning';
@@ -66,7 +66,7 @@ export function WeeklyPlanner({data,api,reload,initialSearch='',initialDate='',i
    <button aria-label="Next week" onClick={()=>setWeek(addDays(week,7))}>→</button>
    <button onClick={()=>setWeek(weekStart(new Date().toLocaleDateString('en-CA')))}>This week</button>
    {view==='allocation'&&<label>View<select value={mode} onChange={e=>{setMode(e.target.value as 'search'|'team');setFilter('');}}><option value="search">By search</option><option value="team">By team</option></select></label>}
-   {(view==='decisions'||mode==='search')?<RoleMultiFilter searches={data.searches} value={roles} onChange={setRoles} disabled={dirty||busy}/>:<label>Team<select value={filter} onChange={e=>setFilter(e.target.value)}><option value="">All teams</option>{data.teams.map((r:Row)=><option key={r.id} value={r.id}>{r.name}</option>)}</select></label>}
+   {(view==='decisions'||mode==='search')?<SearchMultiFilter searches={data.searches} value={roles} onChange={setRoles} disabled={dirty||busy}/>:<label>Team<select value={filter} onChange={e=>setFilter(e.target.value)}><option value="">All teams</option>{data.teams.map((r:Row)=><option key={r.id} value={r.id}>{r.name}</option>)}</select></label>}
    <label>Sourcing decision<select value={decisionFilter} onChange={e=>setDecisionFilter(e.target.value)}><option value="">All decisions</option><option value="working">Needs sourcing</option><option value="undecided">Not decided</option>{sourcingDecisions.map(d=><option key={d}>{d}</option>)}</select></label>
    {planner&&view==='allocation'&&<button className="primary" onClick={()=>openPair(mode==='search'&&roles?.length===1?roles[0]:'',mode==='team'?filter:'')}>Plan week</button>}
   </div>

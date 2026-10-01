@@ -1,7 +1,7 @@
 import {InterviewTracker} from './InterviewTracker';
 import {EngagementAdmin} from './EngagementAdmin';
 import {Engagement} from './Engagement';
-import {roleDisplayId} from './RolePicker';
+import {searchDisplayId} from './SearchPicker';
 import {Performance} from './Performance';
 import './role-page.css';
 import {CandidateRolePage} from './RolePageView';
@@ -78,6 +78,7 @@ function App() {
     [notice, setNotice] = useState("");
   const [deliveryStart,setDeliveryStart]=useState<{view:'daily'|'pipeline';roles:string[]|null}>({view:'daily',roles:null});
   const [allocationStart,setAllocationStart]=useState<{date:string;view:'decisions'|'allocation'}>({date:'',view:'decisions'});
+  const [teamType,setTeamType]=useState('Sourcing teams');
   const [interviewRole,setInterviewRole]=useState('');
   const [repoTab,setRepoTab]=useState("Candidate mappings");
   const [sheetDirty, setSheetDirty] = useState(false);
@@ -257,11 +258,11 @@ function App() {
     ['Weekly plan',CalendarBlank,'Sourcing'],
     ['Delivery Monitor',ClipboardText,'Sourcing'],
     ['Performance',ChartBar,'Sourcing'],
-    ['Pipeline',Users,'Engagement'],
     ['Search assignments',ClipboardText,'Engagement'],
+    ['Pipeline',Users,'Engagement'],
     ['Interview tracker',CalendarBlank,'Engagement'],
     ['Teams',Users,'Organization'],
-    ...(isAdmin?[['People & access',Users,'Organization'] as [string,React.ElementType,string],['Integrations',Briefcase,'Organization'] as [string,React.ElementType,string],['Admin',ClipboardText,'Organization'] as [string,React.ElementType,string]]:[]),
+    ...(isAdmin?[['People & access',Users,'Organization'] as [string,React.ElementType,string],['Integrations',Briefcase,'Organization'] as [string,React.ElementType,string],['Engagement Config',ClipboardText,'Organization'] as [string,React.ElementType,string]]:[]),
   ];
   const open = (m: Row) => {
     setError("");
@@ -368,7 +369,7 @@ function App() {
           </button>
         </div>
       </aside>
-      <main className={"main"+(["Search repository","Company universe","Candidates","Delivery Monitor","Performance","Engagement","Pipeline","Search assignments","Interview tracker","Admin"].includes(page)?" compact-workspace":"")}>
+      <main className={"main"+(["Search repository","Company universe","Candidates","Delivery Monitor","Performance","Engagement","Pipeline","Search assignments","Interview tracker","Engagement Config"].includes(page)?" compact-workspace":"")}>
         <header>
           <div>
             <p className="eyebrow">{data.name} / {page === "Search repository" ? "SEARCH REPOSITORY" : "OPERATIONS"}</p>
@@ -376,17 +377,17 @@ function App() {
             <p className="subheading">
               {
                 {
-                  "Search repository": sBy[selected] ? `${sBy[selected].client} · Role ID: ${roleDisplayId(sBy[selected])} · ${sBy[selected].status || "Status not set"} · Partner: ${sBy[selected].partner || "Not assigned"}` : "Choose a role to open its repository.",
+                  "Search repository": sBy[selected] ? `${sBy[selected].client} · Search ID: ${searchDisplayId(sBy[selected])} · ${sBy[selected].status || "Status not set"} · Partner: ${sBy[selected].partner || "Not assigned"}` : "Choose a search to open its repository.",
                   Searches:
                     "The complete search portfolio, with the details one click away.",
                   "Weekly plan":
                     "Set priorities and allocate teams across all seven days.",
                   "Delivery Monitor":
                     "Track delivery and clear outstanding reviews.",
-                  Candidates: "One candidate record, linked to every mapped client and role.",
+                  Candidates: "One candidate profile, with notes, attachments and search history.",
                   Pipeline: "Candidate progress and days in stage, by search.",
                   "Search assignments": "Assign searches to the engagement members who will work them.",
-                  Admin: "Workspace-wide engagement configuration.",
+                  "Engagement Config": "Workspace-wide engagement pipeline configuration.",
                   "Interview tracker": "Client recommendations, interview rounds and outcomes across searches.",
                   Performance: "Compare researcher output and the return on sourcing effort.",
                   "People & access": "Accounts, invitations and combined responsibilities.",
@@ -405,7 +406,7 @@ function App() {
             {error}
           </div>
         )}
-        {!["Searches","Account settings","Search repository","My Work","Delivery Monitor","Performance","Company universe","Teams","Candidates","People & access","Engagement","Pipeline","Search assignments","Interview tracker","Admin"].includes(page)  && page !== "Integrations" && page !== "Weekly plan" && (
+        {!["Searches","Account settings","Search repository","My Work","Delivery Monitor","Performance","Company universe","Teams","Candidates","People & access","Engagement","Pipeline","Search assignments","Interview tracker","Engagement Config"].includes(page)  && page !== "Integrations" && page !== "Weekly plan" && (
           <div className="filters">
             <label>
               From
@@ -535,7 +536,7 @@ function App() {
         {page === "Weekly plan" && <WeeklyPlanner data={data} api={api} reload={load} initialSearch={selected} initialDate={allocationStart.date} initialView={allocationStart.view} onDirty={setSheetDirty} onTeams={()=>setPage('Teams')}/>}
         {['Pipeline','Search assignments'].includes(page)&&<Engagement key={page} section={page} onInterviews={(id:string)=>{setInterviewRole(id);setPage('Interview tracker');}} data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page==='Interview tracker'&&<InterviewTracker key={interviewRole} initialRole={interviewRole} data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
-        {page==='Admin'&&isAdmin&&<EngagementAdmin data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
+        {page==='Engagement Config'&&isAdmin&&<EngagementAdmin data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page==='My Work'&&hasRole(data.actor,'engagement')&&<Engagement mine data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page==='My Work'&&(!hasRole(data.actor,'engagement')||hasRole(data.actor,'researcher')||hasRole(data.actor,'partner'))&&<MyWork data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage("Search repository");}}/>}
         {page==='Search repository'&&<ResearchPanel onEditPartner={s=>open({kind:"search-owner",...s})} onRoleChange={setSelected} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} key={page} data={data} api={api} reload={load} view={page} initialRole={page==='Search repository'?selected:''} initialTab={repoTab} onDirty={setSheetDirty} onCompanies={id=>{setSelected(id);setPage("Company universe");}}/>}
@@ -543,7 +544,7 @@ function App() {
 
         {page==='Candidates'&&candidateId&&<CandidateProfile key={candidateId} id={candidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} onBack={()=>setCandidateId('')} onRole={id=>{setSelected(id);setRepoTab('Candidate mappings');setPage('Search repository');}}/>}
         {page==='Candidates'&&!candidateId&&<Candidates onCandidate={setCandidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} onOpen={id=>{setSelected(id);setRepoTab("Candidate mappings");setPage("Search repository");}}/>}
-        {page==='Teams'&&<><TeamsPanel data={data} api={api} reload={load} onAdd={()=>open({kind:'team'})}/>{planner?<PeerSetup data={data} api={api} reload={load}/>:<p>Team planners designate the team review lead.</p>}</>}
+        {page==='Teams'&&<><div className="research-tabs">{['Sourcing teams','Engagement teams'].map(type=><button key={type} className={teamType===type?'primary':''} onClick={()=>{if(!sheetDirty||confirm('Discard unsaved team edits?'))setTeamType(type);}}>{type}</button>)}</div>{teamType==='Engagement teams'?<Engagement section="Teams" data={data} api={api} reload={load} onDirty={setSheetDirty}/>:<><TeamsPanel data={data} api={api} reload={load} onAdd={()=>open({kind:'team'})}/>{planner?<PeerSetup data={data} api={api} reload={load}/>:<p>Team planners designate the team review lead.</p>}</>}</>}
         {page === "Delivery Monitor" && <DeliveryMonitor data={data} initialView={deliveryStart.view} initialRoles={deliveryStart.roles} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage('Search repository');}} onCandidate={id=>{setCandidateId(id);setPage('Candidates');}} onAllocate={(id,date)=>{setSelected(id);setAllocationStart({date,view:'allocation'});setPage('Weekly plan');}}/>}
         {page === "Performance" && <Performance data={data} api={api} reload={load} onDirty={setSheetDirty} onDecision={id=>{setSelected(id);setAllocationStart({date:'',view:'decisions'});setPage('Weekly plan');}}/>}
         {page==='People & access'&&isAdmin&&<PeoplePanel data={data} api={api} reload={load} onDirty={setSheetDirty}/>}
@@ -648,7 +649,7 @@ function App() {
                 {modal.kind === "search" && (
                   <>
                     <Field name="client" label="Client company" required />
-                    <Field name="title" label="Role / search title" required />
+                    <Field name="title" label="Search title" required />
                     <Field
                       name="external_id"
                       label="Recruit CRM job ID (optional)"

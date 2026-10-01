@@ -87,7 +87,7 @@ export class Workspace extends DurableObject {
         if(b.action==='candidate-file-list')return this.rows('SELECT * FROM candidate_files WHERE candidate_id=? ORDER BY created_at DESC',c.id);
         if(b.action==='candidate-file-read'){const f=this.rows('SELECT * FROM candidate_files WHERE id=? AND candidate_id=?',b.file_id,c.id)[0];requireThat(f,'File not found.',404);return {...f,base64:this.rows('SELECT data FROM candidate_file_chunks WHERE file_id=? ORDER BY part',f.id).map(r=>r.data).join('')};}
         requireThat(canPlan(a)||hasRole(a,'researcher')||hasRole(a,'partner')||hasRole(a,'engagement'),'Candidate editing permission required.',403);
-        const name=text(b.name,200),base64=String(b.base64||'');requireThat(/\.(pdf|docx|doc|txt|eml|mp3|m4a|wav)$/i.test(name)&&base64.length>0&&base64.length<=7e6&&/^[A-Za-z0-9+/]*={0,2}$/.test(base64),'Upload PDF, Word, text, email or audio up to 5 MB.');
+        const name=text(b.name,200),base64=String(b.base64||'');requireThat(/\.(pdf|docx|doc|txt|eml|mp3|m4a|wav|xlsx|xls)$/i.test(name)&&base64.length>0&&base64.length<=7e6&&/^[A-Za-z0-9+/]*={0,2}$/.test(base64),'Upload PDF, Word, Excel, text, email or audio up to 5 MB.');
         requireThat(['Resume','Candidate information','Transcript','Email exchange','Recording','Assessment','Other'].includes(b.category),'Choose a file category.');
         const id=uuid();this.rows('INSERT INTO candidate_files VALUES(?,?,?,?,?,?,?)',id,c.id,name,'application/octet-stream',b.category,a.id,now());for(let i=0;i<base64.length;i+=131072)this.rows('INSERT INTO candidate_file_chunks VALUES(?,?,?)',id,i,base64.slice(i,i+131072));this.audit(a,'candidate-file-save',id,null,{name,candidate_id:c.id,category:b.category});return {id};
       }
