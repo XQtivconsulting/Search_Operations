@@ -1,6 +1,6 @@
 import {summarizeTranscript} from './transcript-summary';
 import {interviewStatuses,interviewOutcomes} from './interviews';
-import {defaultPipeline,pipelineStages,resolvedStage,stageId,stageDays,funnelGroups} from './engagement-pipeline';
+import {defaultPipeline,normalizeStages,pipelineStages,resolvedStage,stageId,stageDays,funnelGroups} from './engagement-pipeline';
 import {Actor,hasRole,canPlan,requireThat,text,day,safeLink} from './domain';
 import type {Member} from './research';
 type R=Record<string,any>;
@@ -8,21 +8,21 @@ type DB={rows:(q:string,...p:any[])=>any[];audit:(a:Actor,k:string,id:string,old
 export const interactionTypes=['Note','Phone call','Phone message','LinkedIn message','Email','Screening call','Interview','Transcript','Assessment link'];
 export const engagementSearchClosed=(status:unknown)=>['closed','abandoned','cancelled','canceled','filled','placed'].includes(String(status||'').trim().toLowerCase());
 export const engagementAssignees=(records:R[],role:string):string[]=>records.find(r=>r.kind==='engagement-assignment'&&r.role_id===role)?.member_ids||[];
-export const engagementRows=(records:R[],searches:R[]=[]):R[]=>records.filter(m=>m.kind==='mapping'&&(m.status==='Approved'||records.some(e=>e.kind==='engagement'&&e.mapping_id===m.id))).map(m=>{const e=records.find(e=>e.kind==='engagement'&&e.mapping_id===m.id),base=e||{stage:'Ready for outreach'},stage=resolvedStage(base,pipelineStages(records));return {...e,mapping_id:m.id,candidate_id:m.candidate_id,role_id:m.role_id,mapping_version:m.version,search_closed:engagementSearchClosed(searches.find(s=>s.id===m.role_id)?.status),approved:m.status==='Approved',stage:stage.label,stage_id:stage.id};});
+export const engagementRows=(records:R[],searches:R[]=[]):R[]=>records.filter(m=>m.kind==='mapping'&&(m.status==='Approved'||records.some(e=>e.kind==='engagement'&&e.mapping_id===m.id))).map(m=>{const e=records.find(e=>e.kind==='engagement'&&e.mapping_id===m.id),base=e||{stage:'Assigned',stage_id:'assigned'},stage=resolvedStage(base,pipelineStages(records));return {...e,mapping_id:m.id,candidate_id:m.candidate_id,role_id:m.role_id,mapping_version:m.version,search_closed:engagementSearchClosed(searches.find(s=>s.id===m.role_id)?.status),approved:m.status==='Approved',stage:stage.label,stage_id:stage.id};});
 const read=(db:DB,id:string)=>{const r=db.rows('SELECT * FROM research_records WHERE id=?',id)[0];return r?{...JSON.parse(r.data),id:r.id,kind:r.kind,role_id:r.role_id,version:r.version}:null;};
 const byKey=(db:DB,kind:string,key:string)=>{const r=db.rows('SELECT id FROM research_records WHERE kind=? AND record_key=?',kind,key)[0];return r?read(db,r.id):null;};
 function save(db:DB,a:Actor,kind:string,role:string,key:string,next:R,old:R|null,action:string){const id=old?.id||crypto.randomUUID();const clean={...next};for(const k of ['id','kind','role_id','version'])delete clean[k];db.rows('INSERT INTO research_records(id,kind,role_id,record_key,data,version) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data,version=excluded.version',id,kind,role,key,JSON.stringify(clean),(old?.version||0)+1);db.rows('INSERT INTO research_events VALUES(?,?,?,?,?,?)',crypto.randomUUID(),id,a.id,action,JSON.stringify({before:old,after:clean}),new Date().toISOString());db.audit(a,action,id,old,clean);return{id};}
-export function handoffEngagement(db:DB,a:Actor,m:R){if(m.status!=='Approved'||byKey(db,'engagement',m.id))return;const stages=byKey(db,'engagement-pipeline','global')?.stages||defaultPipeline,id=byKey(db,'engagement-assignment',m.role_id)?.member_ids?.length?'assigned':'ready',stage=stages.find((s:R)=>s.id===id)!;return save(db,a,'engagement',m.role_id,m.id,{mapping_id:m.id,candidate_id:m.candidate_id,stage:stage.label,stage_id:id,handoff_at:new Date().toISOString(),stage_at:new Date().toISOString()},null,'engagement-handoff');}
+export function handoffEngagement(db:DB,a:Actor,m:R){if(m.status!=='Approved'||byKey(db,'engagement',m.id))return;const stages=normalizeStages(byKey(db,'engagement-pipeline','global')?.stages||defaultPipeline),id='assigned',stage=stages.find((s:R)=>s.id===id)!;return save(db,a,'engagement',m.role_id,m.id,{mapping_id:m.id,candidate_id:m.candidate_id,stage:stage.label,stage_id:id,handoff_at:new Date().toISOString(),stage_at:new Date().toISOString()},null,'engagement-handoff');}
 export function engagementMutation(db:DB,a:Actor,b:R,members:Member[]){
 
  if(b.action==='engagement-pipeline-save'){
   requireThat(hasRole(a,'admin'),'Administrator permission required.',403);
   const existing=byKey(db,'engagement-pipeline','global');requireThat(existing?.id===b.id&&(!existing||existing.version===Number(b.version)),'Pipeline changed. Reload before saving.',409);
   requireThat(Array.isArray(b.stages)&&b.stages.length>=2&&b.stages.length<=80,'Configure 2–80 stages.');
-  const stages=b.stages.map((s:R)=>{const id=text(s.id,80),label=text(s.label,120),threshold=Number(s.threshold);requireThat(/^[a-z0-9-]+$/.test(id)&&label&&funnelGroups.includes(s.group)&&Number.isInteger(threshold)&&threshold>=0&&threshold<=365,'Each stage needs a unique ID, label, funnel group and threshold of 0–365 days.');return{id,label,group:s.group,threshold};});
+  const stages=b.stages.map((s:R)=>{const id=text(s.id,80),label=text(s.label,120),threshold=Number(s.threshold);requireThat(/^[a-z0-9-]+$/.test(id)&&label&&funnelGroups.includes(s.group)&&Number.isInteger(threshold)&&threshold>=0&&threshold<=365,'Each stage needs a unique ID, label, funnel group and threshold of 0–365 days.');requireThat(id!=='ready','Ready for outreach has been replaced by Assigned.');return{id,label,group:s.group,threshold:['Placed','Exited'].includes(s.group)?0:threshold,action_label:text(s.action_label,160)};});
   requireThat(new Set(stages.map((s:R)=>s.id)).size===stages.length&&new Set(stages.map((s:R)=>s.label.toLowerCase())).size===stages.length,'Stage IDs and names must be unique.');
-  requireThat(stages.some((s:R)=>s.id==='ready'&&s.group==='Top Funnel')&&stages.some((s:R)=>s.id==='assigned'&&s.group==='Top Funnel'),'Keep Ready for outreach and Assigned in Top Funnel.');
-  requireThat(stages[0].id==='ready'&&stages[1].id==='assigned','Ready for outreach and Assigned must be the first two stages.');
+  requireThat(stages.some((s:R)=>s.id==='assigned'&&s.group==='Top Funnel'),'Keep Assigned in Top Funnel.');
+  requireThat(stages[0].id==='assigned','Assigned must be the first stage.');
   const occupied=db.rows("SELECT data FROM research_records WHERE kind='engagement'").map(r=>JSON.parse(r.data));
   const prior=existing?.stages||defaultPipeline;
   requireThat(occupied.every(r=>!prior.some((s:R)=>s.id===stageId(r))||stages.some((s:R)=>s.id===stageId(r))),'Move candidates out of a stage before removing it.');
@@ -48,7 +48,7 @@ export function engagementMutation(db:DB,a:Actor,b:R,members:Member[]){
   requireThat(!old||old.kind==='engagement-assignment','Choose a search assignment.');const existing=byKey(db,'engagement-assignment',role);requireThat(existing?.id===old?.id,'Search assignment changed. Reload.',409);
   requireThat(Array.isArray(b.member_ids),'Choose engagement members.');const ids=[...new Set<string>(b.member_ids)];requireThat(ids.every(eligible),'Choose active Engagement members.');
   const result=save(db,a,'engagement-assignment',role,role,{member_ids:ids},existing,b.action);
-  if(ids.length){const stages=byKey(db,'engagement-pipeline','global')?.stages||defaultPipeline,assigned=stages.find((s:R)=>s.id==='assigned')!;for(const row of db.rows("SELECT id FROM research_records WHERE kind='mapping' AND role_id=? AND json_extract(data,'$.status')='Approved'",role)){const m=read(db,row.id);handoffEngagement(db,a,m);const e=byKey(db,'engagement',m.id);if(stageId(e)==='ready')save(db,a,'engagement',role,m.id,{...e,stage_id:'assigned',stage:assigned.label,stage_at:new Date().toISOString()},e,'engagement-search-ready');}}
+  if(ids.length)for(const row of db.rows("SELECT id FROM research_records WHERE kind='mapping' AND role_id=? AND json_extract(data,'$.status')='Approved'",role))handoffEngagement(db,a,read(db,row.id));
   return result;
  }
  if(['candidate-note','candidate-tags'].includes(b.action)){
@@ -62,12 +62,12 @@ export function engagementMutation(db:DB,a:Actor,b:R,members:Member[]){
  const m=read(db,text(b.mapping_id));requireThat(m?.kind==='mapping','Mapping not found.',404);requireThat(m.status==='Approved','Sourcing approval is required. Engagement is paused while this mapping is reopened.',409);
  requireThat(m.version===Number(b.mapping_version),'Sourcing mapping changed. Reload.',409);requireThat(m.role_id===role,'Search does not match mapping.');
  const existing=byKey(db,'engagement',m.id);requireThat(existing?.id===old?.id&&(!old||old.kind==='engagement'),'Engagement record changed. Reload.',409);
- const current=existing||{mapping_id:m.id,candidate_id:m.candidate_id,stage:'Ready for outreach',handoff_at:null,stage_at:null};
+ const current=existing||{mapping_id:m.id,candidate_id:m.candidate_id,stage:'Assigned',stage_id:'assigned',handoff_at:null,stage_at:null};
  const assignment=byKey(db,'engagement-assignment',role);
  requireThat(manager||eligible(a.id)&&assignment?.member_ids?.includes(a.id),'This search is not assigned to you for engagement.',403);
- const config=byKey(db,'engagement-pipeline','global'),stages=config?.stages||defaultPipeline;
+ const config=byKey(db,'engagement-pipeline','global'),stages=normalizeStages(config?.stages||defaultPipeline);
  requireThat(Number(b.pipeline_version||0)===Number(config?.version||0),'Pipeline configuration changed. Reload before moving this candidate.',409);
- const from=resolvedStage(current,stages),requested=b.stage_id||stageId(b)||from.id,target=stages.find((s:R)=>s.id===requested)||(requested===from.id?from:null);
+ const from=resolvedStage(current,stages),requested=(b.stage_id==='ready'?'assigned':b.stage_id)||stageId(b)||from.id,target=stages.find((s:R)=>s.id===requested)||(requested===from.id?from:null);
  requireThat(target,'Choose a configured pipeline stage.');const changed=target.id!==from.id;
  requireThat(!closed||!changed||['Exited','Placed'].includes(target.group),'This search is closed. Further outreach is stopped; record an outcome instead.',409);
  requireThat(text(b.notes),'Add a note describing what happened and why you are moving the candidate.');

@@ -8,8 +8,8 @@ import {SearchPicker} from './SearchPicker';
 import {teamColor} from './team-colors';
 type R=Record<string,any>;
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'}).format(new Date());
-export function Engagement({data,api,reload,onDirty,onCandidate,onInterviews,mine=false,section='Pipeline'}:any){
- const [role,setRole]=useState(''),[query,setQuery]=useState(''),[edit,setEdit]=useState<R|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[layout,setLayout]=useState('Board'),[funnel,setFunnel]=useState('active'),[attention,setAttention]=useState(false),[searchStatus,setSearchStatus]=useState('open'),[dragging,setDragging]=useState('');
+export function Engagement({data,api,reload,onDirty,onCandidate,onInterviews,mine=false,section='Pipeline',initialRole='',initialMapping='',initialStage=''}:any){
+ const [role,setRole]=useState(initialRole),[query,setQuery]=useState(''),[edit,setEdit]=useState<R|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[layout,setLayout]=useState('Board'),[funnel,setFunnel]=useState('active'),[attention,setAttention]=useState(false),[searchStatus,setSearchStatus]=useState('open'),[dragging,setDragging]=useState('');
  const records:R[]=data.research.records,teams=records.filter(r=>r.kind==='engagement-team'),people=data.people.filter((p:R)=>hasRole(p,'engagement')),rows=engagementRows(records,data.searches),search=data.searches.find((s:R)=>s.id===role),planner=canPlan(data.actor),stages=pipelineStages(records);
  const [now,setNow]=useState(Date.now());useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),60000);return()=>clearInterval(timer);},[]);
  useEffect(()=>{onDirty(!!edit||busy);return()=>onDirty(false);},[!!edit,busy]);
@@ -22,6 +22,7 @@ export function Engagement({data,api,reload,onDirty,onCandidate,onInterviews,min
  const assignSearch=(id:string)=>{const old=records.find(r=>r.kind==='engagement-assignment'&&r.role_id===id);setError('');setEdit({...old,role_id:id,mode:'assign',member_ids:old?.member_ids||[]});};
  async function act(body:R){setBusy(true);setError('');try{await api('research',body);await reload();setEdit(null);}catch(e:any){setError(e.message);}finally{setBusy(false);}}
  const open=(r:R,target=r.stage_id)=>{if(!canWork(r)||busy)return;setError('');setEdit({...r,mode:'work',stage_id:target,notes:'',recommended_on:r.recommended_on||'',occurred_on:today(),pipeline_version:pipelineConfig(records)?.version||0});};
+ useEffect(()=>{if(initialMapping){const row=rows.find(r=>r.mapping_id===initialMapping);if(row)open(row,initialStage||row.stage_id);}},[initialMapping]);
  const base=rows.filter(r=>matchesSearchStatus(data.searches.find((s:R)=>s.id===r.role_id),searchStatus)&&(!role||r.role_id===role)&&(!mine||assignees(r.role_id).includes(data.actor.id)));
  const visible=base.filter(r=>{const s=resolvedStage(r,stages);return candidateMatches(candidate(r),query)&&matchesFunnel(s.group,funnel)&&(!attention||stageOverdue(r,s,now));}).sort((a,b)=>(stageDays(b,now)??-1)-(stageDays(a,now)??-1));
  const useList=pipelineUsesList(layout,role,query);
