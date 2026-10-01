@@ -79,6 +79,8 @@ function App() {
   const [deliveryStart,setDeliveryStart]=useState<{view:'daily'|'pipeline';roles:string[]|null}>({view:'daily',roles:null});
   const [allocationStart,setAllocationStart]=useState<{date:string;view:'decisions'|'allocation'}>({date:'',view:'decisions'});
   const [teamType,setTeamType]=useState('Sourcing teams');
+  const [collapsedModules,setCollapsedModules]=useState<Record<string,boolean>>({Organization:true});
+  useEffect(()=>{if(!page)return;const group=['Search repository','Weekly plan','Delivery Monitor','Performance'].includes(page)?'Sourcing':['Pipeline','Search assignments','Interview tracker'].includes(page)?'Engagement':['Candidates','Company universe'].includes(page)?'Talent assets':page==='My Work'?'Work':'Organization';setCollapsedModules(previous=>({...previous,[group]:false}));},[page]);
   const [interviewRole,setInterviewRole]=useState('');
   const [repoTab,setRepoTab]=useState("Candidate mappings");
   const [sheetDirty, setSheetDirty] = useState(false);
@@ -252,9 +254,9 @@ function App() {
   const queue=(data.research?.records||[]).filter((m:Row)=>m.kind==='mapping'&&['Peer review','Partner review'].includes(m.status));
   const nav: [string, React.ElementType,string][] = [
     ['My Work',ClipboardText,'Work'],
-    ['Search repository',Briefcase,'Research'],
-    ['Candidates',Users,'Research'],
-    ['Company universe',Briefcase,'Research'],
+    ['Candidates',Users,'Talent assets'],
+    ['Company universe',Briefcase,'Talent assets'],
+    ['Search repository',Briefcase,'Sourcing'],
     ['Weekly plan',CalendarBlank,'Sourcing'],
     ['Delivery Monitor',ClipboardText,'Sourcing'],
     ['Performance',ChartBar,'Sourcing'],
@@ -326,8 +328,7 @@ function App() {
           <img src="/brand/xqtiv-logo.svg" alt="XQtiv"/><span>Search Operations</span>
         </div>
         <nav aria-label="Main navigation">
-          {nav.map(([label, Icon, group],index) => (
-            <React.Fragment key={label}>{(index===0||nav[index-1][2]!==group)&&<p className="nav-group">{group}</p>}
+          {Array.from(new Set(nav.map(item=>item[2]))).map(group=><section className="nav-module" key={group}><button className="nav-module-toggle" aria-expanded={!collapsedModules[group]} aria-controls={'nav-'+group.replaceAll(' ','-')} onClick={()=>setCollapsedModules(previous=>({...previous,[group]:!previous[group]}))}><span>{group}</span><span aria-hidden="true">{collapsedModules[group]?'▸':'▾'}</span></button><div id={'nav-'+group.replaceAll(' ','-')} hidden={!!collapsedModules[group]}>{nav.filter(item=>item[2]===group).map(([label,Icon])=>(<React.Fragment key={label}>
             <button
               key={label}
               className={page === label ? "active" : ""}
@@ -349,7 +350,7 @@ function App() {
               )}
             </button>
             </React.Fragment>
-          ))}
+          ))}</div></section>)}
         </nav>
         <div className="identity">
           <strong>{actor.name}</strong>

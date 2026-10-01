@@ -13,3 +13,7 @@ Team Allocation is the reference screen. The left navigation retains its existin
 - Candidate-facing role documents retain their editorial typography.
 
 Check table/header/secondary text together when adding screens; avoid local font-size overrides.
+
+## Module navigation and mapping fit
+Talent assets groups Candidates and Company universe; Search repository leads Sourcing. Navigation headings are disclosure buttons with aria-expanded/aria-controls, independent collapse state and automatic expansion when a page in that module is opened. Organization starts collapsed; collapse state is session-only. Future modules are roadmap items, not empty links.
+Fit evidence uses one compact aligned row per criterion: requirement/weight, researcher rating, and justification. On narrow screens justification moves beneath the criterion/rating. Evidence attribution names the mapping researcher; where supplied, the submission timestamp is labeled as such, not an invented edit timestamp. Team review attribution remains separate. Read-only and edit screens share the grid. Mapping audit history starts collapsed. No scoring, weights, criteria, evidence or authorization rules change.
