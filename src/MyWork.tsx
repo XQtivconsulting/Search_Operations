@@ -1,3 +1,4 @@
+import {canTeamReview} from './team-review';
 import {submissionReadiness} from './submission-readiness';
 import {fitSummary,mappingFit} from './fit-score';
 import {PlanningTasks} from './PlanningTasks';
@@ -17,7 +18,7 @@ export function MyWork({data,api,reload,onDirty,onCandidate,onOpen}:{data:R;api:
  const submissionIssue=selected?submissionReadiness(records.find(r=>r.kind==='strategy'&&r.role_id===selected.role_id)):'';
  const dirty=Object.keys(evidence).length>0||mappingDirty||Object.entries(notes).some(([id,value])=>{const r=records.find(r=>r.id===id);return r&&value!==(r.kind==='mapping'?r.rationale||'':r.notes||'');});
  useEffect(()=>{onDirty(dirty);return()=>onDirty(false);},[dirty]);
- const review=maps.filter(m=>m.status==='Peer review'&&m.reviewer_id===actor.id||m.status==='Partner review'&&canPartnerReview(actor)&&data.searches.some((s:R)=>s.id===m.role_id&&s.partner_id===actor.id));
+ const review=maps.filter(m=>m.status==='Peer review'&&canTeamReview(actor,m,data.searches.find((s:R)=>s.id===m.role_id),data.team_members)||m.status==='Partner review'&&canPartnerReview(actor)&&data.searches.some((s:R)=>s.id===m.role_id&&s.partner_id===actor.id));
  async function act(b:R){setError('');setBusy(true);try{await api('research',b);await reload();if(b.action==='mapping-edit')setEvidence(prev=>{const next={...prev};delete next[b.id];return next;});}catch(e:any){setError(e.message);}finally{setBusy(false);}}
  return <div className="research-panel role-first-work"><section className="panel"><div className="section-head"><div><h2>My planned work</h2><p>Start with a role, add candidate mappings, and mark company research complete when you finish.</p></div><label hidden={!!opened}>Work date<input type="date" value={date} onChange={e=>{if(e.target.value){if((opened||dirty)&&!confirm('Change date and discard unsaved work?'))return;setDate(e.target.value);setOpened('');}}}/></label></div><button hidden={!!opened} aria-pressed={other} onClick={()=>setOther(!other)}>{other?'Show planned roles only':'Include other roles on my plate'}</button>{error&&<p className="error" role="alert">{error}</p>}{!pairs.size&&<p>No roles are planned for you on this date. Ask your planner to assign you in Weekly Assignment, or include other roles on your plate.</p>}
  {data.timeOff?.some((r:R)=>r.staff_id===actor.staffId&&r.work_date===date&&r.pto)&&<p className="fine">You are on PTO for this date. Person-days are zero. Change PTO in Weekly Plan if needed.</p>}
