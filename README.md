@@ -48,3 +48,5 @@ See [People, permissions and candidate identity](docs/ACCESS-AND-PEOPLE.md) for 
 ## Engagement pipeline
 
 Engagement → Pipeline shows a search Kanban and candidate list with stage age. Engagement → Search assignments assigns searches to shared engagement members. Organization → Admin configures one global hiring/outreach pipeline, funnel groups and aging thresholds, plus engagement teams. See [Research workflow](docs/RESEARCH-WORKFLOW.md) for movement history, permissions and sourcing/engagement separation.
+
+Engagement → Interview tracker adds a client/search/candidate grid with manually entered recommendation dates, interview rounds, dated outcomes and feedback. Pipeline candidate search immediately displays matching results even without a selected search. CRM search status and engagement stage are labeled separately.

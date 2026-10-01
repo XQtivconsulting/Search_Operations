@@ -206,3 +206,7 @@ Search-level engagement assignment correction: supersedes candidate ownership in
 - Replaced per-search sequence controls with a global Admin stage configuration and separate Engagement navigation for Pipeline / Search assignments.
 - Synthetic coverage now includes global admin permissions, stale configuration and record versions, occupied-stage removal protection, immutable transition notes/duration, same-stage age preservation, multiple search assignees, later handoffs, exited/late funnel classification, unknown historical ages, and closed-search restrictions independent of sourcing Stop.
 - Local typecheck, all 190 tests, production build and Worker dry-run passed. Live production data is not changed for QA; browser checks inspect navigation, board/list, Admin and unsaved movement controls only.
+
+## Candidate search and client interview tracker (30 September 2026)
+- Added synthetic regression checks for candidate-query normalization and visible list selection without a role; manual recommendation dates independent of stage age and CRM status; multiple dated interview rounds; pending versus progressing outcomes; rejection round/date; immutable feedback; assignment permissions, version conflicts, date validation and closed/placed-search restrictions; and tracker rendering with client/search context.
+- Typecheck, all 195 tests, production build and Worker dry-run passed. Live QA uses read-only filters and unsaved editors; no real interview outcomes or recommendations are changed for testing.

@@ -1,3 +1,4 @@
+import {InterviewTracker} from './InterviewTracker';
 import {EngagementAdmin} from './EngagementAdmin';
 import {Engagement} from './Engagement';
 import {roleDisplayId} from './RolePicker';
@@ -77,6 +78,7 @@ function App() {
     [notice, setNotice] = useState("");
   const [deliveryStart,setDeliveryStart]=useState<{view:'daily'|'pipeline';roles:string[]|null}>({view:'daily',roles:null});
   const [allocationStart,setAllocationStart]=useState<{date:string;view:'decisions'|'allocation'}>({date:'',view:'decisions'});
+  const [interviewRole,setInterviewRole]=useState('');
   const [repoTab,setRepoTab]=useState("Candidate mappings");
   const [sheetDirty, setSheetDirty] = useState(false);
   useEffect(()=>{const warn=(e:BeforeUnloadEvent)=>{if(sheetDirty){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[sheetDirty]);
@@ -257,6 +259,7 @@ function App() {
     ['Performance',ChartBar,'Sourcing'],
     ['Pipeline',Users,'Engagement'],
     ['Search assignments',ClipboardText,'Engagement'],
+    ['Interview tracker',CalendarBlank,'Engagement'],
     ['Teams',Users,'Organization'],
     ...(isAdmin?[['People & access',Users,'Organization'] as [string,React.ElementType,string],['Integrations',Briefcase,'Organization'] as [string,React.ElementType,string],['Admin',ClipboardText,'Organization'] as [string,React.ElementType,string]]:[]),
   ];
@@ -331,6 +334,7 @@ function App() {
                 if (sheetDirty && !confirm("Discard unsaved changes?")) return;
                 setSheetDirty(false);
                 if(label==='Search repository')setRepoTab("Candidate mappings");
+                if(label==='Interview tracker')setInterviewRole('');
                 if(label==='Delivery Monitor')setDeliveryStart({view:'daily',roles:null});
                 if(label==='Weekly plan')setAllocationStart({date:'',view:'decisions'});
                 setPage(label);
@@ -364,7 +368,7 @@ function App() {
           </button>
         </div>
       </aside>
-      <main className={"main"+(["Search repository","Company universe","Candidates","Delivery Monitor","Performance","Engagement","Pipeline","Search assignments","Admin"].includes(page)?" compact-workspace":"")}>
+      <main className={"main"+(["Search repository","Company universe","Candidates","Delivery Monitor","Performance","Engagement","Pipeline","Search assignments","Interview tracker","Admin"].includes(page)?" compact-workspace":"")}>
         <header>
           <div>
             <p className="eyebrow">{data.name} / {page === "Search repository" ? "SEARCH REPOSITORY" : "OPERATIONS"}</p>
@@ -383,6 +387,7 @@ function App() {
                   Pipeline: "Candidate progress and days in stage, by search.",
                   "Search assignments": "Assign searches to the engagement members who will work them.",
                   Admin: "Workspace-wide engagement configuration.",
+                  "Interview tracker": "Client recommendations, interview rounds and outcomes across searches.",
                   Performance: "Compare researcher output and the return on sourcing effort.",
                   "People & access": "Accounts, invitations and combined responsibilities.",
                 }[page]
@@ -400,7 +405,7 @@ function App() {
             {error}
           </div>
         )}
-        {!["Searches","Account settings","Search repository","My Work","Delivery Monitor","Performance","Company universe","Teams","Candidates","People & access","Engagement","Pipeline","Search assignments","Admin"].includes(page)  && page !== "Integrations" && page !== "Weekly plan" && (
+        {!["Searches","Account settings","Search repository","My Work","Delivery Monitor","Performance","Company universe","Teams","Candidates","People & access","Engagement","Pipeline","Search assignments","Interview tracker","Admin"].includes(page)  && page !== "Integrations" && page !== "Weekly plan" && (
           <div className="filters">
             <label>
               From
@@ -528,7 +533,8 @@ function App() {
           </>
         )}
         {page === "Weekly plan" && <WeeklyPlanner data={data} api={api} reload={load} initialSearch={selected} initialDate={allocationStart.date} initialView={allocationStart.view} onDirty={setSheetDirty} onTeams={()=>setPage('Teams')}/>}
-        {['Pipeline','Search assignments'].includes(page)&&<Engagement key={page} section={page} data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
+        {['Pipeline','Search assignments'].includes(page)&&<Engagement key={page} section={page} onInterviews={(id:string)=>{setInterviewRole(id);setPage('Interview tracker');}} data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
+        {page==='Interview tracker'&&<InterviewTracker key={interviewRole} initialRole={interviewRole} data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page==='Admin'&&isAdmin&&<EngagementAdmin data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page==='My Work'&&hasRole(data.actor,'engagement')&&<Engagement mine data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page==='My Work'&&(!hasRole(data.actor,'engagement')||hasRole(data.actor,'researcher')||hasRole(data.actor,'partner'))&&<MyWork data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage("Search repository");}}/>}
