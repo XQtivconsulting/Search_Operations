@@ -1,3 +1,5 @@
+import {snapshotBusiness,buildBusinessArchive} from './backup-export';
+import {storeBusinessBackup,nextWeeklyBackup} from './backup-service';
 import {engagementMutation} from './engagement-domain';
 import {exactCompany,companyNames,normalizedCompany} from './company-match';
 import {resetSchema,resetSnapshot,clearWorkspace,saveCleanBaseline} from './workspace-reset';
@@ -30,6 +32,8 @@ export class Workspace extends DurableObject {
     super(ctx, env);
     ctx.storage.sql.exec(workspaceSchema);
     ctx.storage.sql.exec(resetSchema);
+    this.rows('CREATE TABLE IF NOT EXISTS account_researchers(staff_id TEXT PRIMARY KEY,user_id TEXT NOT NULL)');
+    this.rows('CREATE TABLE IF NOT EXISTS backup_runs(id TEXT PRIMARY KEY,created_at TEXT NOT NULL,status TEXT NOT NULL,details TEXT NOT NULL)');
     this.rows('CREATE TABLE IF NOT EXISTS candidate_files(id TEXT PRIMARY KEY,candidate_id TEXT NOT NULL,name TEXT NOT NULL,mime TEXT NOT NULL,category TEXT NOT NULL,actor_id TEXT NOT NULL,created_at TEXT NOT NULL)');
     this.rows('CREATE TABLE IF NOT EXISTS candidate_file_chunks(file_id TEXT NOT NULL REFERENCES candidate_files(id),part INTEGER NOT NULL,data TEXT NOT NULL,PRIMARY KEY(file_id,part))');
     this.rows('CREATE TABLE IF NOT EXISTS brief_files(id TEXT PRIMARY KEY,role_id TEXT NOT NULL,name TEXT NOT NULL,mime TEXT NOT NULL,created_at TEXT NOT NULL)');
@@ -68,6 +72,42 @@ export class Workspace extends DurableObject {
       JSON.stringify(after),
       now(),
     );
+  }
+  async ensureBackupSchedule(tenant:string) {
+    if(!(this.env as any).BACKUPS)return;
+    const old=this.rows("SELECT value FROM settings WHERE key='backup_tenant'")[0];
+    requireThat(!old||old.value===tenant,'Backup workspace mismatch.',403);
+    this.rows("INSERT OR IGNORE INTO settings VALUES('backup_tenant',?)",tenant);
+    if(!await this.ctx.storage.getAlarm())await this.ctx.storage.setAlarm(nextWeeklyBackup());
+  }
+  async backupStatus(a:Actor){
+    requireThat(hasRole(a,'super_admin'),'Workspace owner permission required.',403);
+    await this.ensureBackupSchedule(a.tenant);
+    return {configured:!!(this.env as any).BACKUPS,next_at:await this.ctx.storage.getAlarm(),runs:this.rows('SELECT * FROM backup_runs ORDER BY created_at DESC LIMIT 20').map(r=>({...r,details:JSON.parse(r.details)}))};
+  }
+  async exportBusiness(a:Actor,people:any[]){
+    requireThat(hasRole(a,'super_admin'),'Workspace owner permission required.',403);
+    const snapshot=this.ctx.storage.transactionSync(()=>snapshotBusiness(this,a.tenant,people));
+    const bytes=buildBusinessArchive(snapshot);
+    this.audit(a,'business-export',a.tenant,null,{sha256:snapshot.sha256});return bytes;
+  }
+  async backupNow(a:Actor,people:any[]){
+    requireThat(hasRole(a,'super_admin'),'Workspace owner permission required.',403);
+    await this.ensureBackupSchedule(a.tenant);
+    return storeBusinessBackup(this,this.ctx.storage,(this.env as any).BACKUPS,a.tenant,people);
+  }
+  async alarm(){
+    const tenant=this.rows("SELECT value FROM settings WHERE key='backup_tenant'")[0]?.value;
+    if(!tenant||!(this.env as any).BACKUPS)return;
+    try {
+      const people=await (this.env as any).IDENTITY.getByName('identity-v1').members(tenant);
+      await storeBusinessBackup(this,this.ctx.storage,(this.env as any).BACKUPS,tenant,people);
+      await this.ctx.storage.setAlarm(nextWeeklyBackup());
+    } catch {
+      this.rows('INSERT INTO backup_runs VALUES(?,?,?,?)',crypto.randomUUID(),new Date().toISOString(),'failed',JSON.stringify({error:'Scheduled backup failed. Retry scheduled in one hour; inspect storage connection and export size.'}));
+      await this.ctx.storage.setAlarm(Date.now()+3600000);
+      console.error('Scheduled business backup failed');
+    }
   }
   async saveCleanBaseline(a:Actor,people:any) {return this.ctx.storage.transactionSync(()=>saveCleanBaseline(this,a,people));}
   async previewReset(a:Actor) {const {signature,counts}=resetSnapshot(this,a);return {signature,counts};}

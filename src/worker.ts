@@ -1,3 +1,5 @@
+import {readJSONBody} from './request-security';
+import {backupPrefix} from './backup-service';
 import {companySuggestions} from './company-enrichment';
 import { Identity, digest } from "./identity";
 import { Workspace } from "./workspace";
@@ -11,6 +13,8 @@ interface Env {
   ASSETS: Fetcher;
   APP_ORIGIN: string;
   SETUP_KEY?: string;
+  TENANT_SETUP_IDS?: string;
+  BACKUPS?: R2Bucket;
   RECRUITCRM_TOKENS?: string;
   RESEND_API_KEY?: string;
   INVITATION_FROM?: string;
@@ -57,16 +61,7 @@ export default {
           if(!current||current.id!==expected)throw Object.assign(new Error('The signed-in account changed in another tab. Reload before continuing.'),{status:409,code:'SESSION_CHANGED'});
         }
         let body: any = {};
-        if (req.method === "POST") {
-          requireThat(
-            Number(req.headers.get("Content-Length") ?? 0) < 8e6,
-            "Request is too large.",
-            413,
-          );
-          const raw = await req.text();
-          requireThat(raw.length < 8e6, "Request is too large.", 413);
-          body = JSON.parse(raw);
-        }
+        if (req.method === "POST") body=await readJSONBody(req);
         if (url.pathname.startsWith('/api/candidate/')) {
           const tenant=text(url.searchParams.get('workspace')||body.workspace,100);
           requireThat(/^[a-zA-Z0-9_-]+$/.test(tenant),'Invalid invitation.',404);
@@ -98,7 +93,7 @@ export default {
             404,
           );
           requireThat(
-            body.tenant === "xqtiv" || body.tenant === "agent-test",
+            typeof body.tenant==='string' && /^[a-z0-9][a-z0-9_-]{1,63}$/.test(body.tenant) && ["xqtiv","agent-test",...(env.TENANT_SETUP_IDS||'').split(',').map(s=>s.trim()).filter(Boolean)].includes(body.tenant),
             "Invalid setup workspace.",
           );
           const workspace: any = env.WORKSPACE.getByName(body.tenant);
@@ -161,7 +156,26 @@ export default {
           const a = await identity.authenticate(rawCookie, tenant);
           requireThat(a, "Please sign in to this workspace.", 401);
           const workspace: any = env.WORKSPACE.getByName(a.tenant);
-          if (url.pathname.startsWith('/api/crm/')) {
+          if(url.pathname.startsWith('/api/backups/')) {
+            requireThat(hasRole(a,'super_admin'),'Workspace owner permission required.',403);
+            if(url.pathname==='/api/backups/status'&&req.method==='GET')res=json(await workspace.backupStatus(a));
+            else if(url.pathname==='/api/backups/run'&&req.method==='POST') {
+              await identity.limit('backup:'+a.tenant,3);
+              res=json(await workspace.backupNow(a,await identity.members(a.tenant)));
+            } else if(url.pathname==='/api/backups/export'&&req.method==='POST') {
+              await identity.limit('export:'+a.tenant,5);
+              const bytes=await workspace.exportBusiness(a,await identity.members(a.tenant));
+              res=new Response(bytes,{headers:{'Content-Type':'application/zip','Cache-Control':'no-store','Content-Disposition':'attachment; filename="business-export.zip"'}});
+            } else if(url.pathname==='/api/backups/download'&&req.method==='POST') {
+              requireThat(env.BACKUPS,'Private backup storage is not connected.',503);
+              requireThat(typeof body.id==='string'&&/^[a-zA-Z0-9_-]{1,100}$/.test(body.id),'Invalid backup ID.');
+              const key=backupPrefix(a.tenant)+body.id;
+              const manifest=await env.BACKUPS.get(key+'.manifest.json');requireThat(manifest,'Completed backup not found.',404);
+              const file=await env.BACKUPS.get(key+'.zip');requireThat(file,'Backup file not found.',404);
+              res=new Response(file.body,{headers:{'Content-Type':'application/zip','Cache-Control':'no-store','Content-Disposition':'attachment; filename="business-backup.zip"'}});
+            } else res=json({error:'Not found.'},404);
+          }
+          else if (url.pathname.startsWith('/api/crm/')) {
             requireThat(hasRole(a,'admin'),'Administrator permission required.',403);
             const token = readCRMToken(env.RECRUITCRM_TOKENS,a.tenant);
             if(url.pathname === '/api/crm/status' && req.method === 'GET') {
@@ -194,6 +208,7 @@ export default {
           else if (url.pathname === "/api/state" && req.method === "GET") {
             const partners=(await identity.members(a.tenant)).filter((m:any)=>m.status==='active' && canPartnerReview(m)).map((m:any)=>({id:m.id,name:m.name}));
             const people=(await identity.members(a.tenant)).filter((m:any)=>m.status==='active').map((m:any)=>({id:m.id,name:m.name,role:m.role,roles:m.roles,staff_id:m.staff_id,status:m.status}));
+            if(env.BACKUPS)await workspace.ensureBackupSchedule(a.tenant);
             const state=await workspace.state(a,await identity.members(a.tenant));
             res = json({...state,partners,people,staff:state.staff?.filter((s:any)=>people.some((p:any)=>p.staff_id===s.id)).map((s:any)=>({...s,name:people.find((p:any)=>p.staff_id===s.id)?.name||s.name,archived:people.some((p:any)=>p.staff_id===s.id&&hasRole(p,'researcher'))?0:1}))});
           }
@@ -317,11 +332,12 @@ export default {
             ? e.message
             : "The request could not be completed. Please check your input and try again.",
         },
-        e.status ?? 400,
+        e.status ?? 500,
       );
     }
     const headers = new Headers(res.headers);
     headers.set("X-Content-Type-Options", "nosniff");
+    if(url.protocol==='https:')headers.set("Strict-Transport-Security","max-age=31536000");
     headers.set("Referrer-Policy", "no-referrer");
     headers.set("X-Frame-Options", "DENY");
     headers.set(

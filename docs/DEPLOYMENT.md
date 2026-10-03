@@ -58,3 +58,8 @@ Before wider use: configure account recovery, exercise backups/restoration, veri
 - CRM rate limit: wait and retry; the staging snapshot changes only after the full fetch succeeds.
 - CRM duplicate ID: reconcile the local search identities before applying; no fuzzy merge is performed.
 - Existing workspace import denied: do not clear the database. Plan an incremental migration.
+
+## Private business backups
+The deployment workflow runs `scripts/provision-backup-storage.mjs` using the existing owner's Cloudflare secrets. It verifies/creates the private R2 bucket `xqtiv-search-operations-private-backups`, checks public access is disabled, and deploys an ignored generated config with the BACKUPS binding. The token needs the corresponding R2 bucket administration permission, and R2 must already be enabled in the account. No billing enablement, public access, token creation or permission expansion is automated. If initial provisioning is unavailable, the workflow warns and deploys owner-only on-demand exports; the UI says automatic backup storage is disconnected. Existing backup bindings are never silently detached on a failed verification.
+
+Only claim weekly backups active after verifying the binding, next alarm and first completed ZIP/manifest. See SAAS-AND-RECOVERY.md for recovery and credential exclusions. For additional tenant setup, a platform operator can configure a comma-separated TENANT_SETUP_IDS allowlist with SETUP_KEY, provision its first invitation, then remove SETUP_KEY. Customer super admins cannot provision other firms. Subscription provisioning is not yet implemented.

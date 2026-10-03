@@ -195,6 +195,7 @@ export class Identity extends DurableObject {
     this.limit("login:" + ip);
     const email = text(body.email, 254).toLowerCase();
     this.limit("email:" + email);
+    requireThat(String(body.password??'').length<=128,'Email or password is incorrect.',401);
     const u = this.rows("SELECT * FROM users WHERE email=?", email)[0];
     requireThat(
       u && passwordOK(String(body.password ?? ""), u.password),

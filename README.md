@@ -4,7 +4,7 @@ Internal sourcing operations application for XQtiv, designed with isolated organ
 
 Target repository: https://github.com/XQtivconsulting/Search_Operations
 
-**Status: sourcing pilot implementation.** Source upload to the designated repository is authorized and working. Cloudflare deployment is performed by GitHub Actions using the owner-provided repository secrets. Check the latest workflow result before assuming a live deployment exists. No customer data has been imported by this build.
+**Status: sourcing pilot implementation.** Source upload to the designated repository is authorized and working. Cloudflare deployment is performed by GitHub Actions using the owner-provided repository secrets. Check the latest workflow result before assuming a live deployment exists. The live workspace now contains owner-entered business data.
 
 ## Included
 
@@ -17,7 +17,7 @@ Target repository: https://github.com/XQtivconsulting/Search_Operations
 - Candidate directory: required first/last names and unique LinkedIn identity, optional contact details, reusable across searches with independent mapping ownership and review history. Manual count entry and spreadsheet navigation are retired.
 - Atomic batches up to 200 rows: a stale or unauthorized row rolls back the entire batch and its audit records.
 - Performance: researcher/team throughput and quality comparisons, search effort/yield, and plan-based person-days with PTO exclusions. See [Performance](docs/PERFORMANCE.md).
-- RecruitCRM job preview and selected import/update, with server-only tenant credentials and explicit field ownership. The connector has synthetic tests; it has not been connected to XQtiv’s live CRM.
+- RecruitCRM job preview and selected import/update, with server-only tenant credentials and explicit field ownership. The connector is in use with XQtiv; historical candidate migration remains planned.
 - Read-only workbook extraction and source discrepancy inventory.
 
 ## Local setup
@@ -50,3 +50,6 @@ See [People, permissions and candidate identity](docs/ACCESS-AND-PEOPLE.md) for 
 Engagement → Daily Work derives due activities and incoming handoffs from pipeline thresholds across assigned searches. Engagement → Pipeline shows a search Kanban and candidate list with stage age. Engagement → Search assignments assigns searches to shared engagement members. Organization → Engagement Config configures one global hiring/outreach pipeline, funnel groups and aging thresholds. Organization → Teams manages sourcing teams and engagement teams in one place. See [Research workflow](docs/RESEARCH-WORKFLOW.md) for movement history, permissions and sourcing/engagement separation.
 
 Engagement → Interview tracker adds a client/search/candidate grid with manually entered recommendation dates, interview rounds, dated outcomes and feedback. Pipeline candidate search immediately displays matching results even without a selected search. CRM search status and engagement stage are labeled separately.
+
+## SaaS and continuity foundations
+Organization → Backups & exports provides workspace-owner downloads of master XLSX datasets, per-search XLSX workbooks, attachments and a checksummed business snapshot. Weekly copies use an optional private R2 binding and per-workspace alarms; the UI explicitly reports when storage is not connected. This is not a full identity backup or a claim of complete disaster recovery. See [SaaS and recovery](docs/SAAS-AND-RECOVERY.md) for scope, verification requirements, multi-tenant launch gaps and RecruitCRM historical conversion planning.

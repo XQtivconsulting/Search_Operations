@@ -1,3 +1,4 @@
+import {Backups} from './Backups';
 import {EngagementDaily} from './EngagementDaily';
 import {InterviewTracker} from './InterviewTracker';
 import {EngagementAdmin} from './EngagementAdmin';
@@ -54,6 +55,13 @@ async function api(path: string, body?: unknown) {
   if(['login','accept','logout'].includes(path)){sessionRevision++;expectedUser=null;sessionChannel?.postMessage({changed:true});}
   return result;
 }
+async function downloadBackup(path:string,body:unknown){
+ const revision=sessionRevision;
+ const response=await fetch('/api/'+path,{method:'POST',headers:{'Content-Type':'application/json','X-Workspace':workspace,...(expectedUser?{'X-Expected-User':expectedUser}:{})},body:JSON.stringify(body)});
+ if(!response.ok){const result=await response.json() as any;if(response.status===401||result.code==='SESSION_CHANGED')accountChanged();throw new Error(result.error||'Download failed.');}
+ const blob=await response.blob();if(revision!==sessionRevision)throw new Error('Workspace or account changed. Download cancelled.');
+ const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=`${workspace}-business-backup-${new Date().toISOString().slice(0,10)}.zip`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
 const fmt = (n: number) => new Intl.NumberFormat().format(n);
 const today = () => new Date().toLocaleDateString("en-CA");
 const dateLabel = (v: string) =>
@@ -79,6 +87,7 @@ function App() {
     [notice, setNotice] = useState("");
   const [deliveryStart,setDeliveryStart]=useState<{view:'daily'|'pipeline';roles:string[]|null}>({view:'daily',roles:null});
   const [allocationStart,setAllocationStart]=useState<{date:string;view:'decisions'|'allocation'}>({date:'',view:'decisions'});
+  const [memberships,setMemberships]=useState<Row[]>([]);
   const [teamType,setTeamType]=useState('Sourcing teams');
   const [collapsedModules,setCollapsedModules]=useState<Record<string,boolean>>({Organization:true});
   useEffect(()=>{if(!page)return;const group=['Search repository','Weekly plan','Delivery Monitor','Performance'].includes(page)?'Sourcing':['Daily Work','Pipeline','Search assignments','Interview tracker'].includes(page)?'Engagement':['Candidates','Company universe'].includes(page)?'Talent assets':page==='My Work'?'Work':'Organization';setCollapsedModules(previous=>({...previous,[group]:false}));},[page]);
@@ -94,6 +103,7 @@ function App() {
   async function load() {
     try {
       const next=await api('state');expectedUser=next.actor.id;
+      setMemberships((await api('workspaces')).memberships||[]);
       setPage(current=>current||(((hasRole(next.actor,'researcher')||hasRole(next.actor,'engagement'))&&!['admin','planner','partner','founder'].some(r=>hasRole(next.actor,r as any)))?'My Work':'Delivery Monitor'));
       // Operational totals come only from candidate mappings. Historical aggregates remain in storage.
       setData({...next,entries:next.entries.map((e:Row)=>e.source==='candidates'?e:{...e,mapped:null,peer:null,partner:null,peer_at:null,partner_at:null,flag:null,automated:true,notes:''})});
@@ -267,6 +277,7 @@ function App() {
     ['Pipeline',Users,'Engagement'],
     ['Interview tracker',CalendarBlank,'Engagement'],
     ['Teams',Users,'Organization'],
+    ...(hasRole(actor,'super_admin')?[['Backups & exports',ClipboardText,'Organization'] as [string,React.ElementType,string]]:[]),
     ...(isAdmin?[['People & access',Users,'Organization'] as [string,React.ElementType,string],['Integrations',Briefcase,'Organization'] as [string,React.ElementType,string],['Engagement Config',ClipboardText,'Organization'] as [string,React.ElementType,string]]:[]),
   ];
   const open = (m: Row) => {
@@ -358,6 +369,7 @@ function App() {
         </nav>
         <div className="identity">
           <strong>{actor.name}</strong>
+          {memberships.length>1?<label>Workspace<select value={workspace} onChange={async e=>{if(sheetDirty&&!confirm('Discard unsaved changes and switch workspace?'))return;sessionRevision++;workspace=e.target.value;sessionStorage.setItem('workspace',workspace);setData(null);setLoading(true);setModal(null);setSelected('');setCandidateId('');setEngagementStart({role:'',mapping:'',stage:''});setInterviewRole('');setPage('');setSheetDirty(false);await load();}}>{memberships.map(m=><option key={m.tenant} value={m.tenant}>{m.tenant==='xqtiv'?'XQtiv':m.tenant}</option>)}</select></label>:<small>{workspace==='xqtiv'?'XQtiv':workspace}</small>}
           <small className="identity-email">{actor.email}</small>
           <small>{roleList(actor).map(roleLabel).join(' · ')}</small>
           <button className={page==='Account settings'?'active':''} onClick={()=>{if(sheetDirty&&!confirm('Discard unsaved changes?'))return;setSheetDirty(false);setPage('Account settings');}}><Users/>Account settings</button>
@@ -374,7 +386,7 @@ function App() {
           </button>
         </div>
       </aside>
-      <main className={"main"+(["Search repository","Company universe","Candidates","Delivery Monitor","Performance","Engagement","Pipeline","Daily Work","Search assignments","Interview tracker","Engagement Config"].includes(page)?" compact-workspace":"")}>
+      <main className={"main"+(["Search repository","Company universe","Candidates","Delivery Monitor","Performance","Engagement","Pipeline","Daily Work","Search assignments","Interview tracker","Engagement Config","Backups & exports"].includes(page)?" compact-workspace":"")}>
         <header>
           <div>
             <p className="eyebrow">{data.name} / {page === "Search repository" ? "SEARCH REPOSITORY" : "OPERATIONS"}</p>
@@ -412,7 +424,7 @@ function App() {
             {error}
           </div>
         )}
-        {!["Searches","Account settings","Search repository","My Work","Delivery Monitor","Performance","Company universe","Teams","Candidates","People & access","Engagement","Pipeline","Daily Work","Search assignments","Interview tracker","Engagement Config"].includes(page)  && page !== "Integrations" && page !== "Weekly plan" && (
+        {!["Searches","Account settings","Search repository","My Work","Delivery Monitor","Performance","Company universe","Teams","Candidates","People & access","Engagement","Pipeline","Daily Work","Search assignments","Interview tracker","Engagement Config","Backups & exports"].includes(page)  && page !== "Integrations" && page !== "Weekly plan" && (
           <div className="filters">
             <label>
               From
@@ -540,6 +552,7 @@ function App() {
           </>
         )}
         {page === "Weekly plan" && <WeeklyPlanner data={data} api={api} reload={load} initialSearch={selected} initialDate={allocationStart.date} initialView={allocationStart.view} onDirty={setSheetDirty} onTeams={()=>setPage('Teams')}/>}
+        {page==='Backups & exports'&&hasRole(actor,'super_admin')&&<Backups api={api} download={downloadBackup}/>}
         {page==='Daily Work'&&<EngagementDaily data={data} onAssignments={()=>setPage('Search assignments')} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}} onWork={(role:string,mapping:string,stage:string)=>{setEngagementStart({role,mapping,stage});setPage('Pipeline');}}/>}
         {['Pipeline','Search assignments'].includes(page)&&<Engagement initialRole={engagementStart.role} initialMapping={page==='Pipeline'?engagementStart.mapping:''} initialStage={engagementStart.stage} key={page+engagementStart.mapping} section={page} onInterviews={(id:string)=>{setInterviewRole(id);setPage('Interview tracker');}} data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page==='Interview tracker'&&<InterviewTracker key={interviewRole} initialRole={interviewRole} data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}

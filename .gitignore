@@ -9,3 +9,5 @@ private-data/
 *.log
 coverage/
 
+
+.wrangler-backups.json

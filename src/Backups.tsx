@@ -1,0 +1,16 @@
+import React,{useEffect,useState} from 'react';
+import {displayDateTime} from './dates';
+export function Backups({api,download}:any){
+ const [status,setStatus]=useState<any>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ const refresh=async()=>setStatus(await api('backups/status'));
+ useEffect(()=>{refresh().catch(e=>setError(e.message));},[]);
+ async function run(fn:()=>Promise<any>){setBusy(true);setError('');try{await fn();await refresh();}catch(e:any){setError(e.message);}finally{setBusy(false);}}
+ return <section className="panel engagement-workspace"><div className="section-head"><div><h2>Business data backups</h2><p className="fine">Master Excel datasets, one workbook per search, original attachments and a structured recovery snapshot.</p></div><button disabled={busy} onClick={()=>run(()=>download('backups/export',{}))}>Download current data</button></div>{error&&<p className="error" role="alert">{error}</p>}
+ <p><strong>Weekly backup: {status?.configured?'Connected':'Storage not connected'}</strong>{status?.next_at&&<> · Next run {displayDateTime(new Date(status.next_at).toISOString())}</>}</p>
+ <p className="fine">Scheduled for Sunday at 06:00 UTC. Copies are kept in private storage outside the application database. Download a copy to a separate location so you can work during a hosting outage. Existing copies are retained; automated retention deletion is not enabled.</p>
+ {!status?.configured&&<p className="error">Automatic backups are not active. The hosting administrator must connect the private backup bucket. You can download current data now.</p>}
+ <div className="row-actions"><button disabled={busy||!status?.configured} onClick={()=>run(()=>api('backups/run',{}))}>{busy?'Working…':'Back up now'}</button><button disabled={busy} onClick={()=>run(refresh)}>Refresh status</button></div>
+ <div className="table-scroll"><table className="sheet-table"><thead><tr><th>Created</th><th>Result</th><th>Size</th><th>Download</th></tr></thead><tbody>{(status?.runs||[]).map((r:any)=><tr key={r.id}><td>{displayDateTime(r.created_at)}</td><td>{r.status==='complete'?'Stored and verified':r.details.error}</td><td>{r.details.bytes?`${(r.details.bytes/1048576).toFixed(1)} MB`:'—'}</td><td>{r.status==='complete'&&<button disabled={busy} onClick={()=>run(()=>download('backups/download',{id:r.id}))}>Download ZIP</button>}</td></tr>)}</tbody></table></div>
+ <details><summary>What is included and how recovery works</summary><ul><li>Searches, candidates and their contact details, companies, teams, people directory, mappings, notes, strategy, pipeline, planning, audit history and attachments.</li><li>Candidate-global notes are in the master workbook; each search workbook contains its own notes and candidates. Long text continues on numbered rows.</li><li>Passwords, sessions, API secrets and access invitations are excluded. Account recovery and full hosting disaster recovery need a separate procedure.</li><li>The structured JSON snapshot preserves original IDs. Restore first into an isolated environment and reconcile record counts and attachments before any production recovery.</li><li>This release has a 16 MB uncompressed snapshot limit. Oversized exports fail visibly; larger tenants need chunked backup processing.</li></ul></details>
+ </section>;
+}
