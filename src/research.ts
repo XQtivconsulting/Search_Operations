@@ -49,7 +49,7 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
  } else if(b.action==='candidate-save') {
   requireThat(canPlan(a)||hasRole(a,'researcher')||hasRole(a,'engagement')||hasRole(a,'partner'),'Candidate editing permission required.',403);
   requireThat(!old||old.kind==='candidate','Choose a candidate record.');
-  const url=linkedin(b.url),first_name=text(b.first_name,100),last_name=text(b.last_name,100),email=text(b.email,254).toLowerCase(),phone=text(b.phone,60);
+  const url=old?.crm_ids?.length&&!b.url?'':linkedin(b.url),first_name=text(b.first_name,100),last_name=text(b.last_name,100),email=text(b.email,254).toLowerCase(),phone=text(b.phone,60);
   requireThat(first_name&&last_name,'First name and last name are required.');
   requireThat(!email||/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),'Enter a valid candidate email.');
   requireThat(!old||old.url===url,'A candidate LinkedIn identity cannot be replaced.');
@@ -58,7 +58,7 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
   let companyRecord=companyName?find('company',normalized):null;
   if(b.company_id){const c=get(db,text(b.company_id));requireThat(c.kind==='company'&&c.name.toLowerCase().replace(/\s+/g,' ')===normalized,'Choose the matching company.');companyRecord={id:c.id};}
   if(companyName&&!companyRecord&&b.create_company===true){const cid=save('company','',normalized,{name:companyName});db.audit(a,'company-master',cid,null,{name:companyName});companyRecord={id:cid};}
-  kind='candidate';key=url;next={...old,first_name,last_name,name:first_name+' '+last_name,url,email,phone,title:text(b.title,300),company:companyName,company_id:companyRecord?.id||''};
+  kind='candidate';key=url||'recruitcrm:'+old.crm_ids[0];next={...old,first_name,last_name,name:first_name+' '+last_name,url,email,phone,title:text(b.title,300),company:companyName,company_id:companyRecord?.id||''};
  } else if(b.action==='company-master') {
   requireThat(canPlan(a),'Planning permission required.',403);requireThat(!old||old.kind==='company','Wrong record type.');
   const name=text(b.name,200);requireThat(name,'Enter a company name.');kind='company';key=name.toLowerCase().replace(/\s+/g,' ');

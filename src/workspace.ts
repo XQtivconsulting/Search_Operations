@@ -1,3 +1,5 @@
+import {crmAssignments,crmCandidateDetails,crmSlug,crmList} from './crm-candidates';
+import {conversionSchema,startConversion,nextConversionItem,saveConversionDetails,conversionPreview,applyConversionItem} from './crm-conversion';
 import {snapshotBusiness,buildBusinessArchive} from './backup-export';
 import {storeBusinessBackup,nextWeeklyBackup} from './backup-service';
 import {engagementMutation} from './engagement-domain';
@@ -42,6 +44,8 @@ export class Workspace extends DurableObject {
     this.rows('CREATE TABLE IF NOT EXISTS time_off(staff_id TEXT NOT NULL REFERENCES staff(id),work_date TEXT NOT NULL,pto INTEGER NOT NULL DEFAULT 0,version INTEGER NOT NULL DEFAULT 1,PRIMARY KEY(staff_id,work_date))');
     ctx.storage.sql.exec(researchSchema);
     ctx.storage.sql.exec(candidateSchema);
+    this.rows(conversionSchema);
+    if(!this.rows('PRAGMA table_info(crm_jobs)').some(c=>c.name==='job_slug'))this.rows("ALTER TABLE crm_jobs ADD COLUMN job_slug TEXT NOT NULL DEFAULT ''");
     this.rows("CREATE TABLE IF NOT EXISTS crm_partners(external_id TEXT PRIMARY KEY,partner_id TEXT NOT NULL DEFAULT '',partner TEXT NOT NULL DEFAULT '',version INTEGER NOT NULL DEFAULT 1)");
     // Retire Hold without losing its review history or reviewer feedback.
     ctx.storage.transactionSync(()=>{for(const r of this.rows("SELECT * FROM research_records WHERE kind='mapping' AND json_extract(data,'$.status')='Hold'")){const old=JSON.parse(r.data),next={...old,status:'Needs information',last_feedback:old.last_feedback||'Returned from the retired Hold stage. Please update the evidence and resubmit.'};this.rows('UPDATE research_records SET data=?,version=version+1 WHERE id=?',JSON.stringify(next),r.id);this.audit({id:'system-migration'} as Actor,'retire-hold',r.id,old,next);}});
@@ -274,6 +278,22 @@ export class Workspace extends DurableObject {
     result.entries.push(...derivedEntries(research.records,result.assignments));
     return result;
   }
+  async crmCandidateImports(a:Actor){requireThat(hasRole(a,'admin'),'Administrator permission required.',403);return this.rows('SELECT id,search_id,status,created_at FROM crm_candidate_batches ORDER BY created_at DESC LIMIT 30');}
+  async crmCandidateStart(a:Actor,searchId:string,token:string){
+    requireThat(hasRole(a,'admin'),'Administrator permission required.',403);
+    const search=this.rows('SELECT * FROM searches WHERE id=?',searchId)[0];requireThat(search?.external_id,'Choose a CRM-linked search already in the repository.');
+    const job=this.rows('SELECT * FROM crm_jobs WHERE external_id=?',search.external_id)[0];const slug=crmSlug(job?.job_slug);
+    const assignments=await crmAssignments(token,slug);
+    let authors:Record<string,string>={},authorWarning='';try{const users=await crmList(token,'users/search');authors=Object.fromEntries(users.map(u=>[String(u.id),[u.first_name,u.last_name].filter(Boolean).join(' ')]));}catch{authorWarning='Source user names could not be fetched; original CRM author IDs are preserved.';}
+    return this.ctx.storage.transactionSync(()=>{requireThat(this.rows('SELECT external_id FROM searches WHERE id=?',searchId)[0]?.external_id===search.external_id,'Search changed. Start a new preview.',409);const id=startConversion(this,a,searchId,slug,assignments,authors,authorWarning);return conversionPreview(this,a,id);});
+  }
+  async crmCandidatePreview(a:Actor,id:string){return conversionPreview(this,a,id);}
+  async crmCandidateFetchNext(a:Actor,id:string,token:string){
+    const {batch,item}=nextConversionItem(this,a,id);if(!item)return conversionPreview(this,a,id);
+    const details=await crmCandidateDetails(token,batch.job_slug,item.slug);
+    return this.ctx.storage.transactionSync(()=>{saveConversionDetails(this,a,id,item.slug,details);return conversionPreview(this,a,id);});
+  }
+  async crmCandidateApply(a:Actor,id:string,stages:Record<string,string>){return this.ctx.storage.transactionSync(()=>applyConversionItem(this,a,id,stages));}
   async crmState(a: Actor) {
     requireThat(hasRole(a,'admin'), 'Administrator permission required.',403);
     return {jobs:this.rows('SELECT j.*,p.partner_id AS saved_partner_id,p.partner AS saved_partner,COALESCE(p.version,0) AS partner_version FROM crm_jobs j LEFT JOIN crm_partners p ON p.external_id=j.external_id ORDER BY j.title'), runs:this.rows('SELECT * FROM integration_runs ORDER BY created_at DESC LIMIT 20')};
@@ -285,7 +305,7 @@ export class Workspace extends DurableObject {
       this.rows('DELETE FROM crm_jobs');
       let updated=0;
       for(const j of jobs) {
-        this.rows('INSERT INTO crm_jobs(external_id,title,status,company_slug,fetched_at,company_name) VALUES(?,?,?,?,?,?)',j.external_id,j.title,j.status,j.company_slug,now(),j.company_name || '');
+        this.rows('INSERT INTO crm_jobs(external_id,title,status,company_slug,fetched_at,company_name,job_slug) VALUES(?,?,?,?,?,?,?)',j.external_id,j.title,j.status,j.company_slug,now(),j.company_name || '',j.job_slug||'');
         const matches=this.rows('SELECT * FROM searches WHERE external_id=?',j.external_id);
         requireThat(matches.length<=1,'Multiple searches share this CRM ID. Reconcile before refreshing.',409);
         const old=matches[0];if(!old)continue;

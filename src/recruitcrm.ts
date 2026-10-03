@@ -1,5 +1,5 @@
 import { requireThat, text } from './domain';
-export type CRMJob = {external_id:string; title:string; status:string; company_slug:string; company_name?:string};
+export type CRMJob = {external_id:string; title:string; status:string; company_slug:string; company_name?:string;job_slug?:string};
 export function readCRMToken(raw: string | undefined, tenant: string): string | null {
   const value = (raw || '').trim();
   if (!value) return null;
@@ -23,7 +23,7 @@ export function readCRMToken(raw: string | undefined, tenant: string): string | 
 export function normalizeJob(job:any): CRMJob {
   requireThat(job && (typeof job.id === 'string' || typeof job.id === 'number') && String(job.id).length > 0, 'RecruitCRM returned a job without an ID.',502);
   requireThat(typeof job.name === 'string' && job.name.trim(), 'RecruitCRM returned a job without a name.',502);
-  return {external_id:String(job.id),title:text(job.name),status:text(job.job_status?.label) || 'Unknown',company_slug:text(job.company_slug)};
+  return {external_id:String(job.id),job_slug:typeof job.slug==='string'?job.slug:'',title:text(job.name),status:text(job.job_status?.label) || 'Unknown',company_slug:text(job.company_slug)};
 }
 async function fetchPages(token:string, endpoint:'jobs'|'companies', transport:typeof fetch):Promise<any[]> {
   let url: string | null = `https://api.recruitcrm.io/v1/${endpoint}`;

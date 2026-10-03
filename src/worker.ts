@@ -178,7 +178,17 @@ export default {
           else if (url.pathname.startsWith('/api/crm/')) {
             requireThat(hasRole(a,'admin'),'Administrator permission required.',403);
             const token = readCRMToken(env.RECRUITCRM_TOKENS,a.tenant);
-            if(url.pathname === '/api/crm/status' && req.method === 'GET') {
+            if(url.pathname.startsWith('/api/crm/candidates/')&&req.method==='POST'){
+              requireThat(typeof token==='string'&&token.length>0,'RecruitCRM is not connected for this workspace.',409);
+              const action=url.pathname.slice('/api/crm/candidates/'.length);
+              if(action==='list')res=json(await workspace.crmCandidateImports(a));
+              else if(action==='start')res=json(await workspace.crmCandidateStart(a,text(body.search_id),token));
+              else if(action==='preview')res=json(await workspace.crmCandidatePreview(a,text(body.id)));
+              else if(action==='fetch-next')res=json(await workspace.crmCandidateFetchNext(a,text(body.id),token));
+              else if(action==='apply-next')res=json(await workspace.crmCandidateApply(a,text(body.id),body.stages));
+              else res=json({error:'Not found.'},404);
+            }
+            else if(url.pathname === '/api/crm/status' && req.method === 'GET') {
               try {res = json({configured:!!token,...await workspace.crmState(a)});}
               catch {throw Object.assign(new Error('The app could not load its RecruitCRM integration records. Report storage error CRM_STATUS.'),{status:500});}
             }

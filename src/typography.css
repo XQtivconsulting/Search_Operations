@@ -214,3 +214,5 @@
 /* Keep the candidate action reachable when fit-criteria columns widen the sheet. */
 .app .mappings-panel .research-table :is(th,td):last-child{position:sticky;right:0;background:#fff;border-left:1px solid #dce2eb;box-shadow:-3px 0 5px -4px #64748b;z-index:1}
 .app .mappings-panel .research-table th:last-child{background:#edf2f5;z-index:3}
+
+.app .crm-conversion{margin-top:24px;border-top:1px solid #dce2eb;padding-top:18px;display:grid;gap:12px}.app .crm-conversion .section-head,.app .crm-conversion p{margin:0}.app .crm-conversion .sheet-table :is(th,td){text-align:left;white-space:normal;padding:7px 9px}.app .crm-conversion .sheet-table small{display:block;color:#64748b;font-size:11px}.app .crm-conversion select{font-size:12px;max-width:100%}.app .crm-conversion .row-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
