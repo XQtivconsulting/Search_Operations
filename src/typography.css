@@ -199,3 +199,8 @@
 @media(min-width:1500px){.app .profile-layout{grid-template-columns:minmax(0,1fr) 300px}}
 @media(max-width:1000px){.app .profile-layout{grid-template-columns:minmax(0,1fr)}.app .profile-sidebar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.app .profile-header-actions{flex-direction:column}.app .profile-card-header{flex-wrap:wrap}}
 @media(max-width:650px){.app .candidate-vignettes>.profile-hero{padding:14px;flex-wrap:wrap}.app .profile-sidebar{grid-template-columns:minmax(0,1fr)}.app .profile-header-actions{flex-direction:row}.app .profile-search-title{flex-wrap:wrap}.app .profile-journey{grid-template-columns:1fr 1.5fr;gap:10px}.app .profile-contact-line{display:grid;gap:4px}.app .profile-card .note-date{margin-top:4px}.app .candidate-360>.research-tabs{gap:14px}}
+/* Keep application shell header/footer/sidebar rules out of profile cards. */
+.app .profile-sidebar{position:static;top:auto;width:auto;height:auto;max-height:none;padding:0;border:0;background:transparent;overflow:visible}
+.app .profile-card-header{margin:0;min-height:0;padding:9px 14px}
+.app .profile-card-footer{margin:0;min-height:0;justify-content:flex-start;padding:4px 14px 10px}
+.app .profile-card .profile-small-action,.app .profile-section-toggle{min-height:0}
