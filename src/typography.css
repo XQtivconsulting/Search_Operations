@@ -204,3 +204,10 @@
 .app .profile-card-header{margin:0;min-height:0;padding:9px 14px}
 .app .profile-card-footer{margin:0;min-height:0;justify-content:flex-start;padding:4px 14px 10px}
 .app .profile-card .profile-small-action,.app .profile-section-toggle{min-height:0}
+.app .mapping-row-actions{align-items:flex-start;gap:5px;min-width:150px}
+.app .mapping-review-control{display:flex;flex-direction:column;align-items:flex-start;gap:5px;max-width:220px}
+.app .mapping-review-control .review-blocked,.app .review-blocked{color:#855218;font-size:12px;line-height:1.4;font-weight:400}
+.app .mapping-review-control button{white-space:nowrap}
+.app .mapping-detail-review{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:10px 12px;margin:12px 0;background:#f3f6fa;border:1px solid #dfe6ee;border-radius:7px}
+.app .mapping-detail-review .mapping-review-control{max-width:420px}
+.app .mapping-selection-note,.app .review-stage-note{font-size:12px;line-height:1.5;color:#4d6074;margin:8px 0}

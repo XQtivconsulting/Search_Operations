@@ -332,3 +332,34 @@ test('candidate note section is saved with author and cannot fabricate stage upd
  const interview=await f.run(engActor,{...body,type:'Interview',note_group:'General notes'});assert.equal((await f.rec(interview.id)).note_group,'Interview notes');
  f.db.close();
 });
+
+test('individual review actions explain self-review and match server decisions at both stages',async()=>{
+ const f=fixture(),t=await setup(f),id=await mapping(f,t);
+ const React=await import('react'),{renderToStaticMarkup}=await import('react-dom/server'),{ResearchPanel}=await import('../src/ResearchPanel');
+ const render=async(actor:any)=>renderToStaticMarkup(React.createElement(ResearchPanel,{data:{...await f.state(),actor,people:members},api:async()=>({}),reload:async()=>{},view:'Search repository',initialRole:'r',onDirty:()=>{}}));
+ await f.run(mapper,{...await f.rec(id),action:'mapping-submit'});
+ let html=await render(mapper);
+ assert.match(html,/<button class="primary" aria-label="Team review for Synthetic Person"/);
+ assert.ok(html.includes('View details'));
+ await f.run(mapper,{...await f.rec(id),action:'mapping-review',decision:'Approve'});
+ html=await render(partner);
+ assert.match(html,/<button class="primary" aria-label="Partner review for Synthetic Person"/);
+ html=await render(peer);
+ assert.match(html,/<button class="" disabled="" aria-label="Partner review for Synthetic Person"/);
+ await assert.rejects(f.run(peer,{...await f.rec(id),action:'mapping-review',decision:'Approve'}),/assigned to another/);
+ f.db.prepare('UPDATE searches SET partner_id=? WHERE id=?').run('mapper','r');
+ const selfPartner={...mapper,roles:['researcher','partner']};
+ html=await render(selfPartner);
+ assert.match(html,/<button class="" disabled="" aria-label="Partner review for Synthetic Person"/);
+ assert.ok(html.includes('You mapped this candidate. A different search partner must review.'));
+ assert.ok(html.includes('Different partner needed'));
+ const before=await f.rec(id),eventCount=(await f.state()).research.events.length;
+ await assert.rejects(f.run(selfPartner,{...before,action:'mapping-review',decision:'Approve'}),/Self-review/);
+ assert.equal((await f.rec(id)).version,before.version);
+ assert.equal((await f.state()).research.events.length,eventCount);
+ f.db.prepare('UPDATE searches SET partner_id=? WHERE id=?').run('partner','r');
+ await f.run(partner,{...await f.rec(id),action:'mapping-review',decision:'Approve'});
+ assert.equal((await f.rec(id)).status,'Approved');
+ html=await render(partner);assert.ok(!html.includes('aria-label="Partner review for Synthetic Person"'));
+ f.db.close();
+});
