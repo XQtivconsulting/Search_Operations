@@ -211,3 +211,6 @@
 .app .mapping-detail-review{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:10px 12px;margin:12px 0;background:#f3f6fa;border:1px solid #dfe6ee;border-radius:7px}
 .app .mapping-detail-review .mapping-review-control{max-width:420px}
 .app .mapping-selection-note,.app .review-stage-note{font-size:12px;line-height:1.5;color:#4d6074;margin:8px 0}
+/* Keep the candidate action reachable when fit-criteria columns widen the sheet. */
+.app .mappings-panel .research-table :is(th,td):last-child{position:sticky;right:0;background:#fff;border-left:1px solid #dce2eb;box-shadow:-3px 0 5px -4px #64748b;z-index:1}
+.app .mappings-panel .research-table th:last-child{background:#edf2f5;z-index:3}
