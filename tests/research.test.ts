@@ -321,3 +321,14 @@ test('pipeline action labels persist and terminal thresholds are disabled on sav
  assert.equal(config.stages.find((s:any)=>s.id==='placed').threshold,0);assert.equal(config.stages.find((s:any)=>s.id==='withdrawn').threshold,0);
  await assert.rejects(f.run(admin,{...config,action:'engagement-pipeline-save',stages:[{id:'ready',label:'Ready for outreach',group:'Top Funnel',threshold:0},...stages]}),/replaced by Assigned/);f.db.close();
 });
+
+test('candidate note section is saved with author and cannot fabricate stage updates',async()=>{
+ const f=await engagementFixture(),cid=(await f.rec(f.mid)).candidate_id;
+ const body={action:'candidate-note',candidate_id:cid,type:'Transcript',note_group:'Interview notes',notes:'Synthetic screening discussion.',occurred_on:'2026-10-03'};
+ const saved=await f.run(engActor,body),note=await f.rec(saved.id);
+ assert.equal(note.note_group,'Interview notes');assert.equal(note.actor_id,engActor.id);assert.equal(note.notes,body.notes);
+ await assert.rejects(f.run(engActor,{...body,note_group:'Stage updates'}),/Stage updates are recorded by the pipeline/);
+ const legacy=await f.run(engActor,{...body,type:'Note',note_group:undefined});assert.equal((await f.rec(legacy.id)).note_group,'General notes');
+ const interview=await f.run(engActor,{...body,type:'Interview',note_group:'General notes'});assert.equal((await f.rec(interview.id)).note_group,'Interview notes');
+ f.db.close();
+});

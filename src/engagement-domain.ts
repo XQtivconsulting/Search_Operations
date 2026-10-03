@@ -56,7 +56,9 @@ export function engagementMutation(db:DB,a:Actor,b:R,members:Member[]){
   if(role)requireThat(byKey(db,'mapping',role+':'+c.id),'Candidate is not mapped to this search.');
   if(b.action==='candidate-tags'){requireThat(c.version===Number(b.candidate_version),'Candidate changed. Reload.',409);return save(db,a,'candidate','',c.url,{...c,tags:[...new Set(text(b.tags,2000).split(',').map(t=>t.trim()).filter(Boolean))].slice(0,40)},c,b.action);}
   requireThat(interactionTypes.includes(b.type),'Choose an interaction type.');const notes=text(b.notes,50000);requireThat(notes,'Enter notes or transcript.');const occurred=day(b.occurred_on),url=b.url?safeLink(b.url):'';requireThat(b.type!=='Assessment link'||url,'Add the assessment link.');
-  return save(db,a,'candidate-activity',role,crypto.randomUUID(),{candidate_id:c.id,type:b.type,notes,...(b.type==='Transcript'?{transcript_summary:summarizeTranscript(notes),summary_method:'source-excerpts-v1'}:{}),occurred_on:occurred,url,actor_id:a.id,created_at:new Date().toISOString()},null,b.action);
+  requireThat(b.note_group===undefined||['Interview notes','General notes'].includes(b.note_group),'Choose Interview notes or General notes. Stage updates are recorded by the pipeline.');
+  const note_group=['Interview','Screening call'].includes(b.type)?'Interview notes':b.note_group||'General notes';
+  return save(db,a,'candidate-activity',role,crypto.randomUUID(),{candidate_id:c.id,type:b.type,note_group,notes,...(b.type==='Transcript'?{transcript_summary:summarizeTranscript(notes),summary_method:'source-excerpts-v1'}:{}),occurred_on:occurred,url,actor_id:a.id,created_at:new Date().toISOString()},null,b.action);
  }
  requireThat(['engagement-update','engagement-interview-save'].includes(b.action),'Unknown engagement action.');
  const m=read(db,text(b.mapping_id));requireThat(m?.kind==='mapping','Mapping not found.',404);requireThat(m.status==='Approved','Sourcing approval is required. Engagement is paused while this mapping is reopened.',409);
