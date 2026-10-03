@@ -159,7 +159,6 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
     member(a.id);requireThat(canTeamReview(a,old,search,db.rows('SELECT team_id,staff_id FROM team_members')),'Team review requires a researcher in the same team, the search engagement partner, or a super admin.',403);
     next.reviewer_id=a.id;next.peer_reviewed_by=a.id;next.peer_reviewed_name=member(a.id).name;next.peer_reviewed_at=iso();
    }else{
-    requireThat(a.id!==old.mapper_id&&(!a.staffId||a.staffId!==old.staff_id),'Self-review is not allowed.',403);
     requireThat(search.partner_id===a.id,'This review is assigned to another person.',403);requireThat(canPartnerReview(a),'Partner permission required.',403);
    }
    requireThat(['Approve','Reject','Needs information'].includes(b.decision),'Choose a decision.');

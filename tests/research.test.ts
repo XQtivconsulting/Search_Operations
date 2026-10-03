@@ -333,7 +333,7 @@ test('candidate note section is saved with author and cannot fabricate stage upd
  f.db.close();
 });
 
-test('individual review actions explain self-review and match server decisions at both stages',async()=>{
+for(const bulk of [false,true])test('assigned partner can map and complete both review stages with separate audit events: '+(bulk?'bulk':'individual'),async()=>{
  const f=fixture(),t=await setup(f),id=await mapping(f,t);
  const React=await import('react'),{renderToStaticMarkup}=await import('react-dom/server'),{ResearchPanel}=await import('../src/ResearchPanel');
  const render=async(actor:any)=>renderToStaticMarkup(React.createElement(ResearchPanel,{data:{...await f.state(),actor,people:members},api:async()=>({}),reload:async()=>{},view:'Search repository',initialRole:'r',onDirty:()=>{}}));
@@ -350,17 +350,20 @@ test('individual review actions explain self-review and match server decisions a
  f.db.prepare('UPDATE searches SET partner_id=? WHERE id=?').run('mapper','r');
  const selfPartner={...mapper,roles:['researcher','partner']};
  html=await render(selfPartner);
- assert.match(html,/<button class="" disabled="" aria-label="Partner review for Synthetic Person"/);
- assert.ok(html.includes('Self-review blocked.'));
- assert.ok(html.includes('You mapped this candidate. Partner review requires a different assigned search partner.'));
- assert.ok(html.includes('Different partner needed'));
- const before=await f.rec(id),eventCount=(await f.state()).research.events.length;
- await assert.rejects(f.run(selfPartner,{...before,action:'mapping-review',decision:'Approve'}),/Self-review/);
- assert.equal((await f.rec(id)).version,before.version);
- assert.equal((await f.state()).research.events.length,eventCount);
- f.db.prepare('UPDATE searches SET partner_id=? WHERE id=?').run('partner','r');
- await f.run(partner,{...await f.rec(id),action:'mapping-review',decision:'Approve'});
+ assert.match(html,/<button class="primary" aria-label="Partner review for Synthetic Person"/);
+ assert.ok(!html.includes('Self-review blocked.'));
+ assert.ok(!html.includes('Different partner needed'));
+ const before=await f.rec(id),eventCount=(await f.state()).research.events.filter((e:any)=>e.record_id===id).length;
+ await assert.rejects(f.run(mapper,{...before,action:'mapping-review',decision:'Approve'}),/Partner permission/);
+ await f.run(selfPartner,bulk?{action:'mapping-batch',operation:'mapping-review',items:[{id,version:before.version}],decision:'Approve'}:{...before,action:'mapping-review',decision:'Approve'});
  assert.equal((await f.rec(id)).status,'Approved');
- html=await render(partner);assert.ok(!html.includes('aria-label="Partner review for Synthetic Person"'));
+ assert.equal((await f.rec(id)).version,before.version+1);
+ assert.equal((await f.state()).research.events.filter((e:any)=>e.record_id===id).length,eventCount+1);
+ const journey=(await f.state()).research.records.find((r:any)=>r.kind==='engagement'&&r.mapping_id===id);assert.equal(journey?.stage_id,'assigned');
+ const reviews=(await f.state()).research.events.filter((e:any)=>e.record_id===id&&e.action==='mapping-review');
+ assert.equal(reviews.length,2);assert.ok(reviews.every((e:any)=>e.actor==='mapper'));
+ assert.deepEqual(new Set(reviews.map((e:any)=>e.data.before.status)),new Set(['Peer review','Partner review']));
+ await assert.rejects(f.run(selfPartner,{...before,action:'mapping-review',decision:'Approve'}),/changed/);
+ html=await render(selfPartner);assert.ok(!html.includes('aria-label="Partner review for Synthetic Person"'));
  f.db.close();
 });
