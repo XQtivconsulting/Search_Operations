@@ -351,7 +351,8 @@ test('individual review actions explain self-review and match server decisions a
  const selfPartner={...mapper,roles:['researcher','partner']};
  html=await render(selfPartner);
  assert.match(html,/<button class="" disabled="" aria-label="Partner review for Synthetic Person"/);
- assert.ok(html.includes('You mapped this candidate. A different search partner must review.'));
+ assert.ok(html.includes('Self-review blocked.'));
+ assert.ok(html.includes('You mapped this candidate. Partner review requires a different assigned search partner.'));
  assert.ok(html.includes('Different partner needed'));
  const before=await f.rec(id),eventCount=(await f.state()).research.events.length;
  await assert.rejects(f.run(selfPartner,{...before,action:'mapping-review',decision:'Approve'}),/Self-review/);
