@@ -37,3 +37,15 @@ test('directory searches notes and past company snapshots with combined tags and
  assert.equal(directoryRows(cs,'',{'tag:geography':'["Canada"]'},'name',false,counts,index,records).length,0);
  const many=Array.from({length:201},(_,i)=>({id:String(i),first_name:String(i).padStart(3,'0')}));assert.equal(directoryPage(directoryRows(many,'',{},'first_name',true,new Map()),0,100).rows[0].id,'200');
 });
+
+test('tag columns sort all candidates before paging and combine per-category selections',()=>{
+ const cs=Array.from({length:125},(_,i)=>({id:String(i),first_name:'Person '+i,tag_values:{industry:[i<100?'Technology':'Life Sciences'],geography:['US West'],expertise:['Zeta','AI']}}));
+ cs.push({id:'blank',first_name:'No tags',tag_values:{} as any});
+ const rows=directoryRows(cs,'',{},'tag:industry',false,new Map());
+ assert.equal(directoryPage(rows,0,25).rows.every(c=>c.tag_values.industry[0]==='Life Sciences'),true);
+ assert.equal(rows.at(-1)?.id,'blank');
+ assert.equal(directoryRows(cs,'',{},'tag:industry',true,new Map()).at(-1)?.id,'blank');
+ assert.equal(directoryRows(cs,'',{'tag:industry':'["Life Sciences"]','tag:geography':'["US West"]'},'last_name',false,new Map()).length,25);
+ assert.deepEqual(directoryRows(cs,'',{'tag:industry':'[""]'},'first_name',false,new Map()).map(c=>c.id),['blank']);
+ assert.equal(directoryRows(cs,'',{'tag:industry':'[]'},'first_name',false,new Map()).length,0);
+});

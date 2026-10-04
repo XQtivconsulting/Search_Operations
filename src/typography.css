@@ -256,3 +256,44 @@
 .app .main>header:has(h1:only-child){margin-bottom:12px}
 @media(max-width:1100px){.app .candidate-vignettes .profile-layout{grid-template-columns:minmax(0,1fr)}.app .candidate-vignettes .profile-sidebar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.app .candidate-vignettes .profile-tags-card{grid-row:span 2}}
 @media(max-width:650px){.app .candidate-vignettes .profile-sidebar{grid-template-columns:minmax(0,1fr)}.app .profile-search-table{min-width:560px}.app .candidate-360>.research-tabs{gap:12px}.app .note-context{display:block;margin:4px 0 0}}
+
+/* Candidate spreadsheet: independent tag columns, no combined icon/count fields. */
+.app .spreadsheet-directory .candidate-directory-table{min-width:1120px;table-layout:fixed}
+.app .spreadsheet-directory .candidate-directory-table th,.app .spreadsheet-directory .candidate-directory-table td{padding:6px 7px;font-size:11px}
+.app .spreadsheet-directory .candidate-directory-table th{width:auto}
+.app .spreadsheet-directory .candidate-directory-table .candidate-select-column{width:38px}
+.app .spreadsheet-directory th[data-column=first_name]{width:92px}
+.app .spreadsheet-directory th[data-column=last_name]{width:100px}
+.app .spreadsheet-directory th[data-column=company]{width:125px}
+.app .spreadsheet-directory th[data-column=url]{width:62px}
+.app .spreadsheet-directory th[data-column="tag:industry"]{width:115px}
+.app .spreadsheet-directory th[data-column="tag:geography"]{width:100px}
+.app .spreadsheet-directory th[data-column="tag:seniority"]{width:90px}
+.app .spreadsheet-directory th[data-column="tag:compensation"]{width:130px}
+.app .spreadsheet-directory th[data-column="tag:function"]{width:115px}
+.app .spreadsheet-directory th[data-column="tag:expertise"]{width:150px}
+.app .spreadsheet-directory .column-sort{font-size:11px;line-height:1.35;white-space:normal;min-height:30px;align-items:center;gap:4px}
+.app .spreadsheet-directory .column-filters input{height:29px;font-size:11px;padding:4px}
+.app .candidate-top-filters{align-items:end;gap:12px;margin:6px 0 10px}
+.app .candidate-top-filters .search-multi-filter{flex:0 1 360px;max-width:360px;min-width:220px}
+.app .candidate-top-filters>label{flex:0 0 145px;margin:0;font-size:11px}
+.app .candidate-top-filters select{height:30px;margin:4px 0 0;font-size:11px;padding:4px 8px}
+.app .candidate-top-filters .filter-label{font-size:11px}
+.app .floating-filter{min-width:0}
+.app .filter-trigger{width:100%;height:29px;min-height:29px;display:flex;justify-content:space-between;align-items:center;gap:4px;border:1px solid #c9d0dc;border-radius:4px;padding:4px 7px;background:#fff;box-shadow:none;font-size:11px;font-weight:400;text-align:left;color:#344b64;white-space:nowrap;overflow:hidden}
+.app .filter-trigger[aria-expanded=true]{border-color:#47759b;background:#edf3f9}
+.filter-popover{position:fixed;z-index:10000;box-sizing:border-box;display:flex;flex-direction:column;gap:8px;padding:10px;background:#fff;color:#253d56;border:1px solid #cbd7e3;border-radius:7px;box-shadow:0 8px 28px #001b5026;overflow:hidden;text-align:left;font-family:Poppins,sans-serif;font-size:12px;line-height:1.4;white-space:normal}
+.filter-popover>input{box-sizing:border-box;flex:none;width:100%;min-width:0;max-width:none;height:32px;margin:0;padding:6px 8px;border:1px solid #cad5e0;border-radius:4px;background:white;font:inherit;color:inherit}
+.filter-popover .row-actions{display:flex;flex:none;flex-wrap:wrap;gap:5px;margin:0}
+.filter-popover button{width:auto;min-height:27px;padding:3px 8px;border:1px solid #d4deea;border-radius:4px;background:#f1f5fa;box-shadow:none;color:#294c71;font:inherit;font-size:11px}
+.filter-popover .filter-options{min-height:0;max-height:300px;overflow:auto;overscroll-behavior:contain}
+.filter-popover label.checkbox{display:flex;flex-direction:row;align-items:start;gap:8px;margin:0;padding:6px 3px;width:auto;max-width:none;font-size:12px;font-weight:400;line-height:1.4;text-align:left;white-space:normal;overflow-wrap:anywhere}
+.filter-popover label.checkbox input{display:block;flex:0 0 14px;width:14px;height:14px;min-height:0;margin:2px 0 0;padding:0;accent-color:#315d87}
+.filter-popover .search-client{background:#edf3f8;margin-top:4px!important}
+.filter-popover .search-client strong{font-weight:600;font-size:12px}
+.filter-popover label.search-choice{padding-left:19px}
+.filter-popover .search-choice small{color:#6b7e91;font-size:10px}
+.filter-popover p{font-size:12px;margin:8px 0}
+.app .candidate-top-filters>label.candidate-search{flex:1 1 260px;max-width:none;min-width:200px}
+.app .candidate-top-filters .candidate-search input{width:100%;max-width:none;height:30px;font-size:11px;margin:4px 0 0}
+.app .candidate-top-filters .search-multi-filter{flex:1 1 260px;min-width:200px;max-width:340px}
