@@ -11,3 +11,5 @@ coverage/
 
 
 .wrangler-backups.json
+
+public/geography/

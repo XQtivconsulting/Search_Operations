@@ -19,6 +19,6 @@ export function GeographyEditor({selected,options,api,onChange}:{selected:string
   <div className="tag-value-options geography-suggestions">{suggestions.map(({label,choice})=><button key={label} type="button" onClick={()=>{onChange([...selected,label],choice);setQuery('');}}>{geographyFullName(label)}</button>)}</div>
   <small className="fine" role="status">{loading?'Finding locations…':''}</small>
   {error?<small className="error" role="alert">{error}</small>:!loading&&query.trim().length>=2&&!suggestions.length?<small className="fine">No matching location. Add a state or country to narrow your search.</small>:null}
-  <small className="fine">Choose a suggestion to keep its city, state and country. <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a> · Photon</small>
+  <small className="fine">Choose a suggestion to keep its city, state and country. <a href="/geography/README.txt" target="_blank" rel="noreferrer">CountryStateCity</a> · ODbL</small>
  </fieldset>;
 }

@@ -31,6 +31,7 @@ const json = (
   });
 const cookie = (token: string, max = 604800) =>
   `search_session=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${max}`;
+const geographyCatalogCache=new Map<string,any>();
 export default {
   async fetch(req: Request, env: Env) {
     const url = new URL(req.url);
@@ -226,7 +227,15 @@ export default {
           else if (url.pathname === '/api/geography-lookup'&&req.method==='POST') {
             requireThat(canPlan(a)||['data_quality','researcher','partner','engagement'].some(role=>hasRole(a,role as any)),'Candidate editing permission required.',403);
             await identity.limit('geography-lookup:'+a.tenant+':'+a.id,90);
-            const labels=await lookupGeography(body.query);
+            const labels=await lookupGeography(body.query,async key=>{
+              requireThat(/^(index|[a-f0-9]+-[a-f0-9]+)$/.test(key),'Invalid location catalog key.');
+              const cached=geographyCatalogCache.get(key);if(cached)return cached;
+              const response=await env.ASSETS.fetch(new Request(new URL('/geography/'+key+'.json',url.origin)));
+              requireThat(response.ok&&response.headers.get('Content-Type')?.includes('application/json'),'Location catalog unavailable.',503);
+              const data=await response.json();
+              if(geographyCatalogCache.size>=9)geographyCatalogCache.delete([...geographyCatalogCache.keys()].find(k=>k!=='index')!);
+              geographyCatalogCache.set(key,data);return data;
+            });
             res=json(await Promise.all(labels.map(label=>signGeography(label,rawCookie,a.tenant))));
           }
           else if (url.pathname === '/api/company-lookup'&&req.method==='POST') {
