@@ -297,3 +297,9 @@
 .app .candidate-top-filters>label.candidate-search{flex:1 1 260px;max-width:none;min-width:200px}
 .app .candidate-top-filters .candidate-search input{width:100%;max-width:none;height:30px;font-size:11px;margin:4px 0 0}
 .app .candidate-top-filters .search-multi-filter{flex:1 1 260px;min-width:200px;max-width:340px}
+.app .main:has(.spreadsheet-directory){min-width:0}
+.app .spreadsheet-directory>.table-scroll{max-width:100%;max-height:calc(100dvh - 300px);min-height:200px;overflow:auto;overscroll-behavior:contain}
+.app .spreadsheet-directory .candidate-directory-table thead{position:sticky;top:0;z-index:2}
+.app .spreadsheet-directory .candidate-directory-table thead th{position:static;font-size:11px}
+.app .spreadsheet-directory .candidate-directory-table thead .column-sort{font-size:11px}
+@media(max-width:700px){.app .spreadsheet-directory>.table-scroll{max-height:65dvh}}
