@@ -32,6 +32,8 @@ test('threshold boundary, later days, disabled thresholds and unknown history ar
  assert.equal(row('2026-10-02T12:00:00Z').due,true);
  assert.equal(row('2026-10-02T12:00:00Z').overdue,false);
  assert.equal(row('2026-10-03T12:00:00Z').overdue,true);
+ assert.equal(row('2026-10-03T12:00:00Z').due,false);
+ assert.equal(row('2026-10-03T11:59:59Z').due,true);
  assert.equal(row('2026-10-01T13:00:00Z').newToday,true);
  assert.equal(row('2026-10-02T12:00:00Z').newToday,false);
  assert.equal(row('2026-10-02T12:00:00Z').due_at,'2026-10-02T12:00:00.000Z');
@@ -42,7 +44,7 @@ test('threshold boundary, later days, disabled thresholds and unknown history ar
 });
 test('response switches the activity, client aging persists, and terminal outcomes never schedule',()=>{
  const now=Date.parse('2026-12-01'),engaged=dailyEngagementRows(records('engaged-phone',2),searches,now)[0];
- assert.equal(engaged.label,'Arrange initial screening call');assert.equal(engaged.target,'');assert.equal(engaged.due,true);
+ assert.equal(engaged.label,'Arrange initial screening call');assert.equal(engaged.target,'');assert.equal(engaged.due,false);assert.equal(engaged.overdue,true);
  const client=dailyEngagementRows(records('interviews',5),searches,now)[0];assert.equal(client.overdue,true);assert.equal(client.target,'');
  for(const id of ['placed','unresponsive']){const row=dailyEngagementRows(records(id,2),searches,now)[0];assert.equal(row.active,false);assert.equal(row.due,false);assert.equal(row.threshold,0);assert.equal(row.due_at,null);}
  assert.equal(dailyEngagementRows(records(),[{id:'r',status:'Cancelled'}],now).length,0);

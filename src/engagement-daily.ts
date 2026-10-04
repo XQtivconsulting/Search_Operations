@@ -18,8 +18,8 @@ export function nextActivity(stage:PipelineStage,stages:PipelineStage[]){
 export function dailyEngagementRows(records:R[],searches:R[],now=Date.now()):R[]{
  const stages=pipelineStages(records);
  return engagementRows(records,searches).filter(r=>r.approved).map((r):R=>{
-  const stage=resolvedStage(r,stages),days=stageDays(r,now),active=isActiveStage(stage)&&!r.search_closed,due=active&&stage.threshold>0&&days!==null&&days>=stage.threshold;
+  const stage=resolvedStage(r,stages),days=stageDays(r,now),active=isActiveStage(stage)&&!r.search_closed,due=active&&stage.threshold>0&&days!==null&&days===stage.threshold;
   const start=Date.parse(r.stage_at||r.handoff_at||'');
-  return {...r,group:stage.group,days,threshold:stage.threshold,active,due,overdue:due&&days!==null&&days>stage.threshold,due_at:active&&stage.threshold>0&&Number.isFinite(start)?new Date(start+stage.threshold*86400000).toISOString():null,newToday:Number.isFinite(Date.parse(r.handoff_at||''))&&easternDay(r.handoff_at)===easternDay(now),members:engagementAssignees(records,r.role_id),...nextActivity(stage,stages)};
+  return {...r,group:stage.group,days,threshold:stage.threshold,active,due,overdue:active&&stage.threshold>0&&days!==null&&days>stage.threshold,due_at:active&&stage.threshold>0&&Number.isFinite(start)?new Date(start+stage.threshold*86400000).toISOString():null,newToday:Number.isFinite(Date.parse(r.handoff_at||''))&&easternDay(r.handoff_at)===easternDay(now),members:engagementAssignees(records,r.role_id),...nextActivity(stage,stages)};
  }).filter(r=>!r.search_closed||r.group==='Placed').sort((a,b)=>Number(b.overdue)-Number(a.overdue)||Number(b.due)-Number(a.due)||Number(b.newToday)-Number(a.newToday)||(b.days??-1)-(a.days??-1));
 }
