@@ -455,3 +455,12 @@ test('company taxonomy saves preserve metadata and linked creation rolls back in
  await assert.rejects(f.run(admin,{action:'company-master-and-target',name:'Rollback Company',role_id:'missing'}));assert.equal((await f.state()).research.records.length,before);
  const linked=await f.run(admin,{action:'company-master-and-target',name:'Linked Company',role_id:'r',subsector:'Solar'});assert.equal((await f.rec(linked.target.id)).company_id,linked.company.id);assert.equal((await f.rec(linked.company.id)).subsector,'Solar');f.db.close();
 });
+
+test('target coverage revisions preserve actuals, enforce permission, zero, reason and versions',async()=>{
+ const f=fixture();const t=await f.run(admin,{action:'company-save',role_id:'r',name:'Coverage Company',expected:3});
+ await assert.rejects(f.run(mapper,{...await f.rec(t.id),action:'target-coverage',expected:0,notes:'No suitable talent'}),/permission/);
+ await assert.rejects(f.run(partner,{...await f.rec(t.id),action:'target-coverage',expected:0}),/Explain/);
+ const old=await f.rec(t.id);await f.run(partner,{...old,action:'target-coverage',expected:0,notes:'No suitable talent'});assert.equal((await f.rec(t.id)).expected,0);assert.equal((await f.rec(t.id)).coverage_updated_by,'partner');
+ await assert.rejects(f.run(partner,{...old,action:'target-coverage',expected:5,notes:'Revised'}),/changed/);
+ assert.ok((await f.state()).research.events.some(e=>e.action==='target-coverage'));f.db.close();
+});

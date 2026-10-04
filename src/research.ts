@@ -98,6 +98,11 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
   requireThat(!team||db.rows('SELECT id FROM teams WHERE id=?',team).length,'Choose an existing team.');
   if(owner){const m=researcher(owner);requireThat(team&&db.rows('SELECT staff_id FROM team_members WHERE team_id=? AND staff_id=?',team,m.staff_id||m.staffId).length,'The researcher must belong to this team.');}
   kind='target';key=role+':'+old.company_id;next={...old,team_id:team,owner_id:owner};
+ } else if(b.action==='target-coverage') {
+  manage();requireThat(old?.kind==='target','Choose a search target.');
+  const expected=count(b.expected,'Target coverage',false);requireThat(expected!==null,'Enter target coverage.');
+  requireThat(old.expected==null||Number(old.expected)===expected||text(b.notes),'Explain the target coverage revision.');
+  kind='target';key=role+':'+old.company_id;next={...old,expected,coverage_note:text(b.notes,5000),coverage_updated_by:a.id,coverage_updated_at:iso()};
  } else if(b.action==='target-wave') {
   manage();requireThat(old?.kind==='target','Choose a role target.');kind='target';key=role+':'+old.company_id;const wave=count(b.wave,'Research wave',false);requireThat(wave&&wave<=99,'Use a wave from 1 to 99.');next={...old,wave};
  } else if(['company-save','company-claim','company-progress'].includes(b.action)) {
@@ -115,7 +120,7 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
    if(owner){const rm=researcher(owner);requireThat(team&&db.rows('SELECT staff_id FROM team_members WHERE team_id=? AND staff_id=?',team,rm.staff_id||rm.staffId).length,'The researcher must belong to this team.');}
    requireThat(!b.wave||(Number.isInteger(Number(b.wave))&&Number(b.wave)>=1&&Number(b.wave)<=99),'Use a wave from 1 to 99.');
    requireThat(['','High','Normal','Low'].includes(text(b.priority)),'Choose a valid priority.');
-   next={...old,name,company_id:companyId,team_id:team,owner_id:owner,reviewer_id:'',scope:text(b.scope,5000),target_titles:text(b.target_titles,1000),category:text(b.category,200),priority:text(b.priority),wave:count(b.wave,'Research wave'),expected:count(b.expected,'Expected talent'),due:b.due?day(b.due):'',status:old?.status||'Not started',source:old?.source||(manager?'Planned':'Researcher added'),strategy_revision:old?.strategy_revision||s?.revision||null,created_by:old?.created_by||a.id};
+   next={...old,name,company_id:companyId,team_id:team,owner_id:owner,reviewer_id:'',scope:text(b.scope,5000),target_titles:text(b.target_titles,1000),category:text(b.category,200),priority:text(b.priority),wave:count(b.wave,'Research wave'),expected:old?old.expected:count(b.expected,'Target coverage'),due:b.due?day(b.due):'',status:old?.status||'Not started',source:old?.source||(manager?'Planned':'Researcher added'),strategy_revision:old?.strategy_revision||s?.revision||null,created_by:old?.created_by||a.id};
   } else {
    requireThat(old,'Company not found.');key=role+':'+old.company_id;
    if(b.action==='company-claim'){requireThat(!old.owner_id,'This company is already assigned.',409);requireThat(!['Completed','No relevant talent'].includes(old.status),'Reopen completed research before assigning it.',409);const m=researcher(a.id),sid=m.staff_id||m.staffId;
