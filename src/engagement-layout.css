@@ -28,3 +28,7 @@
 .app .engagement-card .engagement-edit-icon{width:28px;height:28px;padding:5px;display:inline-flex;align-items:center;justify-content:center;color:#526781;background:transparent;border:1px solid transparent;box-shadow:none}
 .app .engagement-card .engagement-edit-icon:hover{background:#e7effa;border-color:#c9d6e6;color:#163d70}
 .app .engagement-card .engagement-edit-icon:focus-visible{outline:2px solid #356bb0;outline-offset:1px}
+
+.app .app-navigation{display:flex;gap:6px;align-items:center;margin:0 0 8px;flex-shrink:0}
+.app .app-navigation button{font-size:11px;padding:3px 7px;background:transparent;border:1px solid #dce3ec;box-shadow:none;color:#385476}
+.app .app-navigation button:disabled{opacity:.4;cursor:default}

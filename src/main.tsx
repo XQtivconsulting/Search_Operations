@@ -1,5 +1,6 @@
 const navigationLabel=(name:string)=>({'Daily Work':'Work Queue','Pipeline':'Candidate Pipeline','Organization':'Admin'} as Record<string,string>)[name]||name;
 import './engagement-layout.css';
+import {useNavigationHistory} from './useNavigationHistory';
 import {Backups} from './Backups';
 import {EngagementDaily} from './EngagementDaily';
 import {InterviewTracker} from './InterviewTracker';
@@ -87,7 +88,7 @@ function App() {
     [modal, setModal] = useState<Row | null>(null),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState("");
-  const [deliveryStart,setDeliveryStart]=useState<{view:'daily'|'pipeline';roles:string[]|null}>({view:'daily',roles:null});
+  const [deliveryStart,setDeliveryStart]=useState<any>({view:'daily',roles:null});
   const [allocationStart,setAllocationStart]=useState<{date:string;view:'decisions'|'allocation'}>({date:'',view:'decisions'});
   const [memberships,setMemberships]=useState<Row[]>([]);
   const [teamType,setTeamType]=useState('Sourcing teams');
@@ -97,6 +98,10 @@ function App() {
   const [interviewRole,setInterviewRole]=useState('');
   const [repoTab,setRepoTab]=useState("Candidate mappings");
   const [sheetDirty, setSheetDirty] = useState(false);
+  const [mappingStart,setMappingStart]=useState('');
+  const navigation=useNavigationHistory(data?workspace+':'+data.actor.id:'',
+    {page,candidateId,selected,repoTab,deliveryStart,allocationStart,engagementStart,interviewRole,mappingStart},
+    v=>{setSheetDirty(false);setPage(v.page);setCandidateId(v.candidateId);setSelected(v.selected);setRepoTab(v.repoTab);setDeliveryStart(v.deliveryStart);setAllocationStart(v.allocationStart);setEngagementStart(v.engagementStart);setInterviewRole(v.interviewRole);setMappingStart(v.mappingStart);},sheetDirty);
   useEffect(()=>{const warn=(e:BeforeUnloadEvent)=>{if(sheetDirty){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[sheetDirty]);
   const invite = location.pathname.startsWith('/join/') ? location.pathname.split('/')[2] : new URLSearchParams(location.hash.slice(1)).get("invite");
   const [invitation,setInvitation] = useState<Row|null>(null);
@@ -356,7 +361,7 @@ function App() {
                 if(label==='Interview tracker')setInterviewRole('');
                 if(label==='Delivery Monitor')setDeliveryStart({view:'daily',roles:null});
                 if(label==='Weekly plan')setAllocationStart({date:'',view:'decisions'});
-                setPage(label);
+                setMappingStart('');setPage(label);
                 setNotice("");
               }}
             >
@@ -389,6 +394,7 @@ function App() {
         </div>
       </aside>
       <main className={"main"+(["Search repository","Companies","Candidates","Delivery Monitor","Performance","Engagement","Pipeline","Daily Work","Search assignments","Interview tracker","Engagement Config","Backups & exports"].includes(page)?" compact-workspace":"")}>
+        <div className="app-navigation" aria-label="Page navigation"><button disabled={!navigation.back} onClick={()=>navigation.go('back')} title={navigation.back?'Back to '+navigationLabel(navigation.back.page):'No previous page'}>← {navigation.back?'Back to '+navigationLabel(navigation.back.page):'Back'}</button><button disabled={!navigation.forward} onClick={()=>navigation.go('forward')} title={navigation.forward?'Forward to '+navigationLabel(navigation.forward.page):'No next page'}>Forward →</button></div>
         {!(page === "Candidates" && candidateId) && <header>
           <div>
             <h1>{page === "Search repository" && sBy[selected] ? sBy[selected].title : navigationLabel(page)}</h1>
@@ -540,13 +546,13 @@ function App() {
         {page==='Engagement Config'&&isAdmin&&<EngagementAdmin data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page==='My Work'&&hasRole(data.actor,'engagement')&&<Engagement mine data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page==='My Work'&&(!hasRole(data.actor,'engagement')||hasRole(data.actor,'researcher')||hasRole(data.actor,'partner')||hasRole(data.actor,'super_admin'))&&<MyWork data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage("Search repository");}}/>}
-        {page==='Search repository'&&<ResearchPanel onEditPartner={s=>open({kind:"search-owner",...s})} onRoleChange={setSelected} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} key={page} data={data} api={api} reload={load} view={page} initialRole={page==='Search repository'?selected:''} initialTab={repoTab} onDirty={setSheetDirty} onCompanies={id=>{setSelected(id);setPage("Companies");}}/>}
+        {page==='Search repository'&&<ResearchPanel onReturn={mappingStart&&navigation.back?()=>navigation.go('back'):undefined} returnLabel={navigation.back?'Back to '+navigationLabel(navigation.back.page):undefined} initialMapping={mappingStart} onEditPartner={s=>open({kind:"search-owner",...s})} onRoleChange={setSelected} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} key={page} data={data} api={api} reload={load} view={page} initialRole={page==='Search repository'?selected:''} initialTab={repoTab} onDirty={setSheetDirty} onCompanies={id=>{setSelected(id);setPage("Companies");}}/>}
         {page === 'Companies'&&<CompanyUniverse data={data} api={api} reload={load} onDirty={setSheetDirty} initialRole={selected} onOpen={id=>{setSelected(id);setRepoTab("Target companies");setPage("Search repository");}}/>}
 
         {page==='Candidates'&&candidateId&&<CandidateProfile key={candidateId} id={candidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} onBack={()=>setCandidateId('')} onRole={id=>{setSelected(id);setRepoTab('Candidate mappings');setPage('Search repository');}}/>}
         {page==='Candidates'&&!candidateId&&<Candidates onCandidate={setCandidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} onOpen={id=>{setSelected(id);setRepoTab("Candidate mappings");setPage("Search repository");}}/>}
         {page==='Teams'&&<><div className="research-tabs">{['Sourcing teams','Engagement teams'].map(type=><button key={type} className={teamType===type?'primary':''} onClick={()=>{if(!sheetDirty||confirm('Discard unsaved team edits?'))setTeamType(type);}}>{type}</button>)}</div>{teamType==='Engagement teams'?<Engagement section="Teams" data={data} api={api} reload={load} onDirty={setSheetDirty}/>:<><TeamsPanel data={data} api={api} reload={load} onAdd={()=>open({kind:'team'})}/>{planner?<PeerSetup data={data} api={api} reload={load}/>:<p>Team planners designate the team review lead.</p>}</>}</>}
-        {page === "Delivery Monitor" && <DeliveryMonitor data={data} initialView={deliveryStart.view} initialRoles={deliveryStart.roles} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage('Search repository');}} onCandidate={id=>{setCandidateId(id);setPage('Candidates');}} onAllocate={(id,date)=>{setSelected(id);setAllocationStart({date,view:'allocation'});setPage('Weekly plan');}}/>}
+        {page === "Delivery Monitor" && <DeliveryMonitor data={data} initialState={deliveryStart} onStateChange={setDeliveryStart} initialView={deliveryStart.view} initialRoles={deliveryStart.roles} onOpen={(id,tab,mapping='')=>{setMappingStart(mapping);setSelected(id);setRepoTab(tab);setPage('Search repository');}} onCandidate={id=>{setCandidateId(id);setPage('Candidates');}} onAllocate={(id,date)=>{setSelected(id);setAllocationStart({date,view:'allocation'});setPage('Weekly plan');}}/>}
         {page === "Performance" && <Performance data={data} api={api} reload={load} onDirty={setSheetDirty} onDecision={id=>{setSelected(id);setAllocationStart({date:'',view:'decisions'});setPage('Weekly plan');}}/>}
         {page==='People & access'&&isAdmin&&<PeoplePanel data={data} api={api} reload={load} onDirty={setSheetDirty}/>}
         <footer>
