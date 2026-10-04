@@ -410,3 +410,20 @@ test('verified locality tags persist through candidate saves and retain version/
  assert.deepEqual((await f.rec(cid)).tag_values.geography,[label]);
  assert.ok((await f.state()).research.events.some((e:any)=>e.action==='candidate-tags'&&e.record_id===cid));f.db.close();
 });
+
+test('directory assignment links candidates without team membership or changing the plan',async()=>{
+ const f=fixture();const c=await f.run(mapper,{action:'candidate-save',first_name:'Directory',last_name:'Person',url:'https://linkedin.com/in/directory-link'});
+ f.db.exec("DELETE FROM team_members WHERE staff_id='s'");
+ const body={action:'candidate-assign',candidate_ids:[c.id],role_id:'r'};
+ const p=await f.run(mapper,{...body,preview:true});const saved=await f.run(mapper,{...body,signature:p.signature});assert.equal(saved.mapped,1);
+ const m=(await f.state()).research.records.find(r=>r.kind==='mapping')!;assert.equal(m.team_id,'');assert.equal(m.mapper_id,'mapper');assert.equal(m.status,'Draft');assert.equal((await f.state()).assignments.length,0);
+ const again=await f.run(mapper,{...body,preview:true});assert.equal((await f.run(mapper,{...body,signature:again.signature})).mapped,0);
+ await assert.rejects(f.run(mapper,{action:'mapping-add',role_id:'r2',team_id:'t',items:[{candidate_id:c.id}]}),/team you belong/);
+ await assert.rejects(f.run(mapper,{action:'mapping-link',role_id:'r2',items:[{...item}]}),/existing candidate/);
+ const strategy=await f.run(admin,{action:'strategy-save',role_id:'r',content:'Search strategy'});await f.run(admin,{...await f.rec(strategy.id),action:'strategy-approve'});
+ await f.run(mapper,{...await f.rec(m.id),action:'mapping-edit',rationale:'Relevant experience'});await f.run(mapper,{...await f.rec(m.id),action:'mapping-submit'});
+ await assert.rejects(f.run(peer,{...await f.rec(m.id),action:'mapping-review',decision:'Approve'}),/Team review requires/);
+ f.db.exec("INSERT INTO assignments(id,search_id,team_id,work_date) VALUES('plan','r','t','2020-01-01')");
+ await f.run(peer,{...await f.rec(m.id),action:'mapping-review',decision:'Approve'});assert.equal((await f.rec(m.id)).status,'Partner review');assert.equal((await f.rec(m.id)).peer_reviewed_by,'peer');
+ f.db.close();
+});

@@ -41,7 +41,7 @@ export function ResearchPanel({data,api,reload,view,onDirty,initialRole='',initi
  const sortValue=(m:R)=>mappingSort.key==='fit_score'?(fit(m).comparable?fit(m).score:null):mappingSort.key.startsWith('criterion:')?(fit(m).comparable&&!m.evidence?.[mappingSort.key.slice(10)]?.not_applicable?m.evidence?.[mappingSort.key.slice(10)]?.rating:null):mappingSort.key==='mapper_id'?name(m.mapper_id):m[mappingSort.key];
  const shownCriteria=activeCriteria.filter((c:R)=>Object.hasOwn(criterionFilter,c.id)||mappingSort.key==='criterion:'+c.id);
 
- const mappings=records.filter(r=>r.kind==='mapping'&&visible(r)&&fitsFilter(r)&&(!mine||(r.mapper_id===actor.id&&['Draft','Needs information','Hold'].includes(r.status))||(r.status==='Peer review'&&canTeamReview(actor,r,search(r.role_id),data.team_members))||(r.status==='Partner review'&&search(r.role_id)?.partner_id===actor.id)));
+ const mappings=records.filter(r=>r.kind==='mapping'&&visible(r)&&fitsFilter(r)&&(!mine||(r.mapper_id===actor.id&&['Draft','Needs information','Hold'].includes(r.status))||(r.status==='Peer review'&&canTeamReview(actor,r,search(r.role_id),data.team_members,data.assignments||[]))||(r.status==='Partner review'&&search(r.role_id)?.partner_id===actor.id)));
  mappings.sort((a,b)=>compareTableValues(sortValue(a),sortValue(b),mappingSort.descending)||(mappingSort.key.startsWith('criterion:')?compareTableValues(fit(a).comparable?fit(a).score:null,fit(b).comparable?fit(b).score:null,true):0)||b.id.localeCompare(a.id));
  useEffect(()=>{setMappingPage(0);},[role,filter,fitFilter,criterionFilter,criterionMode,minimumTotal,mappingSort]);
  const pageCount=Math.max(1,Math.ceil(mappings.length/25)),currentPage=Math.min(mappingPage,pageCount-1);
@@ -54,7 +54,7 @@ export function ResearchPanel({data,api,reload,view,onDirty,initialRole='',initi
  {!r.owner_id&&!['Completed','No relevant talent'].includes(r.status)&&hasRole(actor,'researcher')&&(r.team_id?btn('Assign to me',{action:'company-claim',id:r.id,version:r.version}):<button onClick={()=>{const mine=teams.filter(t=>data.team_members.some((m:R)=>m.team_id===t.id&&m.staff_id===actor.staffId)),planned=mine.filter(t=>data.assignments.some((a:R)=>a.search_id===r.role_id&&a.team_id===t.id));const chosen=planned.length===1?planned[0]:mine.length===1?mine[0]:null;if(chosen)act({action:'company-claim',id:r.id,version:r.version,team_id:chosen.id});else start({...r,action:'company-claim',team_id:''});}}>Assign to me</button>)}
  {(canManage||r.owner_id===actor.id)&&<button onClick={()=>start({...r,action:'company-progress'})}>{['Completed','No relevant talent'].includes(r.status)?'View / reopen coverage':'Update coverage'}</button>}
  {canManage&&<>{!['Completed','No relevant talent'].includes(r.status)&&<button className={r.owner_id?'':'primary'} onClick={()=>start({...r,action:'target-assign'})}>{r.owner_id?'Change assignment':'Assign researcher'}</button>}<button onClick={()=>start({...r,action:'company-save'})}>Company details</button></>}</>;};
- const reviewAction=(r:R)=>mappingReviewAction(actor,r,search(r.role_id),data.team_members||[]);
+ const reviewAction=(r:R)=>mappingReviewAction(actor,r,search(r.role_id),data.team_members||[],data.assignments||[]);
  const openReview=(r:R)=>{if(!reviewAction(r).allowed)return;setDetail(null);start({...r,action:'mapping-review',decision:'Approve',reason:'',notes:''});};
  const selectedMappings=mappings.filter(m=>checked.includes(m.id));
  const reviewableCount=selectedMappings.filter(m=>reviewAction(m).allowed).length;

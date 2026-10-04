@@ -173,14 +173,14 @@ export class Workspace extends DurableObject {
         const rows=assigning?b.candidate_ids.map((id:string)=>{const c=candidates.find(c=>c.id===id);requireThat(c,'Candidate not found.',404);return c;}):b.rows;
         const plan=planCandidates(rows,candidates),role=text(b.role_id);
         if(assigning)requireThat(role,'Choose a role.');
-        if(role){requireThat(hasRole(a,'researcher'),'Enable the Researcher role before recording mappings.',403);requireThat(this.rows('SELECT id FROM searches WHERE id=?',role).length,'Role not found.',404);const me=members.find(m=>m.id===a.id&&m.status==='active'&&hasRole(m,'researcher'));requireThat(me&&this.rows('SELECT staff_id FROM team_members WHERE team_id=? AND staff_id=?',b.team_id,me.staff_id||me.staffId||'').length,'Choose a team you belong to.');}
+        if(role){requireThat(hasRole(a,'researcher'),'Enable the Researcher role before recording mappings.',403);requireThat(this.rows('SELECT id FROM searches WHERE id=?',role).length,'Role not found.',404);}
         const preview=plan.map(c=>({...c,mapping:!role?'Not requested':c.status==='Duplicate in file'?'Skip duplicate':records.some(m=>m.kind==='mapping'&&m.role_id===role&&m.candidate_id===c.existingId)?'Already mapped':'Create draft'}));
-        const signature=JSON.stringify({plan:preview,versions:records.filter(r=>r.kind==='candidate'||r.kind==='mapping').map(r=>[r.id,r.version]).sort(),role,team:b.team_id||''});
+        const signature=JSON.stringify({plan:preview,versions:records.filter(r=>r.kind==='candidate'||r.kind==='mapping').map(r=>[r.id,r.version]).sort(),role});
         if(b.preview)return {plan:preview,signature};
         requireThat(signature===b.signature,'Candidate data changed. Preview again before saving.',409);
         let created=0,reused=0,mapped=0,skipped=0;
         for(const c of preview){if(c.status==='Duplicate in file'){skipped++;continue;}const id=c.existingId||researchMutation(this,a,{first_name:c.first_name,last_name:c.last_name,url:c.url,email:c.email,phone:c.phone,title:c.title,company:c.company,action:'candidate-save'},members).id;if(c.existingId)reused++;else created++;
-          if(c.mapping==='Create draft'){researchMutation(this,a,{action:'mapping-add',role_id:role,team_id:b.team_id,items:[{candidate_id:id,rationale:c.rationale||''}]},members);mapped++;}
+          if(c.mapping==='Create draft'){researchMutation(this,a,{action:'mapping-link',role_id:role,items:[{candidate_id:id,rationale:c.rationale||''}]},members);mapped++;}
         }
         return {created,reused,mapped,skipped};
       }

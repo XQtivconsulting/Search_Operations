@@ -124,15 +124,18 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
     requireThat(selected,'Choose your research team before assigning this company to yourself.');requireThat(myTeams.includes(selected),'Your active researcher account must belong to this company’s assigned team. Check Teams or ask a planner to change the company assignment.');next={...old,team_id:selected,owner_id:a.id,status:'In progress',started_at:iso()};}
    else {requireThat(manager||old.owner_id===a.id,'Only the owner or role manager can update coverage.',403);requireThat(['Not started','In progress','Partially mapped','Completed','No relevant talent','Blocked','Revisit required'].includes(b.status),'Choose a coverage status.');requireThat(!['Completed','No relevant talent','Blocked'].includes(b.status)||text(b.notes),'Explain coverage or the blocker.');next={...old,status:b.status,notes:text(b.notes,5000),started_at:old.started_at||iso(),completed_at:['Completed','No relevant talent'].includes(b.status)?(old.completed_at||iso()):null,completed_by:['Completed','No relevant talent'].includes(b.status)?(old.completed_by||a.id):null,coverage_researcher_id:['Completed','No relevant talent'].includes(b.status)?(old.coverage_researcher_id||old.owner_id||a.id):null,coverage_team_id:['Completed','No relevant talent'].includes(b.status)?(old.coverage_team_id||old.team_id):null};}
   }
- } else if(b.action==='mapping-add') {
+ } else if(['mapping-add','mapping-link'].includes(b.action)) {
   requireThat(hasRole(a,'researcher'),'Enable the Researcher role on your account before recording mappings.',403);const person=researcher(a.id);
   requireThat(search,'Choose a role.');
+  const linking=b.action==='mapping-link';
+  requireThat(!linking||!b.target_id,'Search assignment cannot allocate target-company work.');
   const target=b.target_id?get(db,text(b.target_id)):null;
   if(target){requireThat(target.kind==='target'&&target.role_id===role,'Choose a company in this role.');requireThat(target.owner_id===a.id,'Claim this company or ask the manager to assign it to you.',403);requireThat(!['Completed','No relevant talent','Blocked'].includes(target.status),'Reopen company research before adding mappings.');}
-  const team=target?.team_id||text(b.team_id);
-  requireThat(db.rows('SELECT staff_id FROM team_members WHERE team_id=? AND staff_id=?',team,person.staff_id||person.staffId).length,'Choose a team you belong to.');
+  const team=linking?'':target?.team_id||text(b.team_id);
+  requireThat(linking||db.rows('SELECT staff_id FROM team_members WHERE team_id=? AND staff_id=?',team,person.staff_id||person.staffId).length,'Choose a team you belong to.');
   const items=b.items;requireThat(Array.isArray(items)&&items.length>0&&items.length<=100,'Add between 1 and 100 candidates.');
   const ids=[];for(const item of items){
+   requireThat(!linking||item.candidate_id,'Choose an existing candidate.');
    const selected=item.candidate_id?get(db,text(item.candidate_id)):null;requireThat(!selected||selected.kind==='candidate','Choose an existing candidate.');
    const url=selected?.url||linkedin(item.url),existing=find('candidate',url),candidate=selected||(existing?get(db,existing.id):null);
    const first_name=candidate?.first_name||text(item.first_name,100),last_name=candidate?.last_name||text(item.last_name,100);
@@ -157,7 +160,7 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
   if(b.action==='mapping-review') {
    const stage=old.status==='Peer review'?'peer':old.status==='Partner review'?'partner':'';requireThat(stage,'This mapping is not awaiting review.',409);
    if(stage==='peer'){
-    member(a.id);requireThat(canTeamReview(a,old,search,db.rows('SELECT team_id,staff_id FROM team_members')),'Team review requires a researcher in the same team, the search engagement partner, or a super admin.',403);
+    member(a.id);requireThat(canTeamReview(a,old,search,db.rows('SELECT team_id,staff_id FROM team_members'),db.rows('SELECT search_id,team_id,work_date FROM assignments')),'Team review requires a researcher in the same team, the search engagement partner, or a super admin.',403);
     next.reviewer_id=a.id;next.peer_reviewed_by=a.id;next.peer_reviewed_name=member(a.id).name;next.peer_reviewed_at=iso();
    }else{
     requireThat(search.partner_id===a.id,'This review is assigned to another person.',403);requireThat(canPartnerReview(a),'Partner permission required.',403);
