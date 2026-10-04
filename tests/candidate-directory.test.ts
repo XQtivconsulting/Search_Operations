@@ -49,3 +49,21 @@ test('tag columns sort all candidates before paging and combine per-category sel
  assert.deepEqual(directoryRows(cs,'',{'tag:industry':'[""]'},'first_name',false,new Map()).map(c=>c.id),['blank']);
  assert.equal(directoryRows(cs,'',{'tag:industry':'[]'},'first_name',false,new Map()).length,0);
 });
+
+test('geography uses country names for storage/filtering and compact codes for display and search',async()=>{
+ const {cleanTagValues,candidateSearchIndex}=await import('../src/candidate-tags');
+ const {geographyFullName,geographyCode,geographySearchText}=await import('../src/candidate-geography');
+ const {candidateTagDisplay,candidateTagText}=await import('../src/candidate-directory');
+ const tags=cleanTagValues({geography:['US','USA','UK','GB','FR','DE','GE']},[]);
+ assert.deepEqual(tags.geography,['United States','United Kingdom','France','Germany','Georgia']);
+ assert.equal(geographyCode('Germany'),'DE');assert.equal(geographyCode('Georgia'),'GE');
+ assert.equal(geographyFullName('US Northeast'),'United States — Northeast');assert.equal(geographyCode('US Northeast'),'US');
+ assert.match(geographySearchText('United Kingdom'),/UK/);
+ assert.throws(()=>cleanTagValues({geography:['some random place']},[]),/standardized/);
+ const c={id:'c',kind:'candidate',tag_values:{geography:['Germany'],compensation:[]},compensation_details:'Current total USD 450k; minimum next role USD 500k'};
+ assert.equal(candidateTagDisplay(c,'geography'),'DE');assert.equal(candidateTagText(c,'geography'),'Germany');
+ const index=candidateSearchIndex([c],[]);
+ assert.equal(directoryRows([c],'DE',{},'tag:geography',false,new Map(),index,[c]).length,1);
+ assert.equal(directoryRows([c],'minimum 500k',{'tag:geography':'["Germany"]'},'tag:geography',false,new Map(),index,[c]).length,1);
+ assert.equal(c.tag_values.compensation.length,0);
+});

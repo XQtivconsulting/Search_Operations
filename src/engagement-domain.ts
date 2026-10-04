@@ -53,9 +53,14 @@ export function engagementMutation(db:DB,a:Actor,b:R,members:Member[]){
   if(ids.length)for(const row of db.rows("SELECT id FROM research_records WHERE kind='mapping' AND role_id=? AND json_extract(data,'$.status')='Approved'",role))handoffEngagement(db,a,read(db,row.id));
   return result;
  }
- if(['candidate-note','candidate-tags'].includes(b.action)){
+ if(['candidate-note','candidate-tags','candidate-compensation'].includes(b.action)){
   const c=read(db,text(b.candidate_id));requireThat(c?.kind==='candidate','Candidate not found.',404);requireThat(canPlan(a)||hasRole(a,'data_quality')||hasRole(a,'researcher')||hasRole(a,'partner')||hasRole(a,'engagement'),'Candidate editing permission required.',403);
   if(role)requireThat(byKey(db,'mapping',role+':'+c.id),'Candidate is not mapped to this search.');
+  if(b.action==='candidate-compensation'){
+   requireThat(c.version===Number(b.candidate_version),'Candidate changed. Reload.',409);
+   requireThat(typeof b.compensation_details==='string'&&b.compensation_details.length<=10000,'Compensation details must be up to 10,000 characters.');
+   return save(db,a,'candidate','',c.url||'recruitcrm:'+c.crm_ids?.[0],{...c,compensation_details:b.compensation_details.trim(),compensation_details_by:a.id,compensation_details_at:new Date().toISOString()},c,b.action);
+  }
   if(b.action==='candidate-tags'){
    requireThat(c.version===Number(b.candidate_version),'Candidate changed. Reload.',409);
    const records=db.rows('SELECT * FROM research_records').map((r:any)=>({...JSON.parse(r.data),kind:r.kind})),tag_values=cleanTagValues(b.tag_values,records);

@@ -1,3 +1,4 @@
+import {geographyFullName,geographyCode} from './candidate-geography';
 import {tagCategories} from './candidate-tags';
 type Candidate = Record<string, any>;
 export const candidateColumns = [
@@ -5,8 +6,9 @@ export const candidateColumns = [
  ['url', 'LinkedIn'],
 ] as const;
 export const candidateTagColumns=tagCategories.map(c=>['tag:'+c.key,c.label] as const);
-export function candidateTagText(c:Candidate,key:string){return [...(c.tag_values?.[key]||[])].sort((a:string,b:string)=>a.localeCompare(b,undefined,{sensitivity:'base',numeric:true})).join(', ');}
+export function candidateTagText(c:Candidate,key:string){return [...(c.tag_values?.[key]||[])].map((v:string)=>key==='geography'?geographyFullName(v):v).sort((a:string,b:string)=>a.localeCompare(b,undefined,{sensitivity:'base',numeric:true})).join(', ');}
 const text = (value: unknown) => String(value || '').trim().toLocaleLowerCase();
+export function candidateTagDisplay(c:Candidate,key:string){return key==='geography'?[...new Set((c.tag_values?.geography||[]).map(geographyCode))].sort().join(', '):candidateTagText(c,key);}
 export function directoryRows(candidates: Candidate[], query: string, filters: Record<string,string>, sort: string, descending: boolean, roleCounts: Map<string,number>, index: Map<string,string>=new Map(), records:Candidate[]=[]) {
  const terms = text(query).split(/\s+/).filter(Boolean);
  const value = (c: Candidate, key: string) => key.startsWith('tag:')?candidateTagText(c,key.slice(4)):key === 'roles' ? roleCounts.get(c.id) || 0 : key === 'first_name' ? c.first_name || c.name || '' : c[key] || '';

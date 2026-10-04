@@ -303,3 +303,5 @@
 .app .spreadsheet-directory .candidate-directory-table thead th{position:static;font-size:11px}
 .app .spreadsheet-directory .candidate-directory-table thead .column-sort{font-size:11px}
 @media(max-width:700px){.app .spreadsheet-directory>.table-scroll{max-height:65dvh}}
+.app .compensation-details-card .preserve-text{max-height:160px;overflow:auto;margin:0 0 6px;font-size:12px;line-height:1.5}
+.app .compensation-details-card>.profile-card-header{background:#f7f8fc}

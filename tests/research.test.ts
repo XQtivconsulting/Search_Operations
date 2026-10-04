@@ -383,3 +383,16 @@ test('candidate import permission is server-enforced and all members may add a c
  await assert.rejects(f.run({...admin,role:'data_quality'},{action:'candidate-tags',candidate_id:c.id,candidate_version:version,tag_values:{}}),/changed/);
  f.db.close();
 });
+
+test('known compensation details are versioned, attributed, independent of tags and permission checked',async()=>{
+ const f=await engagementFixture(),cid=(await f.rec(f.mid)).candidate_id,c=await f.rec(cid);
+ const body={action:'candidate-compensation',candidate_id:cid,candidate_version:c.version,compensation_details:'Base USD 300k; current total USD 450k; minimum next role USD 500k\nEquity discussed separately.'};
+ await assert.rejects(f.run({...engActor,role:'founder'},body),/permission/);
+ await f.run(engActor,body);const saved=await f.rec(cid);
+ assert.equal(saved.compensation_details,body.compensation_details);assert.equal(saved.compensation_details_by,engActor.id);assert.ok(saved.compensation_details_at);assert.deepEqual(saved.tag_values,c.tag_values);
+ await assert.rejects(f.run(engActor,body),/changed/);
+ await assert.rejects(f.run(engActor,{...body,candidate_version:saved.version,compensation_details:'x'.repeat(10001)}),/10,000/);
+ await f.run(engActor,{...body,candidate_version:saved.version,compensation_details:''});assert.equal((await f.rec(cid)).compensation_details,'');
+ assert.ok((await f.state()).research.events.some((e:any)=>e.action==='candidate-compensation'&&e.record_id===cid));
+ f.db.close();
+});
