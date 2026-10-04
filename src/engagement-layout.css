@@ -21,3 +21,10 @@
  .app .main:has(.engagement-pipeline){height:auto;min-height:100dvh;overflow:visible}
  .app .engagement-pipeline .engagement-board,.app .engagement-pipeline>.table-scroll{flex:none;height:65dvh;min-height:260px}
 }
+
+.app .engagement-card{position:relative}
+.app .engagement-card:has(.engagement-edit-icon)>.text-button{padding-right:28px}
+.app .engagement-card .engagement-card-actions.compact{position:absolute;right:6px;top:6px;margin:0}
+.app .engagement-card .engagement-edit-icon{width:28px;height:28px;padding:5px;display:inline-flex;align-items:center;justify-content:center;color:#526781;background:transparent;border:1px solid transparent;box-shadow:none}
+.app .engagement-card .engagement-edit-icon:hover{background:#e7effa;border-color:#c9d6e6;color:#163d70}
+.app .engagement-card .engagement-edit-icon:focus-visible{outline:2px solid #356bb0;outline-offset:1px}
