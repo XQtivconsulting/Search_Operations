@@ -258,12 +258,13 @@
 @media(max-width:650px){.app .candidate-vignettes .profile-sidebar{grid-template-columns:minmax(0,1fr)}.app .profile-search-table{min-width:560px}.app .candidate-360>.research-tabs{gap:12px}.app .note-context{display:block;margin:4px 0 0}}
 
 /* Candidate spreadsheet: independent tag columns, no combined icon/count fields. */
-.app .spreadsheet-directory .candidate-directory-table{min-width:1120px;table-layout:fixed}
+.app .spreadsheet-directory .candidate-directory-table{min-width:1290px;table-layout:fixed}
 .app .spreadsheet-directory .candidate-directory-table th,.app .spreadsheet-directory .candidate-directory-table td{padding:6px 7px;font-size:11px}
 .app .spreadsheet-directory .candidate-directory-table th{width:auto}
 .app .spreadsheet-directory .candidate-directory-table .candidate-select-column{width:38px}
 .app .spreadsheet-directory th[data-column=first_name]{width:92px}
 .app .spreadsheet-directory th[data-column=last_name]{width:100px}
+.app .spreadsheet-directory th[data-column=title]{width:150px}
 .app .spreadsheet-directory th[data-column=company]{width:125px}
 .app .spreadsheet-directory th[data-column=url]{width:62px}
 .app .spreadsheet-directory th[data-column="tag:industry"]{width:115px}
