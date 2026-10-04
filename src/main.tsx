@@ -1,3 +1,4 @@
+const navigationLabel=(name:string)=>({'Daily Work':'Work Queue','Pipeline':'Candidate Pipeline','Organization':'Admin'} as Record<string,string>)[name]||name;
 import './engagement-layout.css';
 import {Backups} from './Backups';
 import {EngagementDaily} from './EngagementDaily';
@@ -343,7 +344,7 @@ function App() {
           <img src="/brand/xqtiv-logo.svg" alt="XQtiv"/><span>Search Operations</span>
         </div>
         <nav aria-label="Main navigation">
-          {Array.from(new Set(nav.map(item=>item[2]))).map(group=><section className="nav-module" key={group}><button className="nav-module-toggle" aria-expanded={!collapsedModules[group]} aria-controls={'nav-'+group.replaceAll(' ','-')} onClick={()=>setCollapsedModules(previous=>({...previous,[group]:!previous[group]}))}><span>{group}</span><span aria-hidden="true">{collapsedModules[group]?'▸':'▾'}</span></button><div id={'nav-'+group.replaceAll(' ','-')} hidden={!!collapsedModules[group]}>{nav.filter(item=>item[2]===group).map(([label,Icon])=>(<React.Fragment key={label}>
+          {Array.from(new Set(nav.map(item=>item[2]))).map(group=><section className="nav-module" key={group}><button className="nav-module-toggle" aria-expanded={!collapsedModules[group]} aria-controls={'nav-'+group.replaceAll(' ','-')} onClick={()=>setCollapsedModules(previous=>({...previous,[group]:!previous[group]}))}><span>{navigationLabel(group)}</span><span aria-hidden="true">{collapsedModules[group]?'▸':'▾'}</span></button><div id={'nav-'+group.replaceAll(' ','-')} hidden={!!collapsedModules[group]}>{nav.filter(item=>item[2]===group).map(([label,Icon])=>(<React.Fragment key={label}>
             <button
               key={label}
               className={page === label ? "active" : ""}
@@ -360,7 +361,7 @@ function App() {
               }}
             >
               <Icon size={21} />
-              {label}
+              {navigationLabel(label)}
               {label === "Reviews" && queue.length > 0 && (
                 <span className="nav-count">{queue.length}</span>
               )}
@@ -390,7 +391,7 @@ function App() {
       <main className={"main"+(["Search repository","Companies","Candidates","Delivery Monitor","Performance","Engagement","Pipeline","Daily Work","Search assignments","Interview tracker","Engagement Config","Backups & exports"].includes(page)?" compact-workspace":"")}>
         {!(page === "Candidates" && candidateId) && <header>
           <div>
-            <h1>{page === "Search repository" && sBy[selected] ? sBy[selected].title : page}</h1>
+            <h1>{page === "Search repository" && sBy[selected] ? sBy[selected].title : navigationLabel(page)}</h1>
             {page === "Search repository" && sBy[selected] && <p className="subheading">{`${sBy[selected].client} · Search ID: ${searchDisplayId(sBy[selected])} · ${sBy[selected].status || "Status not set"} · Partner: ${sBy[selected].partner || "Not assigned"}`}</p>}
           </div>
         </header>}
