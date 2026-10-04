@@ -1455,4 +1455,4 @@ input[type=checkbox] { accent-color:var(--xqtiv-navy); }
 
 .recommendation-cell{display:flex;align-items:center;gap:6px}.recommendation-cell .icon-button{padding:4px;flex-shrink:0}
 
-.company-profile-fields{border:0;padding:0;margin:0;min-width:0}.company-website-matches article{padding:8px 0;border-bottom:1px solid #e4e9f0}.company-website-matches p{margin:4px 0}
+.modal .company-profile-fields{border:0;padding:0;margin:0;min-width:0;max-height:none;overflow:visible}.company-website-matches article{padding:8px 0;border-bottom:1px solid #e4e9f0}.company-website-matches p{margin:4px 0}
