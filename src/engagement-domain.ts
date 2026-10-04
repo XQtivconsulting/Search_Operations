@@ -1,3 +1,4 @@
+import {cleanTagValues,normTag} from './candidate-tags';
 import {summarizeTranscript} from './transcript-summary';
 import {interviewStatuses,interviewOutcomes} from './interviews';
 import {defaultPipeline,normalizeStages,pipelineStages,resolvedStage,stageId,stageDays,funnelGroups} from './engagement-pipeline';
@@ -53,9 +54,14 @@ export function engagementMutation(db:DB,a:Actor,b:R,members:Member[]){
   return result;
  }
  if(['candidate-note','candidate-tags'].includes(b.action)){
-  const c=read(db,text(b.candidate_id));requireThat(c?.kind==='candidate','Candidate not found.',404);requireThat(canPlan(a)||hasRole(a,'researcher')||hasRole(a,'partner')||hasRole(a,'engagement'),'Candidate editing permission required.',403);
+  const c=read(db,text(b.candidate_id));requireThat(c?.kind==='candidate','Candidate not found.',404);requireThat(canPlan(a)||hasRole(a,'data_quality')||hasRole(a,'researcher')||hasRole(a,'partner')||hasRole(a,'engagement'),'Candidate editing permission required.',403);
   if(role)requireThat(byKey(db,'mapping',role+':'+c.id),'Candidate is not mapped to this search.');
-  if(b.action==='candidate-tags'){requireThat(c.version===Number(b.candidate_version),'Candidate changed. Reload.',409);return save(db,a,'candidate','',c.url,{...c,tags:[...new Set(text(b.tags,2000).split(',').map(t=>t.trim()).filter(Boolean))].slice(0,40)},c,b.action);}
+  if(b.action==='candidate-tags'){
+   requireThat(c.version===Number(b.candidate_version),'Candidate changed. Reload.',409);
+   const records=db.rows('SELECT * FROM research_records').map((r:any)=>({...JSON.parse(r.data),kind:r.kind})),tag_values=cleanTagValues(b.tag_values,records);
+   for(const [category,values] of Object.entries(tag_values))for(const label of values){const key=category+':'+normTag(label);if(!byKey(db,'candidate-tag-value',key))save(db,a,'candidate-tag-value','',key,{category,label},null,'candidate-tag-value-add');}
+   return save(db,a,'candidate','',c.url||'recruitcrm:'+c.crm_ids?.[0],{...c,tag_values},c,b.action);
+  }
   requireThat(interactionTypes.includes(b.type),'Choose an interaction type.');const notes=text(b.notes,50000);requireThat(notes,'Enter notes or transcript.');const occurred=day(b.occurred_on),url=b.url?safeLink(b.url):'';requireThat(b.type!=='Assessment link'||url,'Add the assessment link.');
   requireThat(b.note_group===undefined||['Interview notes','General notes'].includes(b.note_group),'Choose Interview notes or General notes. Stage updates are recorded by the pipeline.');
   const note_group=['Interview','Screening call'].includes(b.type)?'Interview notes':b.note_group||'General notes';

@@ -19,7 +19,7 @@ const iso=()=>new Date().toISOString();
 const get=(db:DB,id:string)=>{const r=db.rows('SELECT * FROM research_records WHERE id=?',id)[0];requireThat(r,'Record not found.',404);return {...JSON.parse(r.data),id:r.id,kind:r.kind,role_id:r.role_id,version:r.version};};
 export function researchState(db:DB) {return {records:db.rows('SELECT * FROM research_records').map(r=>({...JSON.parse(r.data),id:r.id,kind:r.kind,role_id:r.role_id,version:r.version})),events:db.rows('SELECT * FROM research_events ORDER BY created_at DESC').map(r=>({...r,data:JSON.parse(r.data)}))};}
 export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
- requireThat(roleList(a).some(r=>r!=='founder'),'This account has read-only access.',403);
+ requireThat((b.action==='candidate-save'&&!b.id)||roleList(a).some(r=>r!=='founder'),'This account has read-only access.',403);
  const active=members.filter(m=>m.status==='active');
  const member=(id:string)=>{const m=active.find(m=>m.id===id);requireThat(m,'Choose an active workspace member.');return m;};
  const researcher=(id:string)=>{const m=member(id);requireThat(hasRole(m,'researcher')&&(m.staff_id||m.staffId),'Choose a researcher linked to a staff record.');return m;};
@@ -47,7 +47,7 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
  } else if(b.action==='task-status') {
   requireThat(old?.kind==='task','Task not found.');requireThat(canPlan(a)||old.owner_id===a.id,'Only the assignee or planner can update this task.',403);requireThat(['Planned','In progress','Completed','Cancelled'].includes(b.status),'Choose a task status.');kind='task';key=old.id;next={...old,status:b.status};
  } else if(b.action==='candidate-save') {
-  requireThat(canPlan(a)||hasRole(a,'researcher')||hasRole(a,'engagement')||hasRole(a,'partner'),'Candidate editing permission required.',403);
+  requireThat(!old||canPlan(a)||hasRole(a,'data_quality')||hasRole(a,'researcher')||hasRole(a,'engagement')||hasRole(a,'partner'),'Candidate editing permission required.',403);
   requireThat(!old||old.kind==='candidate','Choose a candidate record.');
   const url=old?.crm_ids?.length&&!b.url?'':linkedin(b.url),first_name=text(b.first_name,100),last_name=text(b.last_name,100),email=text(b.email,254).toLowerCase(),phone=text(b.phone,60);
   requireThat(first_name&&last_name,'First name and last name are required.');
@@ -58,7 +58,8 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
   let companyRecord=companyName?find('company',normalized):null;
   if(b.company_id){const c=get(db,text(b.company_id));requireThat(c.kind==='company'&&c.name.toLowerCase().replace(/\s+/g,' ')===normalized,'Choose the matching company.');companyRecord={id:c.id};}
   if(companyName&&!companyRecord&&b.create_company===true){const cid=save('company','',normalized,{name:companyName});db.audit(a,'company-master',cid,null,{name:companyName});companyRecord={id:cid};}
-  kind='candidate';key=url||'recruitcrm:'+old.crm_ids[0];next={...old,first_name,last_name,name:first_name+' '+last_name,url,email,phone,title:text(b.title,300),company:companyName,company_id:companyRecord?.id||''};
+  requireThat(b.potential_client===undefined||typeof b.potential_client==='boolean','Choose Yes or No for potential client.');
+  kind='candidate';key=url||'recruitcrm:'+old.crm_ids[0];next={...old,...(b.potential_client===undefined?{}:{potential_client:b.potential_client,potential_client_by:a.id,potential_client_at:iso()}),first_name,last_name,name:first_name+' '+last_name,url,email,phone,title:text(b.title,300),company:companyName,company_id:companyRecord?.id||''};
  } else if(b.action==='company-master') {
   requireThat(canPlan(a),'Planning permission required.',403);requireThat(!old||old.kind==='company','Wrong record type.');
   const name=text(b.name,200);requireThat(name,'Enter a company name.');kind='company';key=name.toLowerCase().replace(/\s+/g,' ');

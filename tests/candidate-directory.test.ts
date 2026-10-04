@@ -25,3 +25,15 @@ test('role counts count distinct roles, not mapping records or researchers',()=>
  assert.equal(counts.get('a'),2);assert.equal(counts.has('b'),false);
  assert.equal(directoryRows(candidates,'',{},'roles',true,counts)[0].id,'a');
 });
+
+
+test('directory searches notes and past company snapshots with combined tags and unmapped filter before paging',async()=>{
+ const {candidateSearchIndex}=await import('../src/candidate-tags');
+ const cs=[{id:'x',name:'Synthetic One',company:'NewCo',tag_values:{industry:['Technology'],geography:['India']}},{id:'y',name:'Synthetic Two',company:'Other'}];
+ const records=[...cs.map(c=>({...c,kind:'candidate'})),{id:'map',kind:'mapping',candidate_id:'x',role_id:'s',company:'Infosys',rationale:'Cloud leadership'},{id:'note',kind:'candidate-activity',candidate_id:'x',notes:'Productionalization expertise'}];
+ const index=candidateSearchIndex(records,[{id:'s',client:'Example',title:'AI Leader'}]),counts=candidateRoleCounts(records);
+ assert.deepEqual(directoryRows(cs,'productionalization cloud',{'company':'infosys','tag:industry':'["Technology"]'},'name',false,counts,index,records).map(c=>c.id),['x']);
+ assert.deepEqual(directoryRows(cs,'',{'unmapped':'yes'},'name',false,counts,index,records).map(c=>c.id),['y']);
+ assert.equal(directoryRows(cs,'',{'tag:geography':'["Canada"]'},'name',false,counts,index,records).length,0);
+ const many=Array.from({length:201},(_,i)=>({id:String(i),first_name:String(i).padStart(3,'0')}));assert.equal(directoryPage(directoryRows(many,'',{},'first_name',true,new Map()),0,100).rows[0].id,'200');
+});

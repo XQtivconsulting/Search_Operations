@@ -5,7 +5,8 @@ export type AccessRole =
   | "planner"
   | "partner"
   | "researcher"
-  | "engagement";
+  | "engagement"
+  | "data_quality";
 export type Actor = {
   id: string;
   name: string;
@@ -23,6 +24,7 @@ export const roles: AccessRole[] = [
   "partner",
   "researcher",
   "engagement",
+  "data_quality",
 ];
 export function roleList(a: {role?: unknown;roles?: unknown}): AccessRole[] {
   return (Array.isArray(a.roles)?a.roles:[a.role]).filter((v):v is AccessRole=>roles.includes(v as AccessRole));
@@ -30,7 +32,7 @@ export function roleList(a: {role?: unknown;roles?: unknown}): AccessRole[] {
 export const hasRole=(a:{role?:unknown;roles?:unknown},role:AccessRole)=>roleList(a).includes(role)||(role==='admin'&&roleList(a).includes('super_admin'));
 export const canPlan = (a: {role?:unknown;roles?:unknown}) => hasRole(a,'admin')||hasRole(a,'planner');
 export const canPartnerReview = (a: {role?:unknown;roles?:unknown}) => hasRole(a,'admin')||hasRole(a,'partner');
-export const roleLabel=(role:string)=>role==='super_admin'?'Super admin':role.charAt(0).toUpperCase()+role.slice(1);
+export const roleLabel=(role:string)=>role==='super_admin'?'Super admin':role==='data_quality'?'Data quality analyst':role.charAt(0).toUpperCase()+role.slice(1);
 export function requireThat(
   condition: unknown,
   message: string,
