@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {dailyEngagementRows,nextActivity} from '../src/engagement-daily';
-import {defaultPipeline,normalizeStages,pipelineStages,resolvedStage,stageDays} from '../src/engagement-pipeline';
+import {actionLabel,defaultPipeline,normalizeStages,pipelineStages,resolvedStage,stageDays} from '../src/engagement-pipeline';
 const stages=normalizeStages(defaultPipeline),step=(id:string)=>stages.find(s=>s.id===id)!;
 test('daily activities follow configured outreach order and never infer a response',()=>{
  assert.equal(nextActivity(step('assigned'),stages).target,'linkedin');
@@ -65,4 +65,13 @@ test('engaged routing ignores channel order and supports configured screening ID
  const custom=stages.map(s=>s.id==='screening'?{...s,id:'custom-screening'}:s);
  assert.equal(nextActivity(step('engaged-email'),custom).target,'custom-screening');
  assert.equal(nextActivity(step('engaged-email'),stages.filter(s=>s.group!=='Screening')).target,'');
+});
+
+test('engaged channel actions describe responses and replace old generated labels',()=>{
+ const labels={'engaged-linkedin':'Record candidate response via LinkedIn / Sales Navigator','engaged-email':'Record candidate response via email','engaged-phone':'Record candidate response via phone / text'};
+ for(const [id,label] of Object.entries(labels)){
+  const s=step(id);assert.equal(actionLabel({...s,action_label:undefined}),label);
+  assert.equal(actionLabel({...s,action_label:'Progress to '+s.label}),label);
+  assert.equal(actionLabel({...s,action_label:'Record a meaningful conversation'}),'Record a meaningful conversation');
+ }
 });
