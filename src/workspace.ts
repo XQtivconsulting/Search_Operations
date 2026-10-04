@@ -192,6 +192,12 @@ export class Workspace extends DurableObject {
         researchMutation(this,a,{...read(),action:'brief-publish'},members);
         return saved;
       }
+      if(b.action==='company-master-and-target') {
+        requireThat(canPlan(a),'Planning permission required.',403);
+        const company=researchMutation(this,a,{...b,role_id:'',action:'company-master'},members);
+        const target=researchMutation(this,a,{action:'company-save',role_id:b.role_id,company_id:company.id},members);
+        return {company,target};
+      }
       if(b.action==='company-import') {
         requireThat(canPlan(a),'Planning permission required.',403);
         const existing=researchState(this).records.filter(r=>r.kind==='company');
@@ -199,7 +205,9 @@ export class Workspace extends DurableObject {
         const signature=JSON.stringify(existing.map(c=>[c.id,c.version]).sort());
         if(b.preview)return {plan,signature};
         requireThat(signature===b.signature,'The company list changed. Preview the import again.',409);
-        return {saved:plan.map(c=>researchMutation(this,a,{...c,id:c.existingId,action:'company-master'},members))};
+        const saved=plan.map(c=>researchMutation(this,a,{...c,id:c.existingId,action:'company-master'},members));
+        if(b.role_id){requireThat(this.rows('SELECT id FROM searches WHERE id=?',b.role_id).length,'Search not found.',404);for(const c of saved){if(!researchState(this).records.some(t=>t.kind==='target'&&t.role_id===b.role_id&&t.company_id===c.id))researchMutation(this,a,{action:'company-save',role_id:b.role_id,company_id:c.id},members);}}
+        return {saved};
       }
       if(b.action==='target-assign-batch') {
         requireThat(Array.isArray(b.items)&&b.items.length>0&&b.items.length<=100&&new Set(b.items.map((i:any)=>i.id)).size===b.items.length,'Select 1–100 distinct companies.');

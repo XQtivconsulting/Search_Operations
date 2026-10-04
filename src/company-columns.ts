@@ -1,5 +1,9 @@
 export const companyColumns=[
  ['name','Company','Required. Use a consistent company name.'],
+ ['sector','Sector','Business sector; select or add a shared value.'],
+ ['subsector','Subsector','Business subsector; select or add a shared value.'],
+ ['employee_band','Company size','Use a standard employee range from Companies.'],
+ ['revenue_band','Revenue Band (USD)','Use a standard revenue band from Companies; leave unknown blank.'],
  ['tags','Relevant Tags','Comma-separated tags, e.g. AI, Analytics, Consulting.'],
  ['company_type','Company Type','Your company category, e.g. Technology services.'],
  ['industries','Industries','Comma-separated industry tags.'],
@@ -13,5 +17,5 @@ export const companyColumns=[
  ['revenue_source','Revenue Source','Source URL or publication.'],
  ['notes','Notes','Other company information.'],
 ];
-const aliases:Record<string,string>={name:'name','company name':'name',industry:'industries',offering:'offerings',specialty:'specialties',geography:'geographies','web page':'website','revenue size':'revenue'};
+const aliases:Record<string,string>={name:'name',employees:'employee_band','employee range':'employee_band','company name':'name',industry:'industries',offering:'offerings',specialty:'specialties',geography:'geographies','web page':'website','revenue size':'revenue'};
 export function matchCompanyHeaders(headers:any[]){const map:Record<string,number>={};headers.forEach((v,i)=>{const label=String(v||'').trim().toLowerCase();const found=companyColumns.find(([key,title])=>key===label||title.toLowerCase()===label)?.[0]||aliases[label];if(found)map[found]=i;});return map;}

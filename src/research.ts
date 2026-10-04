@@ -65,7 +65,7 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
   const name=text(b.name,200);requireThat(name,'Enter a company name.');kind='company';key=name.toLowerCase().replace(/\s+/g,' ');
   requireThat(!find(kind,key)||find(kind,key)?.id===old?.id,'This company is already in the master list.',409);
   const tags=(v:any)=>[...new Set(String(v||'').split(',').map(v=>text(v,100)).filter(Boolean))].slice(0,30);
-  next=cleanCompany(b);
+  next={...old,...cleanCompany({...old,...b},researchState(db).records)};
   const names=companyNames(next);requireThat(!researchState(db).records.some(c=>c.kind==='company'&&c.id!==old?.id&&companyNames(c).some(n=>names.includes(n))),'This name or alias is already assigned to another company.',409);
  } else if(b.action==='peer-route') {
   requireThat(canPlan(a),'Planning permission required.',403);requireThat(db.rows('SELECT staff_id FROM team_members WHERE team_id=? AND staff_id=?',b.team_id,b.staff_id).length,'This researcher is not in the team.');
@@ -107,7 +107,7 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
    if(old)manage();
    let companyId=old?.company_id||text(b.company_id),name='';
    if(companyId){const company=get(db,companyId);requireThat(company.kind==='company','Choose a company from the master list.');name=company.name;}
-   else {name=text(b.name,200);requireThat(name,'Enter a company name.');const normalized=name.toLowerCase().replace(/\s+/g,' ');const company=find('company',normalized);companyId=company?.id||save('company','',normalized,{name});}
+   else {name=text(b.name,200);requireThat(name,'Enter a company name.');const normalized=name.toLowerCase().replace(/\s+/g,' ');const company=find('company',normalized);companyId=company?.id||save('company','',normalized,cleanCompany({...b,name},researchState(db).records));}
    key=role+':'+companyId;requireThat(old?.id===find(kind,key)?.id,'This company is already in the role universe.',409);
    const strategy=find('strategy',role);const s=strategy?get(db,strategy.id):null;
    const team=text(b.team_id),owner=manager?text(b.owner_id):(team?a.id:'');

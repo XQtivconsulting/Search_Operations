@@ -99,9 +99,10 @@ function App() {
   const [repoTab,setRepoTab]=useState("Candidate mappings");
   const [sheetDirty, setSheetDirty] = useState(false);
   const [mappingStart,setMappingStart]=useState('');
+  const [companySearch,setCompanySearch]=useState('');
   const navigation=useNavigationHistory(data?workspace+':'+data.actor.id:'',
-    {page,candidateId,selected,repoTab,deliveryStart,allocationStart,engagementStart,interviewRole,mappingStart},
-    v=>{setSheetDirty(false);setPage(v.page);setCandidateId(v.candidateId);setSelected(v.selected);setRepoTab(v.repoTab);setDeliveryStart(v.deliveryStart);setAllocationStart(v.allocationStart);setEngagementStart(v.engagementStart);setInterviewRole(v.interviewRole);setMappingStart(v.mappingStart);},sheetDirty);
+    {page,candidateId,selected,repoTab,deliveryStart,allocationStart,engagementStart,interviewRole,mappingStart,companySearch},
+    v=>{setSheetDirty(false);setPage(v.page);setCandidateId(v.candidateId);setSelected(v.selected);setRepoTab(v.repoTab);setDeliveryStart(v.deliveryStart);setAllocationStart(v.allocationStart);setEngagementStart(v.engagementStart);setInterviewRole(v.interviewRole);setMappingStart(v.mappingStart);setCompanySearch(v.companySearch||'');},sheetDirty);
   useEffect(()=>{const warn=(e:BeforeUnloadEvent)=>{if(sheetDirty){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[sheetDirty]);
   const invite = location.pathname.startsWith('/join/') ? location.pathname.split('/')[2] : new URLSearchParams(location.hash.slice(1)).get("invite");
   const [invitation,setInvitation] = useState<Row|null>(null);
@@ -356,6 +357,7 @@ function App() {
               onClick={() => {
                 if (sheetDirty && !confirm("Discard unsaved changes?")) return;
                 setSheetDirty(false);
+                if(label==='Companies')setCompanySearch('');
                 if(label==='Search repository')setRepoTab("Candidate mappings");
                 if(label==='Pipeline')setEngagementStart({role:'',mapping:'',stage:''});
                 if(label==='Interview tracker')setInterviewRole('');
@@ -376,7 +378,7 @@ function App() {
         </nav>
         <div className="identity">
           <strong>{actor.name}</strong>
-          {memberships.length>1?<label>Workspace<select value={workspace} onChange={async e=>{if(sheetDirty&&!confirm('Discard unsaved changes and switch workspace?'))return;sessionRevision++;workspace=e.target.value;sessionStorage.setItem('workspace',workspace);setData(null);setLoading(true);setModal(null);setSelected('');setCandidateId('');setEngagementStart({role:'',mapping:'',stage:''});setInterviewRole('');setPage('');setSheetDirty(false);await load();}}>{memberships.map(m=><option key={m.tenant} value={m.tenant}>{m.tenant==='xqtiv'?'XQtiv':m.tenant}</option>)}</select></label>:<small>{workspace==='xqtiv'?'XQtiv':workspace}</small>}
+          {memberships.length>1?<label>Workspace<select value={workspace} onChange={async e=>{if(sheetDirty&&!confirm('Discard unsaved changes and switch workspace?'))return;sessionRevision++;workspace=e.target.value;sessionStorage.setItem('workspace',workspace);setData(null);setLoading(true);setModal(null);setSelected('');setCompanySearch('');setCandidateId('');setEngagementStart({role:'',mapping:'',stage:''});setInterviewRole('');setPage('');setSheetDirty(false);await load();}}>{memberships.map(m=><option key={m.tenant} value={m.tenant}>{m.tenant==='xqtiv'?'XQtiv':m.tenant}</option>)}</select></label>:<small>{workspace==='xqtiv'?'XQtiv':workspace}</small>}
           <small className="identity-email">{actor.email}</small>
           <small>{roleList(actor).map(roleLabel).join(' · ')}</small>
           <button className={page==='Account settings'?'active':''} onClick={()=>{if(sheetDirty&&!confirm('Discard unsaved changes?'))return;setSheetDirty(false);setPage('Account settings');}}><Users/>Account settings</button>
@@ -546,8 +548,8 @@ function App() {
         {page==='Engagement Config'&&isAdmin&&<EngagementAdmin data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page==='My Work'&&hasRole(data.actor,'engagement')&&<Engagement mine data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page==='My Work'&&(!hasRole(data.actor,'engagement')||hasRole(data.actor,'researcher')||hasRole(data.actor,'partner')||hasRole(data.actor,'super_admin'))&&<MyWork data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage("Search repository");}}/>}
-        {page==='Search repository'&&<ResearchPanel onReturn={mappingStart&&navigation.back?()=>navigation.go('back'):undefined} returnLabel={navigation.back?'Back to '+navigationLabel(navigation.back.page):undefined} initialMapping={mappingStart} onEditPartner={s=>open({kind:"search-owner",...s})} onRoleChange={setSelected} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} key={page} data={data} api={api} reload={load} view={page} initialRole={page==='Search repository'?selected:''} initialTab={repoTab} onDirty={setSheetDirty} onCompanies={id=>{setSelected(id);setPage("Companies");}}/>}
-        {page === 'Companies'&&<CompanyUniverse data={data} api={api} reload={load} onDirty={setSheetDirty} initialRole={selected} onOpen={id=>{setSelected(id);setRepoTab("Target companies");setPage("Search repository");}}/>}
+        {page==='Search repository'&&<ResearchPanel onReturn={mappingStart&&navigation.back?()=>navigation.go('back'):undefined} returnLabel={navigation.back?'Back to '+navigationLabel(navigation.back.page):undefined} initialMapping={mappingStart} onEditPartner={s=>open({kind:"search-owner",...s})} onRoleChange={setSelected} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} key={page} data={data} api={api} reload={load} view={page} initialRole={page==='Search repository'?selected:''} initialTab={repoTab} onDirty={setSheetDirty} onCompanies={id=>{setCompanySearch(id);setPage("Companies");}}/>}
+        {page === 'Companies'&&<CompanyUniverse data={data} api={api} reload={load} onDirty={setSheetDirty} initialRole={companySearch} onOpen={id=>{setSelected(id);setRepoTab("Target companies");setPage("Search repository");}}/>}
 
         {page==='Candidates'&&candidateId&&<CandidateProfile key={candidateId} id={candidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} onBack={()=>setCandidateId('')} onRole={id=>{setSelected(id);setRepoTab('Candidate mappings');setPage('Search repository');}}/>}
         {page==='Candidates'&&!candidateId&&<Candidates onCandidate={setCandidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} onOpen={id=>{setSelected(id);setRepoTab("Candidate mappings");setPage("Search repository");}}/>}
