@@ -521,3 +521,12 @@ test('existing unlinked drafts receive targets once without altering approved ma
  for(const [id,status] of [['legacy-draft','Draft'],['legacy-approved','Approved']])f.db.prepare('INSERT INTO research_records VALUES(?,?,?,?,?,1)').run(id,'mapping','r',id,JSON.stringify({candidate_id:c.id,status,company:'Existing Synthetic Co',target_id:'',company_id:'',rationale:'Existing evidence'}));
  assert.equal(backfillDraftTargets(f.w),1);const m=await f.rec('legacy-draft');assert.ok(m.target_id);assert.equal(m.rationale,'Existing evidence');assert.equal(m.version,2);assert.equal((await f.rec('legacy-approved')).target_id,'');assert.equal(backfillDraftTargets(f.w),0);assert.equal((await f.state()).research.records.filter(r=>r.kind==='target').length,1);f.db.close();
 });
+
+test('target entry keeps company context and validates ownership and candidate-company conflicts',async()=>{
+ const f=fixture(),t=await setup(f);const target=await f.rec(t);
+ const b={action:'mapping-inline',role_id:'r',target_id:t,team_id:'t',company_id:target.company_id,company:target.name,first_name:'Popup',last_name:'Synthetic',url:'https://linkedin.com/in/popup-synthetic'};
+ const result=await f.run(mapper,b);assert.equal((await f.rec(result.ids[0])).target_id,t);
+ await assert.rejects(f.run(peer,{...b,url:'https://linkedin.com/in/popup-other'}),/not assigned/);
+ const c=await f.run(mapper,{action:'candidate-save',first_name:'Different',last_name:'Company',company:'Other Synthetic',url:'https://linkedin.com/in/popup-conflict'});await assert.rejects(f.run(mapper,{...b,url:'https://linkedin.com/in/popup-conflict',candidate_version:(await f.rec(c.id)).version}),/different current company/);
+ await f.run(mapper,{...await f.rec(t),action:'company-progress',status:'Need help',notes:'Coverage mismatch',coverage_flag:true});const updated=await f.rec(t);assert.equal(updated.coverage_flag,true);assert.equal(updated.status,'Need help');await assert.rejects(f.run(peer,{...updated,action:'company-progress',status:'Completed',notes:'Other researcher'}),/owner or role manager/);f.db.close();
+});

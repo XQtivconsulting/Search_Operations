@@ -4,3 +4,9 @@ export function companyCoverage(target:R,records:R[]){
  const planned=target.expected===null||target.expected===undefined||target.expected===''?null:Number(target.expected);
  return {planned,actual:candidates.size,remaining:planned===null?null:Math.max(0,planned-candidates.size)};
 }
+export function coverageAlert(target:R,records:R[]){
+ if(target.coverage_flag)return 'Coverage mismatch — partner review';
+ if(['Need help','Blocked'].includes(target.status))return 'Need help — partner review';
+ const {planned,actual}=companyCoverage(target,records);
+ return ['Completed','No relevant talent'].includes(target.status)&&planned!==null&&planned!==actual?`${actual} approved / ${planned} planned — partner review`:'';
+}

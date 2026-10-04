@@ -1,3 +1,4 @@
+import {coverageAlert} from './company-coverage';
 type R=Record<string,any>;
 export function workflowSummary(data:R,now=Date.now()) {
  const records:R[]=data.research?.records||[];
@@ -6,12 +7,12 @@ export function workflowSummary(data:R,now=Date.now()) {
   const completed=targets.filter(t=>['Completed','No relevant talent'].includes(t.status)).length;
   const withMappings=targets.filter(t=>submitted.some(m=>m.target_id===t.id)).length;
   const waiting=[...peer,...partner],oldest=waiting.length?Math.max(...waiting.map(m=>{const n=Date.parse(m.stage_at);return Number.isFinite(n)?Math.max(0,Math.floor((now-n)/86400000)):0;})):0;
-  const unassigned=targets.filter(t=>!t.owner_id&&!['Completed','No relevant talent'].includes(t.status)).length,blocked=targets.filter(t=>t.status==='Blocked').length,returned=mappings.filter(m=>['Needs information','Hold'].includes(m.status)).length;
+  const unassigned=targets.filter(t=>!t.owner_id&&!['Completed','No relevant talent'].includes(t.status)).length,blocked=targets.filter(t=>coverageAlert(t,records)).length,returned=mappings.filter(m=>['Needs information','Hold'].includes(m.status)).length;
   const bottlenecks:string[]=[];
   if(!role.partner_id)bottlenecks.push('Engagement partner needed');
   if(!records.some(r=>r.kind==='strategy'&&r.role_id===role.id&&r.active))bottlenecks.push('Strategy approval needed');
   if(unassigned)bottlenecks.push(`${unassigned} ${unassigned===1?'company needs':'companies need'} a researcher`);
-  if(blocked)bottlenecks.push(`${blocked} ${blocked===1?'company is':'companies are'} blocked`);
+  if(blocked)bottlenecks.push(`${blocked} ${blocked===1?'company needs':'companies need'} partner attention for coverage`);
   if(peer.length)bottlenecks.push(`${peer.length} awaiting team review`);
   if(partner.length)bottlenecks.push(`${partner.length} awaiting partner review`);
   if(returned)bottlenecks.push(`${returned} returned / on hold`);

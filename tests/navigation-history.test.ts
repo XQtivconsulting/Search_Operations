@@ -21,3 +21,8 @@ test('candidate profiles are separate visits and a new branch clears forward his
  assert.deepEqual(recordVisit(h,visit('')),emptyHistory());
  assert.deepEqual(travelHistory(emptyHistory(),'back'),emptyHistory());
 });
+test('search tabs and profiles preserve repository view, filters and pagination on return',()=>{
+ let h=recordVisit(emptyHistory(),visit('Search repository',{selected:'r',repoTab:'Candidate mappings',repoState:{mappingPage:3,mappingView:'all',mappedBy:['person']}}));
+ h=recordVisit(h,visit('Candidates',{candidateId:'c'}));const back=travelHistory(h,'back');assert.equal(back.present?.selected,'r');assert.equal(back.present?.repoState.mappingPage,3);assert.deepEqual(back.present?.repoState.mappedBy,['person']);
+ h=recordVisit(back,visit('Search repository',{selected:'r',repoTab:'Target companies'}));assert.equal(travelHistory(h,'back').present?.repoTab,'Candidate mappings');
+});

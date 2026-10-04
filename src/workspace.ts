@@ -157,11 +157,14 @@ export class Workspace extends DurableObject {
         if(candidate)requireThat(candidate.version===Number(b.candidate_version),'Candidate details changed. Reload before adding the mapping.',409);
         const role=text(b.role_id),team=text(b.team_id);
         requireThat(!candidate||!records.some(r=>r.kind==='mapping'&&r.role_id===role&&r.candidate_id===candidate.id),'This candidate is already mapped to this role.',409);
+        const requestedTarget=b.target_id?records.find(r=>r.kind==='target'&&r.id===b.target_id):null;
+        if(b.target_id){requireThat(requestedTarget&&requestedTarget.role_id===role,'Choose a target company in this search.');requireThat(requestedTarget.owner_id===a.id&&requestedTarget.team_id===team,'This company is not assigned to you in this team.',403);requireThat(!candidate||candidate.company_id===requestedTarget.company_id||companyNames(records.find(r=>r.id===requestedTarget.company_id)||{}).includes(normalizedCompany(candidate.company)),'This candidate has a different current company. Add them from the Candidates tab.');}
         const companyName=text(candidate?.company||b.company,200),normalize=(s:string)=>s.trim().toLowerCase().replace(/\s+/g,' ');
         let company=exactCompany(records.filter(r=>r.kind==='company'),companyName),target:any=null;
         if(b.company_id){const selected=records.find(r=>r.id===b.company_id&&r.kind==='company');requireThat(selected&&companyNames(selected).includes(normalizedCompany(companyName)),'Select the matching company.');company=selected;}
         requireThat(!companyName||company||b.create_company===true,'Choose an existing company or explicitly add the new company.');
-        if(companyName){
+        if(requestedTarget)target=requestedTarget;
+        if(companyName&&!requestedTarget){
           target=company?records.find(r=>r.kind==='target'&&r.role_id===role&&r.company_id===company!.id):null;
           if(!target){const created=researchMutation(this,a,{action:'company-save',role_id:role,company_id:company?.id,name:companyName,team_id:team,owner_id:a.id},members);target=researchRecords(this).find(r=>r.id===created.id);company=researchRecords(this).find(r=>r.id===target.company_id);}
           else if(!target.owner_id&&target.team_id===team){researchMutation(this,a,{...target,action:'company-claim'},members);target={...target,owner_id:a.id};}

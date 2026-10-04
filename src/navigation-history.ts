@@ -1,7 +1,7 @@
 export type Visit={page:string;candidateId:string;[key:string]:any};
 export type NavigationHistory={past:Visit[];present:Visit|null;future:Visit[]};
 export const emptyHistory=():NavigationHistory=>({past:[],present:null,future:[]});
-export const visitKey=(v:Visit)=>v.page+'|'+(v.page==='Candidates'?v.candidateId:'');
+export const visitKey=(v:Visit)=>v.page+'|'+(v.page==='Candidates'?v.candidateId:v.page==='Search repository'?(v.selected||'')+'|'+(v.repoTab||''):'');
 export function recordVisit(h:NavigationHistory,v:Visit):NavigationHistory{
  if(!v.page)return emptyHistory();
  if(!h.present)return {...h,present:v};

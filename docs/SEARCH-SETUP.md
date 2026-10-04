@@ -18,3 +18,13 @@ Record-only operations no longer load the full research event history. Candidate
 ## Local verification — 4 October 2026
 
 TypeScript, all 270 synthetic tests and production build passed. Tests cover demographic boundaries, cascading options, local search permissions/identity, draft target creation, strategy prerequisites, clone authorization/conflicts/destination preservation, existing-draft repair and batched read counts. No business data or credentials are included in fixtures. Live deployment verification is recorded separately after release.
+
+## Repository walkthrough follow-up
+
+Search pages show only the search title. Search selection/status/actions move into a side drawer after selection; the landing view retains status and assigned-to-me filtering. Candidates replaces Candidate mappings in the repository tabs, with My mappings / All candidates; filters only apply in All candidates and live in a side drawer, including multi-select Mapped by. LinkedIn links sit beside candidate names. My target companies uses explicit researcher ownership, independently of mapping ownership.
+
+Add candidates now opens a modal from either the candidate list or a target-company row. The target company and team are carried into the entry; server checks reject another researcher's target and existing candidates from a different current company. Saving shows the new draft at the top. Candidate Back returns to the originating view. Search/tab/filter/pagination state is retained, and browser Back/Forward participates in app navigation with unsaved-change protection.
+
+Coverage remains manually set (Not started, In progress, Need help, Completed). A manual mismatch flag, Need help, or a completed target with differing planned/approved counts creates a red partner attention item in the repository and workflow summary. In-progress targets are not flagged merely because coverage is unfinished. My Work redesign is deferred.
+
+The initial setup release `93cd91ea57b4b47dbddcf92fb0eb19d7b941b57a` deployed successfully in workflow `37212677658`. Follow-up local verification: TypeScript, 275 synthetic tests and production build passed. Browser verification of the follow-up is recorded after deployment.
