@@ -90,7 +90,7 @@ function App() {
   const [memberships,setMemberships]=useState<Row[]>([]);
   const [teamType,setTeamType]=useState('Sourcing teams');
   const [collapsedModules,setCollapsedModules]=useState<Record<string,boolean>>({Organization:true});
-  useEffect(()=>{if(!page)return;const group=['Search repository','Weekly plan','Delivery Monitor','Performance'].includes(page)?'Sourcing':['Daily Work','Pipeline','Search assignments','Interview tracker'].includes(page)?'Engagement':['Candidates','Company universe'].includes(page)?'Talent assets':page==='My Work'?'Work':'Organization';setCollapsedModules(previous=>({...previous,[group]:false}));},[page]);
+  useEffect(()=>{if(!page)return;const group=['Search repository','Weekly plan','Delivery Monitor','Performance'].includes(page)?'Sourcing':['Daily Work','Pipeline','Search assignments','Interview tracker'].includes(page)?'Engagement':['Candidates','Companies'].includes(page)?'Talent assets':page==='My Work'?'Work':'Organization';setCollapsedModules(previous=>({...previous,[group]:false}));},[page]);
   const [engagementStart,setEngagementStart]=useState({role:'',mapping:'',stage:''});
   const [interviewRole,setInterviewRole]=useState('');
   const [repoTab,setRepoTab]=useState("Candidate mappings");
@@ -267,7 +267,7 @@ function App() {
   const nav: [string, React.ElementType,string][] = [
     ['My Work',ClipboardText,'Work'],
     ['Candidates',Users,'Talent assets'],
-    ['Company universe',Briefcase,'Talent assets'],
+    ['Companies',Briefcase,'Talent assets'],
     ['Search repository',Briefcase,'Sourcing'],
     ['Weekly plan',CalendarBlank,'Sourcing'],
     ['Delivery Monitor',ClipboardText,'Sourcing'],
@@ -386,7 +386,7 @@ function App() {
           </button>
         </div>
       </aside>
-      <main className={"main"+(["Search repository","Company universe","Candidates","Delivery Monitor","Performance","Engagement","Pipeline","Daily Work","Search assignments","Interview tracker","Engagement Config","Backups & exports"].includes(page)?" compact-workspace":"")}>
+      <main className={"main"+(["Search repository","Companies","Candidates","Delivery Monitor","Performance","Engagement","Pipeline","Daily Work","Search assignments","Interview tracker","Engagement Config","Backups & exports"].includes(page)?" compact-workspace":"")}>
         {!(page === "Candidates" && candidateId) && <header>
           <div>
             <h1>{page === "Search repository" && sBy[selected] ? sBy[selected].title : page}</h1>
@@ -403,7 +403,7 @@ function App() {
             {error}
           </div>
         )}
-        {!["Searches","Account settings","Search repository","My Work","Delivery Monitor","Performance","Company universe","Teams","Candidates","People & access","Engagement","Pipeline","Daily Work","Search assignments","Interview tracker","Engagement Config","Backups & exports"].includes(page)  && page !== "Integrations" && page !== "Weekly plan" && (
+        {!["Searches","Account settings","Search repository","My Work","Delivery Monitor","Performance","Companies","Teams","Candidates","People & access","Engagement","Pipeline","Daily Work","Search assignments","Interview tracker","Engagement Config","Backups & exports"].includes(page)  && page !== "Integrations" && page !== "Weekly plan" && (
           <div className="filters">
             <label>
               From
@@ -538,8 +538,8 @@ function App() {
         {page==='Engagement Config'&&isAdmin&&<EngagementAdmin data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page==='My Work'&&hasRole(data.actor,'engagement')&&<Engagement mine data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page==='My Work'&&(!hasRole(data.actor,'engagement')||hasRole(data.actor,'researcher')||hasRole(data.actor,'partner')||hasRole(data.actor,'super_admin'))&&<MyWork data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage("Search repository");}}/>}
-        {page==='Search repository'&&<ResearchPanel onEditPartner={s=>open({kind:"search-owner",...s})} onRoleChange={setSelected} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} key={page} data={data} api={api} reload={load} view={page} initialRole={page==='Search repository'?selected:''} initialTab={repoTab} onDirty={setSheetDirty} onCompanies={id=>{setSelected(id);setPage("Company universe");}}/>}
-        {page === 'Company universe'&&<CompanyUniverse data={data} api={api} reload={load} onDirty={setSheetDirty} initialRole={selected} onOpen={id=>{setSelected(id);setRepoTab("Target companies");setPage("Search repository");}}/>}
+        {page==='Search repository'&&<ResearchPanel onEditPartner={s=>open({kind:"search-owner",...s})} onRoleChange={setSelected} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} key={page} data={data} api={api} reload={load} view={page} initialRole={page==='Search repository'?selected:''} initialTab={repoTab} onDirty={setSheetDirty} onCompanies={id=>{setSelected(id);setPage("Companies");}}/>}
+        {page === 'Companies'&&<CompanyUniverse data={data} api={api} reload={load} onDirty={setSheetDirty} initialRole={selected} onOpen={id=>{setSelected(id);setRepoTab("Target companies");setPage("Search repository");}}/>}
 
         {page==='Candidates'&&candidateId&&<CandidateProfile key={candidateId} id={candidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} onBack={()=>setCandidateId('')} onRole={id=>{setSelected(id);setRepoTab('Candidate mappings');setPage('Search repository');}}/>}
         {page==='Candidates'&&!candidateId&&<Candidates onCandidate={setCandidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} onOpen={id=>{setSelected(id);setRepoTab("Candidate mappings");setPage("Search repository");}}/>}
