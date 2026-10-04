@@ -17,3 +17,13 @@ export function candidateEngagementState(mapping:R,journey?:R){
  const tone=journey.funnel_group==='Placed'?'green':journey.funnel_group==='Exited'?'muted':'blue';
  return {label:journey.stage,detail:journey.search_closed?'Search is closed to further outreach':'',tone};
 }
+
+// Keep interview feedback readable in Notes, even when it also recorded a transition.
+export function profileNotes(events:R[]){
+ return events.filter(e=>e.type!=='Assessment link'&&(!belongsToNoteGroup(e,'Stage updates')||belongsToNoteGroup(e,'Interview notes')))
+  .sort((a,b)=>String(b.created_at||b.occurred_on).localeCompare(String(a.created_at||a.occurred_on))||String(b.id).localeCompare(String(a.id)));
+}
+export function profileHistory(events:R[],audit:R[]){
+ return [...events.filter(e=>belongsToNoteGroup(e,'Stage updates')),...audit]
+  .sort((a,b)=>String(b.kind==='candidate-activity'?b.occurred_on||b.created_at:b.created_at).localeCompare(String(a.kind==='candidate-activity'?a.occurred_on||a.created_at:a.created_at))||String(b.id).localeCompare(String(a.id)));
+}

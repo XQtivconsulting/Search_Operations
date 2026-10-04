@@ -62,7 +62,7 @@ export function engagementMutation(db:DB,a:Actor,b:R,members:Member[]){
    for(const [category,values] of Object.entries(tag_values))for(const label of values){const key=category+':'+normTag(label);if(!byKey(db,'candidate-tag-value',key))save(db,a,'candidate-tag-value','',key,{category,label},null,'candidate-tag-value-add');}
    return save(db,a,'candidate','',c.url||'recruitcrm:'+c.crm_ids?.[0],{...c,tag_values},c,b.action);
   }
-  requireThat(interactionTypes.includes(b.type),'Choose an interaction type.');const notes=text(b.notes,50000);requireThat(notes,'Enter notes or transcript.');const occurred=day(b.occurred_on),url=b.url?safeLink(b.url):'';requireThat(b.type!=='Assessment link'||url,'Add the assessment link.');
+  requireThat(interactionTypes.includes(b.type),'Choose an interaction type.');const notes=text(b.notes,50000);requireThat(notes,'Enter notes or transcript.');const occurred=day(b.occurred_on||new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'}).format(new Date())),url=b.url?safeLink(b.url):'';requireThat(b.type!=='Assessment link'||url,'Add the assessment link.');
   requireThat(b.note_group===undefined||['Interview notes','General notes'].includes(b.note_group),'Choose Interview notes or General notes. Stage updates are recorded by the pipeline.');
   const note_group=['Interview','Screening call'].includes(b.type)?'Interview notes':b.note_group||'General notes';
   return save(db,a,'candidate-activity',role,crypto.randomUUID(),{candidate_id:c.id,type:b.type,note_group,notes,...(b.type==='Transcript'?{transcript_summary:summarizeTranscript(notes),summary_method:'source-excerpts-v1'}:{}),occurred_on:occurred,url,actor_id:a.id,created_at:new Date().toISOString()},null,b.action);

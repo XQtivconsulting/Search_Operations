@@ -387,33 +387,12 @@ function App() {
         </div>
       </aside>
       <main className={"main"+(["Search repository","Company universe","Candidates","Delivery Monitor","Performance","Engagement","Pipeline","Daily Work","Search assignments","Interview tracker","Engagement Config","Backups & exports"].includes(page)?" compact-workspace":"")}>
-        <header>
+        {!(page === "Candidates" && candidateId) && <header>
           <div>
-            <p className="eyebrow">{data.name} / {page === "Search repository" ? "SEARCH REPOSITORY" : "OPERATIONS"}</p>
             <h1>{page === "Search repository" && sBy[selected] ? sBy[selected].title : page}</h1>
-            <p className="subheading">
-              {
-                {
-                  "Search repository": sBy[selected] ? `${sBy[selected].client} · Search ID: ${searchDisplayId(sBy[selected])} · ${sBy[selected].status || "Status not set"} · Partner: ${sBy[selected].partner || "Not assigned"}` : "Choose a search to open its repository.",
-                  Searches:
-                    "The complete search portfolio, with the details one click away.",
-                  "Weekly plan":
-                    "Set priorities and allocate teams across all seven days.",
-                  "Delivery Monitor":
-                    "Track delivery and clear outstanding reviews.",
-                  Candidates: "One candidate profile, with notes, attachments and search history.",
-                  "Daily Work": "Prioritize handoffs and follow-ups across engagement searches.",
-                  Pipeline: "Candidate progress and days in stage, by search.",
-                  "Search assignments": "Assign searches to the engagement members who will work them.",
-                  "Engagement Config": "Workspace-wide engagement pipeline configuration.",
-                  "Interview tracker": "Client recommendations, interview rounds and outcomes across searches.",
-                  Performance: "Compare researcher output and the return on sourcing effort.",
-                  "People & access": "Accounts, invitations and combined responsibilities.",
-                }[page]
-              }
-            </p>
+            {page === "Search repository" && sBy[selected] && <p className="subheading">{`${sBy[selected].client} · Search ID: ${searchDisplayId(sBy[selected])} · ${sBy[selected].status || "Status not set"} · Partner: ${sBy[selected].partner || "Not assigned"}`}</p>}
           </div>
-        </header>
+        </header>}
         {notice && (
           <div className="notice" role="status">
             {notice}
@@ -569,7 +548,6 @@ function App() {
         {page === "Performance" && <Performance data={data} api={api} reload={load} onDirty={setSheetDirty} onDecision={id=>{setSelected(id);setAllocationStart({date:'',view:'decisions'});setPage('Weekly plan');}}/>}
         {page==='People & access'&&isAdmin&&<PeoplePanel data={data} api={api} reload={load} onDirty={setSheetDirty}/>}
         <footer>
-          Private workspace · Counts derived from candidate mappings ·{" "}
           <button onClick={() => load()}>Refresh data</button>
         </footer>
       </main>
