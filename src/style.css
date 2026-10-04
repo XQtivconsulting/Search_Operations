@@ -1454,3 +1454,5 @@ input[type=checkbox] { accent-color:var(--xqtiv-navy); }
 .app .main:has(.interview-tracker){min-width:0}.app .interview-tracker{max-width:100%}.app .interview-tracker .search-picker{flex:1 1 300px;min-width:220px;max-width:420px}.app .interview-tracker .sheet-toolbar .checkbox{flex-direction:row;align-items:center;white-space:normal;max-width:250px;font-size:11px}.app .interview-tracker .sheet-toolbar .checkbox input{flex:none}.app .interview-grid td:nth-child(3){white-space:normal;max-width:230px}.app .interview-grid .interview-search-row button{white-space:normal;justify-content:flex-start}
 
 .recommendation-cell{display:flex;align-items:center;gap:6px}.recommendation-cell .icon-button{padding:4px;flex-shrink:0}
+
+.company-profile-fields{border:0;padding:0;margin:0;min-width:0}.company-website-matches article{padding:8px 0;border-bottom:1px solid #e4e9f0}.company-website-matches p{margin:4px 0}

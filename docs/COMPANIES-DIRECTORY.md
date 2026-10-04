@@ -15,3 +15,11 @@ Local TypeScript checks, 259 tests and production builds passed before the cover
 The final import/logo update passed TypeScript, all 260 tests and the production build. Deployment run 37180167057 succeeded.
 
 Live verification confirmed the revised import screen; the downloaded live Excel template matched the validated local file byte-for-byte. Existing company records without website URLs do not display logos; external logo availability was not asserted for those records.
+
+## Compact shared company profile
+
+Target Companies and Companies open the same profile from the company name. The profile exposes Company, Industry, Sector, Subsector, Revenue, Company size and Website; legacy metadata is retained in storage but omitted from the editor. The separate Company details action is removed. Research status opens its existing authorized progress editor directly from the status cell.
+
+Opening an editable profile with a missing website triggers a debounced public company lookup. A unique exact-name HTTPS match fills the empty field; ambiguous results require choosing a match. Existing/manual URLs are not overwritten, stale responses are ignored, and unavailable lookups leave manual entry available. Save company persists the filled URL and enables its existing linked logo in both tables. This is profile-time lookup, not a background bulk enrichment of all companies.
+
+Local typecheck, 263 tests and production build passed. Live deployment verification remains pending.
