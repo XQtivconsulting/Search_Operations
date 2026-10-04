@@ -10,7 +10,7 @@ export function nextActivity(stage:PipelineStage,stages:PipelineStage[]){
   const next=(stage.group==='Top Funnel'?stages:later).find(s=>s.group==='Outreach');
   return next?{label:actionLabel(next),target:next.id}:{label:'Review response / decide outreach outcome',target:''};
  }
- if(stage.group==='Engaged')return {label:'Arrange initial screening call',target:''};
+ if(stage.group==='Engaged'){const screening=stages.find(s=>s.id==='screening'&&s.group==='Screening')||stages.find(s=>s.group==='Screening');return {label:'Arrange initial screening call',target:screening?.id||''};}
  if(stage.group==='Screening')return {label:'Review screening outcome / decide shortlist',target:''};
  if(stage.group==='Shortlist'){const next=later.find(s=>s.group==='Shortlist');return {label:next?actionLabel(next):'Follow up with client on recommendation',target:next?.id||''};}
  return {label:actionLabel(stage),target:''};
