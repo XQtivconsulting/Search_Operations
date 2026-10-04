@@ -161,10 +161,11 @@ function App() {
           await load();
           return;
         }
-        await api("mutate", body);
+        const saved = await api("mutate", body);
         setModal(null);
         setNotice("Saved to your workspace.");
         await load();
+        if(modal?.kind==='search'){setSelected(saved.id);setRepoTab("Search strategy");setPage("Search repository");}
       }
     } catch (e: any) {
       setError(e.message);
@@ -358,7 +359,6 @@ function App() {
                 if (sheetDirty && !confirm("Discard unsaved changes?")) return;
                 setSheetDirty(false);
                 if(label==='Companies')setCompanySearch('');
-                if(label==='Search repository')setRepoTab("Candidate mappings");
                 if(label==='Pipeline')setEngagementStart({role:'',mapping:'',stage:''});
                 if(label==='Interview tracker')setInterviewRole('');
                 if(label==='Delivery Monitor')setDeliveryStart({view:'daily',roles:null});
@@ -548,7 +548,7 @@ function App() {
         {page==='Engagement Config'&&isAdmin&&<EngagementAdmin data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page==='My Work'&&hasRole(data.actor,'engagement')&&<Engagement mine data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page==='My Work'&&(!hasRole(data.actor,'engagement')||hasRole(data.actor,'researcher')||hasRole(data.actor,'partner')||hasRole(data.actor,'super_admin'))&&<MyWork data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage("Search repository");}}/>}
-        {page==='Search repository'&&<ResearchPanel onReturn={mappingStart&&navigation.back?()=>navigation.go('back'):undefined} returnLabel={navigation.back?'Back to '+navigationLabel(navigation.back.page):undefined} initialMapping={mappingStart} onEditPartner={s=>open({kind:"search-owner",...s})} onRoleChange={setSelected} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} key={page} data={data} api={api} reload={load} view={page} initialRole={page==='Search repository'?selected:''} initialTab={repoTab} onDirty={setSheetDirty} onCompanies={id=>{setCompanySearch(id);setPage("Companies");}}/>}
+        {page==='Search repository'&&<ResearchPanel onCreateSearch={()=>open({kind:"search"})} onTabChange={setRepoTab} onReturn={mappingStart&&navigation.back?()=>navigation.go('back'):undefined} returnLabel={navigation.back?'Back to '+navigationLabel(navigation.back.page):undefined} initialMapping={mappingStart} onEditPartner={s=>open({kind:"search-owner",...s})} onRoleChange={setSelected} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} key={page} data={data} api={api} reload={load} view={page} initialRole={page==='Search repository'?selected:''} initialTab={repoTab} onDirty={setSheetDirty} onCompanies={id=>{setCompanySearch(id);setPage("Companies");}}/>}
         {page === 'Companies'&&<CompanyUniverse data={data} api={api} reload={load} onDirty={setSheetDirty} initialRole={companySearch} onOpen={id=>{setSelected(id);setRepoTab("Target companies");setPage("Search repository");}}/>}
 
         {page==='Candidates'&&candidateId&&<CandidateProfile key={candidateId} id={candidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} onBack={()=>setCandidateId('')} onRole={id=>{setSelected(id);setRepoTab('Candidate mappings');setPage('Search repository');}}/>}
@@ -658,10 +658,6 @@ function App() {
                   <>
                     <Field name="client" label="Client company" required />
                     <Field name="title" label="Search title" required />
-                    <Field
-                      name="external_id"
-                      label="Recruit CRM job ID (optional)"
-                    />
                     <Field name="start_date" label="Start date" type="date" />
                     <Select name="partner_id" label="Engagement partner" values={[["","Not assigned"],...(data.partners || []).map((p:Row)=>[p.id,p.name])]}/>
                   </>

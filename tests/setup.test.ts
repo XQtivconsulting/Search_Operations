@@ -183,11 +183,13 @@ test('new researcher invitation has no person allocation until accepted; role up
  await identity.accept({token:invite,email:'new@example.com',password:'Synthetic-password-123'},'ip');const person=(await identity.members('test'))[0];assert.equal(person.staff_id,'person:'+person.id);assert.deepEqual(person.roles,['researcher','partner']);db.close();
 });
 
-test('manual role creation is rejected before any workspace write',async()=>{
+test('manual search creation reaches the workspace and validates the partner',async()=>{
  let written=false;
- const env:any={IDENTITY:{getByName:()=>({authenticate:async()=>({tenant:'test',role:'admin'})})},WORKSPACE:{getByName:()=>({mutate:async()=>{written=true;}})}};
- const res=await worker.fetch(new Request('https://app.example.com/api/mutate',{method:'POST',headers:{Origin:'https://app.example.com'},body:JSON.stringify({kind:'search',title:'Manual role',client:'Synthetic'})}),env);
- assert.equal(res.status,410);assert.equal(written,false);assert.match((await res.json() as any).error,/RecruitCRM/);
+ const env:any={IDENTITY:{getByName:()=>({authenticate:async()=>({tenant:'test',role:'admin'}),members:async()=>[]})},WORKSPACE:{getByName:()=>({mutate:async()=>{written=true;return {id:'local-search'};}})}};
+ const send=(body:any)=>worker.fetch(new Request('https://app.example.com/api/mutate',{method:'POST',headers:{Origin:'https://app.example.com'},body:JSON.stringify(body)}),env);
+ const res=await send({kind:'search',title:'Manual role',client:'Synthetic'});
+ assert.equal(res.status,200);assert.equal(written,true);assert.equal((await res.json() as any).id,'local-search');
+ written=false;assert.equal((await send({kind:'search',title:'Manual role',client:'Synthetic',partner_id:'foreign'})).status,400);assert.equal(written,false);
 });
 
 test('full reset endpoint checks original owner and email before workspace deletion, preserves account',async()=>{

@@ -10,7 +10,7 @@ Target repository: https://github.com/XQtivconsulting/Search_Operations
 
 - Invitation-based sign-in, protected workspace super admin and multiple roles per person. People & access shows accounts, invitations and unlinked researcher records.
 - Optional Resend invitation email with explicit delivery status and private-link fallback; requires Worker email configuration.
-- Search portfolio, weekly priorities, daily team assignments and researcher output.
+- Native search creation alongside RecruitCRM imports; reusable target-company and coverage cloning; weekly priorities, daily team assignments and researcher output.
 - Search repositories with versioned briefs/strategies, company ownership, reusable candidates, per-search mappings, team/partner review, My Work queues and workflow monitoring. See [Research workflow](docs/RESEARCH-WORKFLOW.md).
 - Candidate-derived daily output and revocable client-safe approved brief links.
 - Peer and partner approvals, immutable review events, correction/reopening history.

@@ -17,7 +17,9 @@ export type Member={id:string;name:string;role:string;roles?:string[];status:str
 export function linkedin(v:any) {let u:URL;try{u=new URL(String(v));}catch{throw new Error('Enter a complete LinkedIn profile URL.');}requireThat(u.protocol==='https:'&&['linkedin.com','www.linkedin.com'].includes(u.hostname)&&/^\/in\/[^/]+\/?$/.test(u.pathname)&&!u.username&&!u.password,'Use https://www.linkedin.com/in/profile.');return 'https://www.linkedin.com'+u.pathname.replace(/\/$/,'').toLowerCase();}
 const iso=()=>new Date().toISOString();
 const get=(db:DB,id:string)=>{const r=db.rows('SELECT * FROM research_records WHERE id=?',id)[0];requireThat(r,'Record not found.',404);return {...JSON.parse(r.data),id:r.id,kind:r.kind,role_id:r.role_id,version:r.version};};
-export function researchState(db:DB) {return {records:db.rows('SELECT * FROM research_records').map(r=>({...JSON.parse(r.data),id:r.id,kind:r.kind,role_id:r.role_id,version:r.version})),events:db.rows('SELECT * FROM research_events ORDER BY created_at DESC').map(r=>({...r,data:JSON.parse(r.data)}))};}
+export function researchRecords(db:DB){return db.rows('SELECT * FROM research_records').map(r=>({...JSON.parse(r.data),id:r.id,kind:r.kind,role_id:r.role_id,version:r.version}));}
+export function researchState(db:DB) {return {records:researchRecords(db),events:db.rows('SELECT * FROM research_events ORDER BY created_at DESC').map(r=>({...r,data:JSON.parse(r.data)}))};}
+
 export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
  requireThat((b.action==='candidate-save'&&!b.id)||roleList(a).some(r=>r!=='founder'),'This account has read-only access.',403);
  const active=members.filter(m=>m.status==='active');
@@ -30,7 +32,7 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
  const search=role?db.rows('SELECT * FROM searches WHERE id=?',role)[0]:null;
  if(role)requireThat(search,'Role not found.',404);
  const manager=canPlan(a)||hasRole(a,'partner')&&search?.partner_id===a.id;
- const assignedSetup=researchState(db).records.some(t=>t.kind==='task'&&t.role_id===role&&t.owner_id===a.id&&t.status!=='Cancelled'&&((b.action==='brief-save'&&t.task_type==='Role brief')||(b.action==='strategy-save'&&t.task_type==='Search strategy')));
+ const assignedSetup=['brief-save','strategy-save'].includes(b.action)&&researchRecords(db).some(t=>t.kind==='task'&&t.role_id===role&&t.owner_id===a.id&&t.status!=='Cancelled'&&((b.action==='brief-save'&&t.task_type==='Role brief')||(b.action==='strategy-save'&&t.task_type==='Search strategy')));
  const manage=()=>requireThat(manager||assignedSetup,'Role management permission required.',403);
  let next:any,id=old?.id||crypto.randomUUID(),kind=old?.kind||'',key='';
  const find=(k:string,rk:string)=>db.rows('SELECT id FROM research_records WHERE kind=? AND record_key=?',k,rk)[0];
@@ -38,7 +40,18 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
   const rid=existing?.id||crypto.randomUUID();
   db.rows('INSERT INTO research_records(id,kind,role_id,record_key,data,version) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET record_key=excluded.record_key,data=excluded.data,version=excluded.version',rid,k,r,rk,JSON.stringify(d),(existing?.version||0)+1);return rid;
  };
- if(b.action==='task-save') {
+ if(b.action==='target-clone') {
+  manage();requireThat(search,'Choose a destination search.');const source=text(b.source_role_id);
+  requireThat(source&&source!==role&&db.rows('SELECT id FROM searches WHERE id=?',source).length,'Choose a different source search.');
+  const targets=researchRecords(db).filter(r=>r.kind==='target'&&r.role_id===source);
+  requireThat(JSON.stringify(targets.map(t=>[t.id,t.version]).sort())===b.source_signature,'Source targets changed. Reload before cloning.',409);
+  requireThat(targets.length>0,'The source search has no target companies.');let copied=0,skipped=0;
+  for(const t of targets){if(find('target',role+':'+t.company_id)){skipped++;continue;}
+   const company=get(db,t.company_id);requireThat(company.kind==='company','Source company not found.');
+   const data={name:company.name,company_id:t.company_id,expected:t.expected??null,wave:t.wave??null,team_id:'',owner_id:'',reviewer_id:'',status:'Not started',source:'Cloned',source_role_id:source,created_by:a.id,cloned_at:iso(),strategy_revision:null};
+   const tid=save('target',role,role+':'+t.company_id,data);db.audit(a,'target-clone',tid,null,data);db.rows('INSERT INTO research_events VALUES(?,?,?,?,?,?)',crypto.randomUUID(),tid,a.id,'target-clone',JSON.stringify({before:null,after:data}),iso());copied++;
+  }return {copied,skipped};
+ } else if(b.action==='task-save') {
   requireThat(canPlan(a),'Planning permission required.',403);requireThat(search,'Choose a search.');requireThat(!old||old.kind==='task','Choose a task.');
   const person=researcher(b.owner_id),team=text(b.team_id);requireThat(db.rows('SELECT 1 FROM team_members WHERE team_id=? AND staff_id=?',team,person.staff_id||person.staffId).length,'Assign a member of this team.');
   requireThat(['Role brief','Search strategy','Target companies','Sourcing','Other'].includes(b.task_type),'Choose a task type.');
@@ -65,8 +78,8 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
   const name=text(b.name,200);requireThat(name,'Enter a company name.');kind='company';key=name.toLowerCase().replace(/\s+/g,' ');
   requireThat(!find(kind,key)||find(kind,key)?.id===old?.id,'This company is already in the master list.',409);
   const tags=(v:any)=>[...new Set(String(v||'').split(',').map(v=>text(v,100)).filter(Boolean))].slice(0,30);
-  next={...old,...cleanCompany({...old,...b},researchState(db).records)};
-  const names=companyNames(next);requireThat(!researchState(db).records.some(c=>c.kind==='company'&&c.id!==old?.id&&companyNames(c).some(n=>names.includes(n))),'This name or alias is already assigned to another company.',409);
+  next={...old,...cleanCompany({...old,...b},researchRecords(db))};
+  const names=companyNames(next);requireThat(!researchRecords(db).some(c=>c.kind==='company'&&c.id!==old?.id&&companyNames(c).some(n=>names.includes(n))),'This name or alias is already assigned to another company.',409);
  } else if(b.action==='peer-route') {
   requireThat(canPlan(a),'Planning permission required.',403);requireThat(db.rows('SELECT staff_id FROM team_members WHERE team_id=? AND staff_id=?',b.team_id,b.staff_id).length,'This researcher is not in the team.');
   requireThat(!old||old.kind==='peer-route','Wrong record type.');
@@ -112,7 +125,7 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
    if(old)manage();
    let companyId=old?.company_id||text(b.company_id),name='';
    if(companyId){const company=get(db,companyId);requireThat(company.kind==='company','Choose a company from the master list.');name=company.name;}
-   else {name=text(b.name,200);requireThat(name,'Enter a company name.');const normalized=name.toLowerCase().replace(/\s+/g,' ');const company=find('company',normalized);companyId=company?.id||save('company','',normalized,cleanCompany({...b,name},researchState(db).records));}
+   else {name=text(b.name,200);requireThat(name,'Enter a company name.');const normalized=name.toLowerCase().replace(/\s+/g,' ');const company=find('company',normalized);companyId=company?.id||save('company','',normalized,cleanCompany({...b,name},researchRecords(db)));}
    key=role+':'+companyId;requireThat(old?.id===find(kind,key)?.id,'This company is already in the role universe.',409);
    const strategy=find('strategy',role);const s=strategy?get(db,strategy.id):null;
    const team=text(b.team_id),owner=manager?text(b.owner_id):(team?a.id:'');
@@ -139,6 +152,7 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
   const team=linking?'':target?.team_id||text(b.team_id);
   requireThat(linking||db.rows('SELECT staff_id FROM team_members WHERE team_id=? AND staff_id=?',team,person.staff_id||person.staffId).length,'Choose a team you belong to.');
   const items=b.items;requireThat(Array.isArray(items)&&items.length>0&&items.length<=100,'Add between 1 and 100 candidates.');
+  const companies=researchRecords(db).filter(r=>r.kind==='company');
   const ids=[];for(const item of items){
    requireThat(!linking||item.candidate_id,'Choose an existing candidate.');
    const selected=item.candidate_id?get(db,text(item.candidate_id)):null;requireThat(!selected||selected.kind==='candidate','Choose an existing candidate.');
@@ -148,19 +162,26 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
    const email=text(item.email,254).toLowerCase();requireThat(!email||/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),'Enter a valid candidate email.');
    const companyRecord=item.company_id?get(db,text(item.company_id)):null;requireThat(!companyRecord||companyRecord.kind==='company','Choose a company.');
    const company=target?get(db,target.company_id).name:(candidate?.company||companyRecord?.name||text(item.company,200));
-   const company_id=target?.company_id||candidate?.company_id||companyRecord?.id||'';
+   let company_id=target?.company_id||candidate?.company_id||companyRecord?.id||'';
+   if(!company_id&&company){const match=companies.find(c=>companyNames(c).includes(normalizedCompany(company)));company_id=match?.id||'';
+    if(!company_id){const data=cleanCompany({name:company});company_id=save('company','',company.toLowerCase().replace(/\s+/g,' '),data);companies.push({...data,id:company_id});db.audit(a,'mapping-company-added',company_id,null,data);}
+   }
+   let targetId=target?.id||'';
+   if(company_id&&!targetId){const found=find('target',role+':'+company_id);targetId=found?.id||'';
+    if(!targetId){const data={name:company,company_id,expected:null,wave:null,team_id:'',owner_id:'',reviewer_id:'',status:'Not started',source:'Candidate mapping',created_by:a.id,strategy_revision:null};targetId=save('target',role,role+':'+company_id,data);db.audit(a,'mapping-target-added',targetId,null,data);db.rows('INSERT INTO research_events VALUES(?,?,?,?,?,?)',crypto.randomUUID(),targetId,a.id,'mapping-target-added',JSON.stringify({before:null,after:data}),iso());}
+   }
    const candidateData={first_name,last_name,name:first_name+' '+last_name,url,email,phone:text(item.phone,60),title:text(item.title,300),company,company_id};
    const cid=candidate?.id||save('candidate','',url,candidateData);
    if(!candidate)db.audit(a,'candidate-save',cid,null,candidateData);
    requireThat(!find('mapping',role+':'+cid),'This candidate is already mapped to this role. Open the existing mapping; no duplicate was created.',409);
    const strategy=find('strategy',role),criteria=strategy?get(db,strategy.id).active_criteria||[]:[];
-   const mapped={evidence:cleanEvidence(item.evidence,criteria),criteria_snapshot:criteria,candidate_id:cid,target_id:target?.id||'',name:candidate?.name||candidateData.name,title:candidate?.title||text(item.title,300),url,rationale:text(item.rationale,5000),company,company_id,mapper_id:a.id,staff_id:person.staff_id||person.staffId,team_id:team,reviewer_id:'',status:'Draft',created_at:iso(),strategy_revision:target?.strategy_revision||null};
+   const mapped={evidence:cleanEvidence(item.evidence,criteria),criteria_snapshot:criteria,candidate_id:cid,target_id:targetId,name:candidate?.name||candidateData.name,title:candidate?.title||text(item.title,300),url,rationale:text(item.rationale,5000),company,company_id,mapper_id:a.id,staff_id:person.staff_id||person.staffId,team_id:team,reviewer_id:'',status:'Draft',created_at:iso(),strategy_revision:target?.strategy_revision||null};
    const mid=save('mapping',role,role+':'+cid,mapped);db.audit(a,b.action,mid,null,mapped);ids.push(mid);
    db.rows('INSERT INTO research_events VALUES(?,?,?,?,?,?)',crypto.randomUUID(),mid,a.id,b.action,JSON.stringify({before:null,after:mapped}),iso());
   }return {ids};
  } else if(['mapping-edit','mapping-submit','mapping-review','mapping-reassign','mapping-reopen'].includes(b.action)) {
   requireThat(old?.kind==='mapping','Mapping not found.');kind='mapping';key=role+':'+old.candidate_id;next={...old};
-  if(b.action==='mapping-edit'){requireThat(old.mapper_id===a.id&&['Draft','Needs information'].includes(old.status),'Only the mapper can edit a draft or returned mapping.',403);requireThat(text(b.rationale),'Enter a fit rationale.');next.rationale=text(b.rationale,5000);const strategy=find('strategy',role);const criteria=strategy?get(db,strategy.id).active_criteria||[]:[];next.evidence=cleanEvidence(b.evidence||old.evidence,criteria);next.criteria_snapshot=criteria;}
+  if(b.action==='mapping-edit'){requireThat(find('strategy',role),'Create a search strategy before editing fit rationale.');requireThat(old.mapper_id===a.id&&['Draft','Needs information'].includes(old.status),'Only the mapper can edit a draft or returned mapping.',403);requireThat(text(b.rationale),'Enter a fit rationale.');next.rationale=text(b.rationale,5000);const strategy=find('strategy',role);const criteria=strategy?get(db,strategy.id).active_criteria||[]:[];next.evidence=cleanEvidence(b.evidence||old.evidence,criteria);next.criteria_snapshot=criteria;}
   if(b.action==='mapping-submit'){researcher(a.id);requireThat(text(old.rationale),'Add a fit rationale before submitting.');requireThat(old.mapper_id===a.id&&['Draft','Needs information','Hold'].includes(old.status),'This mapping cannot be submitted by you.',403);next.reviewer_id='';next.reviewer_override=false;next.peer_reviewed_by=null;next.peer_reviewed_name=null;next.peer_reviewed_at=null;const p=member(search.partner_id);requireThat(canPartnerReview(p),'Assign an engagement partner to this role.');const strategy=find('strategy',role);const cutover=strategy?get(db,strategy.id).cutover:null;const criteria=strategy?get(db,strategy.id).active_criteria||[]:[];next.evidence=cleanEvidence(old.evidence,criteria,true);next.criteria_snapshot=criteria;const readiness=submissionReadiness(strategy?get(db,strategy.id):null);requireThat(!readiness,readiness);next.strategy_revision=strategy?get(db,strategy.id).revision:null;next.status='Peer review';next.submitted_at=old.submitted_at||iso();next.stage_at=iso();next.work_date=old.work_date||new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'}).format(new Date());next.peer_decision=null;next.partner_decision=null;next.cycle=(old.cycle||0)+1;}
   if(b.action==='mapping-review') {
    const stage=old.status==='Peer review'?'peer':old.status==='Partner review'?'partner':'';requireThat(stage,'This mapping is not awaiting review.',409);

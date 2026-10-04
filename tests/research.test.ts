@@ -478,3 +478,46 @@ test('candidate personal attributes preserve profile data, validate and require 
  assert.equal((await f.rec(cid)).age,null);assert.equal((await f.rec(cid)).gender,'');
  assert.ok((await f.state()).research.events.some((e:any)=>e.action==='candidate-attributes'&&e.record_id===cid));f.db.close();
 });
+
+test('local searches are planner-owned creation with distinct references and audit',async()=>{
+ const f=fixture();await assert.rejects(f.w.mutate(mapper,'search',{client:'Synthetic',title:'Local search'}),/permission/);
+ await assert.rejects(f.w.mutate(admin,'search',{client:'Synthetic'}),/client and role/);
+ const {id}=await f.w.mutate(admin,'search',{client:'Synthetic',title:'Local search',external_id:'108',partner_id:'partner',start_date:'2026-10-04'});
+ const search=(await f.state()).searches.find((s:any)=>s.id===id)!;assert.match(search.external_id,/^LOCAL-/);assert.equal(search.status,'Open');assert.equal(search.partner_id,'partner');
+ assert.ok(f.db.prepare("SELECT * FROM audit WHERE entity=?").all(id).length);f.db.close();
+});
+test('draft assignment adds current companies with optional coverage and blocks fit edits until strategy exists',async()=>{
+ const f=fixture();const company=await f.run(admin,{action:'company-master',name:'Synthetic Corporation',aliases:['Synthetic Co']});
+ const c1=await f.run(mapper,{action:'candidate-save',first_name:'One',last_name:'Synthetic',url:'https://linkedin.com/in/target-one',company:'Synthetic Co'});
+ const c2=await f.run(mapper,{action:'candidate-save',first_name:'Two',last_name:'Synthetic',url:'https://linkedin.com/in/target-two',company:'Synthetic Corporation'});
+ const c3=await f.run(mapper,{action:'candidate-save',first_name:'Three',last_name:'Synthetic',url:'https://linkedin.com/in/target-three',company:'New Synthetic Company'});
+ const b={action:'candidate-assign',role_id:'r',candidate_ids:[c1.id,c2.id,c3.id]};const p=await f.run(mapper,{...b,preview:true});await f.run(mapper,{...b,signature:p.signature});
+ const records=(await f.state()).research.records,targets=records.filter(r=>r.kind==='target'),maps=records.filter(r=>r.kind==='mapping');assert.equal(targets.length,2);assert.equal(records.filter(r=>r.kind==='company').length,2);assert.ok(targets.some(t=>t.company_id===company.id));assert.ok(targets.every(t=>t.expected===null&&t.owner_id===''&&t.status==='Not started'));assert.ok(maps.every(m=>m.target_id&&m.status==='Draft'&&m.team_id===''));
+ await assert.rejects(f.run(mapper,{...maps[0],action:'mapping-edit',rationale:'Relevant'}),/Create a search strategy/);
+ await assert.rejects(f.run(mapper,{...maps[0],action:'mapping-submit'}),/rationale|strategy/i);
+ const s=await f.run(admin,{action:'strategy-save',role_id:'r',content:'Search Synthetic Corporation using enterprise sales keywords.',criteria:[]});await f.run(admin,{...await f.rec(s.id),action:'strategy-approve'});
+ await f.run(mapper,{...await f.rec(maps[0].id),action:'mapping-edit',rationale:'Relevant experience'});await f.run(mapper,{...await f.rec(maps[0].id),action:'mapping-submit'});assert.equal((await f.rec(maps[0].id)).status,'Peer review');f.db.close();
+});
+test('clone copies planned targets only, preserves destination targets and rejects stale or unauthorized requests',async()=>{
+ const f=fixture(),t=await setup(f);await f.run(admin,{...await f.rec(t),action:'target-coverage',expected:10});await f.run(admin,{...await f.rec(t),action:'company-progress',status:'Completed',notes:'Synthetic completion'});
+ await f.run(admin,{action:'company-save',role_id:'r',name:'Zero Synthetic',expected:0,wave:2});await f.run(admin,{action:'company-save',role_id:'r',name:'Unset Synthetic'});
+ const source=(await f.state()).research.records.filter(r=>r.kind==='target'&&r.role_id==='r'),body={action:'target-clone',role_id:'r2',source_role_id:'r',source_signature:JSON.stringify(source.map(t=>[t.id,t.version]).sort())};
+ await assert.rejects(f.run(mapper,body),/permission/);await assert.rejects(f.run({...partner,id:'other'},body),/permission/);await assert.rejects(f.run(admin,{...body,source_signature:'stale'}),/changed/);await assert.rejects(f.run(admin,{...body,source_role_id:'r2'}),/different/);
+ const result=await f.run(partner,body);assert.equal(result.copied,3);assert.equal(result.skipped,0);
+ const targets=(await f.state()).research.records.filter(r=>r.kind==='target'&&r.role_id==='r2');assert.deepEqual(targets.map(t=>t.expected).sort(),[0,10,null].sort());assert.equal(targets.find(t=>t.name==='Zero Synthetic')?.wave,2);assert.ok(targets.every(t=>t.status==='Not started'&&!t.owner_id&&!t.team_id&&!t.completed_at));assert.equal((await f.state()).research.records.filter(r=>r.kind==='mapping'&&r.role_id==='r2').length,0);
+ await f.run(admin,{...targets[0],action:'target-coverage',expected:42,notes:'Destination choice'});assert.equal((await f.run(admin,body)).skipped,3);assert.equal((await f.rec(targets[0].id)).expected,42);f.db.close();
+});
+test('batch assignment avoids reading audit history and bounds full record scans per batch',async()=>{
+ const f=fixture();const ids:string[]=[];
+ for(let i=0;i<105;i++)ids.push((await f.run(mapper,{action:'candidate-save',first_name:'Synthetic',last_name:String(i),url:'https://linkedin.com/in/synthetic-perf-'+i,company:'Synthetic Performance Co'})).id);
+ const b={action:'candidate-assign',role_id:'r',candidate_ids:ids},p=await f.run(mapper,{...b,preview:true});let historyReads=0,recordReads=0;
+ const original=f.w.rows.bind(f.w);f.w.rows=(q:string,...args:any[])=>{if(/SELECT .*FROM research_events/i.test(q))historyReads++;if(q==='SELECT * FROM research_records')recordReads++;return original(q,...args);};
+ const saved=await f.run(mapper,{...b,signature:p.signature});assert.equal(saved.mapped,105);assert.equal(historyReads,0);assert.ok(recordReads<=3,`${recordReads} full scans`);assert.equal((await f.state()).research.records.filter(r=>r.kind==='target').length,1);f.db.close();
+});
+
+test('existing unlinked drafts receive targets once without altering approved mappings or company allocations',async()=>{
+ const {backfillDraftTargets}=await import('../src/draft-targets');const f=fixture();
+ const c=await f.run(mapper,{action:'candidate-save',first_name:'Existing',last_name:'Draft',company:'Existing Synthetic Co',url:'https://linkedin.com/in/existing-draft'});
+ for(const [id,status] of [['legacy-draft','Draft'],['legacy-approved','Approved']])f.db.prepare('INSERT INTO research_records VALUES(?,?,?,?,?,1)').run(id,'mapping','r',id,JSON.stringify({candidate_id:c.id,status,company:'Existing Synthetic Co',target_id:'',company_id:'',rationale:'Existing evidence'}));
+ assert.equal(backfillDraftTargets(f.w),1);const m=await f.rec('legacy-draft');assert.ok(m.target_id);assert.equal(m.rationale,'Existing evidence');assert.equal(m.version,2);assert.equal((await f.rec('legacy-approved')).target_id,'');assert.equal(backfillDraftTargets(f.w),0);assert.equal((await f.state()).research.records.filter(r=>r.kind==='target').length,1);f.db.close();
+});

@@ -1,3 +1,4 @@
+import {matchesAge} from './candidate-demographics';
 import {geographyFullName,geographyCode,geographyMatches} from './candidate-geography';
 import {parseCandidateQuery,matchesCandidateQuery} from './candidate-smart-search';
 import {matchesFilter,filterText} from './filter-values';
@@ -22,6 +23,8 @@ export function directoryRows(candidates: Candidate[], query: string, filters: R
  return candidates.filter(c => {
   const searchable = (index.get(c.id)||'')+' '+text([c.name,c.first_name,c.last_name,c.company,c.title,c.url,c.email,c.phone,...Object.values(c.tag_values||{}).flat(),c.compensation_details].join(' '));
   return matchesCandidateQuery(c,searchable,smartQuery) && activeFilters.every(([key,filter]) => {
+   if(key==='age')return matchesAge(c.age,filter);
+   if(key==='gender')return (c.gender||'Not recorded')===filter;
    if(key==='unmapped')return !(roleCounts.get(c.id)||0);
    if(key==='potential_client')return String(c.potential_client)===filter;
    if(key==='searches')return (mappings.get(c.id)||[]).some(r=>filter.includes(r.role_id));

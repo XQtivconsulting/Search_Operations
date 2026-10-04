@@ -26,7 +26,7 @@ Business Object Model v3 takes precedence where the older capability document se
 
 ## Next phase: native search engagement creation alongside RecruitCRM
 
-Owner direction, 30 Sep 2026: support both CRM-imported and directly-created search engagements after the current candidate-engagement release. Both sources must share sourcing, partner approval handoff, engagement and hiring workflows. Retain optional RecruitCRM connectivity during transition; explicitly track origin/external identity and field ownership, prevent duplicate linking and conflicting updates. Native search creation and removal of CRM dependency are not part of this release; the existing CRM-only creation guard remains active.
+Owner direction, 30 Sep 2026: support both CRM-imported and directly-created search engagements after the current candidate-engagement release. Both sources must share sourcing, partner approval handoff, engagement and hiring workflows. Retain optional RecruitCRM connectivity during transition; explicitly track origin/external identity and field ownership, prevent duplicate linking and conflicting updates. Native search creation was enabled on 4 October 2026 with LOCAL references and the shared sourcing/engagement workflow. RecruitCRM import remains available; automatic native-to-CRM linking is not implemented.
 
 ## Owner direction — 30 Sep 2026: reusable talent assets and phased rollout
 This roadmap is design work, not authorization to build the future modules in this release. Current implementation scope is collapsible navigation and clearer mapping-fit presentation.
