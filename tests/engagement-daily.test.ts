@@ -68,10 +68,11 @@ test('engaged routing ignores channel order and supports configured screening ID
 });
 
 test('engaged channel actions describe responses and replace old generated labels',()=>{
- const labels={'engaged-linkedin':'Record candidate response via LinkedIn / Sales Navigator','engaged-email':'Record candidate response via email','engaged-phone':'Record candidate response via phone / text'};
+ const labels={'engaged-linkedin':'Record candidate response','engaged-email':'Record candidate response','engaged-phone':'Record candidate response'};
  for(const [id,label] of Object.entries(labels)){
   const s=step(id);assert.equal(actionLabel({...s,action_label:undefined}),label);
   assert.equal(actionLabel({...s,action_label:'Progress to '+s.label}),label);
+  assert.equal(actionLabel({...s,action_label:'Record candidate response via email'}),label);
   assert.equal(actionLabel({...s,action_label:'Record a meaningful conversation'}),'Record a meaningful conversation');
  }
 });
