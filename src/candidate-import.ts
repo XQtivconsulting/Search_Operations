@@ -1,3 +1,4 @@
+import {linkedinKey} from './candidate-identity';
 import {linkedin} from './research';
 export function candidateRows(grid:any[][]){
  if(grid.length<2)throw new Error('Add a header row and at least one candidate.');
@@ -10,7 +11,7 @@ export function candidateRows(grid:any[][]){
 }
 export function planCandidates(rows:any[],existing:any[]){
  if(!Array.isArray(rows)||!rows.length||rows.length>500)throw new Error('Import 1–500 candidates at a time.');
- const byUrl=new Map(existing.map(c=>[c.url,c]));const seen=new Set<string>();return rows.map((r,i)=>{try{
+ const byUrl=new Map(existing.map(c=>[linkedinKey(c.url),c]));const seen=new Set<string>();return rows.map((r,i)=>{try{
  const url=linkedin(r.url),first_name=String(r.first_name||'').trim(),last_name=String(r.last_name||'').trim(),email=String(r.email||'').trim();
  if(!first_name||!last_name)throw new Error('First name and last name are required.');
  if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw new Error('Invalid email.');

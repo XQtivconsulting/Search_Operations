@@ -1,3 +1,4 @@
+import {sameLinkedin} from './candidate-identity';
 import {backfillDraftTargets} from './draft-targets';
 import {canImportCandidates} from './candidate-tags';
 import {crmAssignments,crmCandidateDetails,crmSlug,crmList} from './crm-candidates';
@@ -153,7 +154,7 @@ export class Workspace extends DurableObject {
       }
       if(b.action==='mapping-inline') {
         requireThat(hasRole(a,'researcher'),'Researcher access required.',403);
-        const records=researchRecords(this),url=linkedin(b.url),candidate=records.find(r=>r.kind==='candidate'&&r.url===url);
+        const records=researchRecords(this),url=linkedin(b.url),candidate=records.find(r=>r.kind==='candidate'&&sameLinkedin(r.url,url));
         if(candidate)requireThat(candidate.version===Number(b.candidate_version),'Candidate details changed. Reload before adding the mapping.',409);
         const role=text(b.role_id),team=text(b.team_id);
         requireThat(!candidate||!records.some(r=>r.kind==='mapping'&&r.role_id===role&&r.candidate_id===candidate.id),'This candidate is already mapped to this role.',409);

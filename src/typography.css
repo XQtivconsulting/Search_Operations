@@ -321,3 +321,53 @@
 @media(max-width:700px){.company-edit-grid{grid-template-columns:1fr}}
 
 .company-website-icon{display:inline-flex;vertical-align:middle;margin-left:6px;color:#52728c;padding:2px}.company-website-icon:hover{color:#174779}
+
+/* Consistent content tables, including modal previews. */
+.app table:not(:where(.role-page *)){font-family:var(--font-sans);border-collapse:collapse;text-align:left}
+.app table:not(:where(.role-page *)) :is(th,td){text-align:left;vertical-align:middle;line-height:1.4;font-size:12px;padding:8px 10px}
+.app table:not(:where(.role-page *)) th{font-weight:600;color:#334155}
+.app table:not(:where(.role-page *)) td{font-weight:400;font-variant-numeric:tabular-nums}
+.app table:not(:where(.role-page *)) :is(.text-button,.table-sort-heading,.column-sort,.sort-heading){font:inherit;text-align:left;justify-content:flex-start;padding:0;min-height:24px;border:0;box-shadow:none;background:transparent;white-space:normal}
+.app table:not(:where(.role-page *)) thead button{display:inline-flex;align-items:center;gap:6px;font-weight:600;color:inherit}
+.app table:not(:where(.role-page *)) thead button:hover{color:#0759a5;text-decoration:underline}
+.app table:not(:where(.role-page *)) thead th[aria-sort=ascending],.app table:not(:where(.role-page *)) thead th[aria-sort=descending]{background:#e1ebf7;color:#123f76}
+.app .research-table :is(th,td){white-space:normal;min-width:100px;max-width:300px}
+.app .research-table :is(th,td):first-child{min-width:32px;width:32px}
+.app .research-table .wave-cell{min-width:65px;text-align:left}
+.app .research-table td .research-actions{justify-content:flex-start;gap:6px}
+.app .research-table td button:not(.text-button){padding:4px 8px;min-height:28px;font-size:12px}
+.app .research-panel>.research-tabs{display:flex;align-items:center;gap:6px;border-bottom:1px solid #dce4ef;padding-bottom:10px;margin:0 0 16px}
+.app .research-tabs .repository-search-action{margin-left:auto}
+.app .target-companies-panel>.section-head{margin-bottom:12px}
+.app .target-toolbar,.app .mapping-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 0;margin:0 0 10px}
+.app .target-toolbar .target-find{display:flex;align-items:center;gap:8px;margin:0;max-width:330px}
+.app .target-toolbar .target-find input{margin:0}
+.app .view-toggle{display:inline-flex;align-items:center;gap:2px;padding:3px;border:1px solid #cbd5e1;border-radius:7px;background:#f1f5f9}
+.app .view-toggle>button{border:0;background:transparent;box-shadow:none;color:#475569;padding:7px 12px;border-radius:4px}
+.app .view-toggle>button[aria-pressed=true]{background:#143f78;color:#fff;font-weight:600;box-shadow:0 1px 3px #16365733}
+.app .view-toggle>span{padding:0 8px;color:#64748b;font-size:11px}
+.app .mapping-controls{align-items:center;gap:8px;flex-wrap:wrap}
+.app .mapping-controls>label{display:flex;align-items:center;gap:6px;margin:0}
+.app .mapping-controls select{margin:0;max-width:190px}
+.app .company-actions-menu{position:relative;margin-left:auto}
+.app .company-actions-menu .compact-menu-content{right:0;left:auto;min-width:230px}
+.app .company-actions-menu button{text-align:left;white-space:normal}
+.app .person-linkedin{display:inline-flex;vertical-align:middle;align-items:center;justify-content:center;color:#0a66c2;margin-left:6px;width:22px;height:24px;border-radius:3px;flex-shrink:0}
+.app .person-linkedin:hover{background:#e7f0fc}.app .person-linkedin:focus-visible{outline:2px solid #0a66c2;outline-offset:2px}
+.app .candidate-matches{border:1px solid #b5cde6;border-left:3px solid #477cac;background:#f4f8fc;border-radius:5px;padding:12px;margin:12px 0}
+.app .candidate-matches>p{margin:4px 0 8px}.app .candidate-match{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:7px 0;border-bottom:1px solid #dce6f0}.app .candidate-match small{display:block;color:#64748b}
+.app .candidate-matches .checkbox{margin-top:10px}.app .modal .search-picker{min-width:0;width:100%}.app .modal .search-picker-menu{max-height:280px;overflow:auto}
+.app .repository-list-toolbar{display:flex;align-items:end;gap:12px;flex-wrap:wrap;margin:0 0 16px}
+.app .repository-list-toolbar>label{margin:0;display:flex;flex-direction:column;gap:5px}
+.app .repository-list-toolbar .repository-find{flex:1;min-width:220px;max-width:460px}
+.app .repository-list-toolbar input,.app .repository-list-toolbar select{margin:0;width:100%}
+.app .repository-list-toolbar>.primary{margin-left:auto;flex:0 0 auto;width:auto;padding:7px 14px}
+.app .repository-list-table{width:100%;table-layout:auto}.app .repository-list-table td:first-child{min-width:300px;max-width:600px;white-space:normal}
+.app .engagement-assignments-table{width:100%}.app .engagement-assignments-table td:first-child{max-width:580px;white-space:normal}
+.app .engagement-assignments-table .compact-menu-content{right:0;left:auto;min-width:185px}
+.app .engagement-assignments-table td:last-child{width:95px;vertical-align:middle}
+.app .search-picker{min-width:240px;flex:1 1 300px}.app .search-picker-controls{width:100%}.app .search-picker-controls>label{width:100%;max-width:none}
+.app .search-picker-menu{min-width:min(460px,80vw);max-width:calc(100vw - 40px);z-index:120}
+.app .search-picker-menu [role=option]{grid-template-columns:55px minmax(0,1fr)!important;width:100%;white-space:normal;word-break:normal;overflow-wrap:break-word}
+.app .search-picker-menu [role=option] span{min-width:180px;word-break:normal}
+.app .app-navigation{display:flex;gap:8px;flex-wrap:wrap}.app .app-navigation button{max-width:min(500px,46vw);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

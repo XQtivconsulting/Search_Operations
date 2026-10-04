@@ -1,3 +1,4 @@
+import {useViewState} from './ViewState';
 import {displayDate,displayDateTime} from './dates';
 import {planWorkload} from './plan-workload';
 import {PlanningTasks} from './PlanningTasks';
@@ -15,11 +16,11 @@ type Row=Record<string,any>;
 type Props={data:Row;api:(path:string,body?:unknown)=>Promise<any>;reload:()=>Promise<void>;initialSearch?:string;initialDate?:string;initialView?:'decisions'|'allocation';onDirty:(dirty:boolean)=>void;onTeams:()=>void};
 const label=(date:string)=>displayDate(date);
 export function WeeklyPlanner({data,api,reload,initialSearch='',initialDate='',initialView='decisions',onDirty,onTeams}:Props) {
- const [week,setWeek]=useState(()=>weekStart(initialDate||new Date().toLocaleDateString('en-CA'))),[mode,setMode]=useState<'search'|'team'>('search');
- const [gridSort,setGridSort]=useState({key:'name',descending:false});
- const [view,setView]=useState<'decisions'|'allocation'>(initialView),[decisionFilter,setDecisionFilter]=useState('');
- const [roles,setRoles]=useState<string[]|null>(initialSearch?[initialSearch]:null);
- const [filter,setFilter]=useState(''),[editor,setEditor]=useState<Row|null>(null),[priority,setPriority]=useState<Row|null>(null),[change,setChange]=useState<Row|null>(null);
+ const [week,setWeek]=useViewState('WeeklyPlanner.week',()=>weekStart(initialDate||new Date().toLocaleDateString('en-CA'))),[mode,setMode]=useViewState<'search'|'team'>('WeeklyPlanner.mode','search');
+ const [gridSort,setGridSort]=useViewState('WeeklyPlanner.gridSort',{key:'name',descending:false});
+ const [view,setView]=useViewState<'decisions'|'allocation'>('WeeklyPlanner.view',initialView),[decisionFilter,setDecisionFilter]=useViewState('WeeklyPlanner.decisionFilter','');
+ const [roles,setRoles]=useViewState<string[]|null>('WeeklyPlanner.roles',initialSearch?[initialSearch]:null);
+ const [filter,setFilter]=useViewState('WeeklyPlanner.filter',''),[editor,setEditor]=useState<Row|null>(null),[priority,setPriority]=useState<Row|null>(null),[change,setChange]=useState<Row|null>(null);
  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[dirty,setDirty]=useState(false);
  const planner=canPlan(data.actor),dates=weekDays(week);
  const onPTO=(staff:string,date:string)=>(data.timeOff||[]).some((r:Row)=>r.staff_id===staff&&r.work_date===date&&r.pto);

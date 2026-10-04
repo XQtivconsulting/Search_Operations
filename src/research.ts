@@ -1,3 +1,4 @@
+import {linkedin,linkedinKey,sameLinkedin} from './candidate-identity';
 import {canTeamReview} from './team-review';
 import {handoffEngagement} from './engagement-domain';
 import {submissionReadiness} from './submission-readiness';
@@ -14,7 +15,7 @@ CREATE TABLE IF NOT EXISTS brief_shares(token TEXT PRIMARY KEY,role_id TEXT NOT 
 `;
 type DB={rows:(q:string,...p:any[])=>any[];audit:(a:Actor,k:string,id:string,old:any,next:any)=>void};
 export type Member={id:string;name:string;role:string;roles?:string[];status:string;staff_id?:string;staffId?:string};
-export function linkedin(v:any) {let u:URL;try{u=new URL(String(v));}catch{throw new Error('Enter a complete LinkedIn profile URL.');}requireThat(u.protocol==='https:'&&['linkedin.com','www.linkedin.com'].includes(u.hostname)&&/^\/in\/[^/]+\/?$/.test(u.pathname)&&!u.username&&!u.password,'Use https://www.linkedin.com/in/profile.');return 'https://www.linkedin.com'+u.pathname.replace(/\/$/,'').toLowerCase();}
+export {linkedin} from './candidate-identity';
 const iso=()=>new Date().toISOString();
 const get=(db:DB,id:string)=>{const r=db.rows('SELECT * FROM research_records WHERE id=?',id)[0];requireThat(r,'Record not found.',404);return {...JSON.parse(r.data),id:r.id,kind:r.kind,role_id:r.role_id,version:r.version};};
 export function researchRecords(db:DB){return db.rows('SELECT * FROM research_records').map(r=>({...JSON.parse(r.data),id:r.id,kind:r.kind,role_id:r.role_id,version:r.version}));}
@@ -35,7 +36,7 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
  const assignedSetup=['brief-save','strategy-save'].includes(b.action)&&researchRecords(db).some(t=>t.kind==='task'&&t.role_id===role&&t.owner_id===a.id&&t.status!=='Cancelled'&&((b.action==='brief-save'&&t.task_type==='Role brief')||(b.action==='strategy-save'&&t.task_type==='Search strategy')));
  const manage=()=>requireThat(manager||assignedSetup,'Role management permission required.',403);
  let next:any,id=old?.id||crypto.randomUUID(),kind=old?.kind||'',key='';
- const find=(k:string,rk:string)=>db.rows('SELECT id FROM research_records WHERE kind=? AND record_key=?',k,rk)[0];
+ const find=(k:string,rk:string)=>{if(k==='candidate'&&rk){const matches=db.rows("SELECT id,data FROM research_records WHERE kind='candidate'").map(c=>({...JSON.parse(c.data),id:c.id})).filter(c=>sameLinkedin(c.url,rk));requireThat(matches.length<2,'Multiple existing candidates share this LinkedIn account. Ask your data administrator to resolve them.',409);if(matches.length)return matches[0];}return db.rows('SELECT id FROM research_records WHERE kind=? AND record_key=?',k,rk)[0];};
  const save=(k:string,r:string,rk:string,d:any,existing:any=null)=>{
   const rid=existing?.id||crypto.randomUUID();
   db.rows('INSERT INTO research_records(id,kind,role_id,record_key,data,version) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET record_key=excluded.record_key,data=excluded.data,version=excluded.version',rid,k,r,rk,JSON.stringify(d),(existing?.version||0)+1);return rid;
@@ -65,7 +66,7 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
   const url=old?.crm_ids?.length&&!b.url?'':linkedin(b.url),first_name=text(b.first_name,100),last_name=text(b.last_name,100),email=text(b.email,254).toLowerCase(),phone=text(b.phone,60);
   requireThat(first_name&&last_name,'First name and last name are required.');
   requireThat(!email||/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),'Enter a valid candidate email.');
-  requireThat(!old||old.url===url,'A candidate LinkedIn identity cannot be replaced.');
+  requireThat(!old||old.url===url||sameLinkedin(old.url,url),'A candidate LinkedIn identity cannot be replaced.');
   const existing=find('candidate',url);requireThat(!existing||existing.id===old?.id,'This LinkedIn profile already exists. Open that candidate and map them to another role.',409);
   const companyName=text(b.company,200),normalized=companyName.toLowerCase().replace(/\s+/g,' ');
   let companyRecord=companyName?find('company',normalized):null;
@@ -156,7 +157,7 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
   const ids=[];for(const item of items){
    requireThat(!linking||item.candidate_id,'Choose an existing candidate.');
    const selected=item.candidate_id?get(db,text(item.candidate_id)):null;requireThat(!selected||selected.kind==='candidate','Choose an existing candidate.');
-   const url=selected?.url||linkedin(item.url),existing=find('candidate',url),candidate=selected||(existing?get(db,existing.id):null);
+   const url=selected?.url||linkedin(item.url),existing=selected?null:find('candidate',url),candidate=selected||(existing?get(db,existing.id):null);
    const first_name=candidate?.first_name||text(item.first_name,100),last_name=candidate?.last_name||text(item.last_name,100);
    requireThat(first_name&&last_name,'First name and last name are required. Update an older candidate record before mapping.');
    const email=text(item.email,254).toLowerCase();requireThat(!email||/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),'Enter a valid candidate email.');

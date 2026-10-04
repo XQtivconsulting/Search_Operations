@@ -530,3 +530,11 @@ test('target entry keeps company context and validates ownership and candidate-c
  const c=await f.run(mapper,{action:'candidate-save',first_name:'Different',last_name:'Company',company:'Other Synthetic',url:'https://linkedin.com/in/popup-conflict'});await assert.rejects(f.run(mapper,{...b,url:'https://linkedin.com/in/popup-conflict',candidate_version:(await f.rec(c.id)).version}),/different current company/);
  await f.run(mapper,{...await f.rec(t),action:'company-progress',status:'Need help',notes:'Coverage mismatch',coverage_flag:true});const updated=await f.rec(t);assert.equal(updated.coverage_flag,true);assert.equal(updated.status,'Need help');await assert.rejects(f.run(peer,{...updated,action:'company-progress',status:'Completed',notes:'Other researcher'}),/owner or role manager/);f.db.close();
 });
+
+test('candidate URL variants reuse a single identity for directory, inline mapping and import',async()=>{
+ const f=fixture();const created=await f.run(mapper,{action:'candidate-save',first_name:'Canonical',last_name:'Synthetic',url:'www.linkedin.com/in/canonical-synthetic'});
+ for(const url of ['http://linkedin.com/in/CANONICAL-SYNTHETIC/',' linkedin.com /in/canonical- synthetic '])await assert.rejects(f.run(mapper,{action:'candidate-save',first_name:'Canonical',last_name:'Synthetic',url}),/already exists/);
+ const candidate=await f.rec(created.id);await f.run(mapper,{action:'mapping-inline',role_id:'r',team_id:'t',first_name:'Wrong',last_name:'Name',url:'linkedin.com/in/CANONICAL-SYNTHETIC ',candidate_version:candidate.version});
+ const preview=await f.run({...admin,role:'super_admin'},{action:'candidate-import',preview:true,rows:[{first_name:'Canonical',last_name:'Synthetic',url:'http://linkedin.com/in/canonical-synthetic?trk=example'}]});assert.equal(preview.plan[0].existingId,created.id);
+ const records=(await f.state()).research.records;assert.equal(records.filter(r=>r.kind==='candidate').length,1);assert.equal(records.find(r=>r.kind==='mapping')?.candidate_id,created.id);f.db.close();
+});
