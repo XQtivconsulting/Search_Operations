@@ -1,3 +1,4 @@
+import {companyLogo} from './company-logo';
 import {lookupGeography,signGeography,verifyGeographies} from './geography-lookup';
 import {readJSONBody} from './request-security';
 import {backupPrefix} from './backup-service';
@@ -237,6 +238,9 @@ export default {
               geographyCatalogCache.set(key,data);return data;
             });
             res=json(await Promise.all(labels.map(label=>signGeography(label,rawCookie,a.tenant))));
+          }
+          else if (url.pathname === '/api/company-logo'&&req.method==='GET') {
+            res=await companyLogo(url.searchParams.get('domain')||'');
           }
           else if (url.pathname === '/api/company-lookup'&&req.method==='POST') {
             requireThat(canPlan(a),'Planning permission required.',403);
