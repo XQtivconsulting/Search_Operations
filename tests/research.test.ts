@@ -396,3 +396,17 @@ test('known compensation details are versioned, attributed, independent of tags 
  assert.ok((await f.state()).research.events.some((e:any)=>e.action==='candidate-compensation'&&e.record_id===cid));
  f.db.close();
 });
+
+
+test('verified locality tags persist through candidate saves and retain version/permission/audit controls',async()=>{
+ const f=await engagementFixture(),cid=(await f.rec(f.mid)).candidate_id,c=await f.rec(cid);
+ const label='North Caldwell, New Jersey, United States',body={action:'candidate-tags',candidate_id:cid,candidate_version:c.version,tag_values:{geography:[label]}};
+ await assert.rejects(f.run(engActor,body),/standardized/);
+ await assert.rejects(f.run({...engActor,role:'founder'},{...body,verified_geographies:[label]}),/permission/);
+ await f.run(engActor,{...body,verified_geographies:[label]});
+ const saved=await f.rec(cid);assert.deepEqual(saved.tag_values.geography,[label]);
+ await assert.rejects(f.run(engActor,{...body,verified_geographies:[label]}),/changed/);
+ await f.run(engActor,{...body,candidate_version:saved.version});
+ assert.deepEqual((await f.rec(cid)).tag_values.geography,[label]);
+ assert.ok((await f.state()).research.events.some((e:any)=>e.action==='candidate-tags'&&e.record_id===cid));f.db.close();
+});

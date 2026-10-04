@@ -63,7 +63,7 @@ export function engagementMutation(db:DB,a:Actor,b:R,members:Member[]){
   }
   if(b.action==='candidate-tags'){
    requireThat(c.version===Number(b.candidate_version),'Candidate changed. Reload.',409);
-   const records=db.rows('SELECT * FROM research_records').map((r:any)=>({...JSON.parse(r.data),kind:r.kind})),tag_values=cleanTagValues(b.tag_values,records);
+   const records=db.rows('SELECT * FROM research_records').map((r:any)=>({...JSON.parse(r.data),kind:r.kind})),tag_values=cleanTagValues(b.tag_values,records,b.verified_geographies||[]);
    for(const [category,values] of Object.entries(tag_values))for(const label of values){const key=category+':'+normTag(label);if(!byKey(db,'candidate-tag-value',key))save(db,a,'candidate-tag-value','',key,{category,label},null,'candidate-tag-value-add');}
    return save(db,a,'candidate','',c.url||'recruitcrm:'+c.crm_ids?.[0],{...c,tag_values},c,b.action);
   }

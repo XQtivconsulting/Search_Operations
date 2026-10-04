@@ -1,4 +1,4 @@
-import {geographyFullName,geographyCode} from './candidate-geography';
+import {geographyFullName,geographyCode,geographyMatches} from './candidate-geography';
 import {tagCategories} from './candidate-tags';
 type Candidate = Record<string, any>;
 export const candidateColumns = [
@@ -14,7 +14,7 @@ export function directoryRows(candidates: Candidate[], query: string, filters: R
  const value = (c: Candidate, key: string) => key.startsWith('tag:')?candidateTagText(c,key.slice(4)):key === 'roles' ? roleCounts.get(c.id) || 0 : key === 'first_name' ? c.first_name || c.name || '' : c[key] || '';
  return candidates.filter(c => {
   const searchable = (index.get(c.id)||'')+' '+text([c.name,c.first_name,c.last_name,c.company,c.title,c.url,c.email,c.phone].join(' '));
-  return terms.every(term => searchable.includes(term)) && Object.entries(filters).every(([key,filter]) => {if(!filter)return true;if(key==='unmapped')return !(roleCounts.get(c.id)||0);if(key==='potential_client')return String(c.potential_client)===filter;if(key==='searches')return records.some(r=>r.kind==='mapping'&&r.candidate_id===c.id&&JSON.parse(filter).includes(r.role_id));if(key.startsWith('tag:'))return (c.tag_values?.[key.slice(4)]?.length?c.tag_values[key.slice(4)]:['']).some((v:string)=>JSON.parse(filter).includes(v));if(key==='company')return [c.company,...records.filter(r=>r.kind==='mapping'&&r.candidate_id===c.id).map(r=>r.company)].some(v=>text(v).includes(text(filter)));return text(value(c,key)).includes(text(filter));});
+  return terms.every(term => searchable.includes(term)) && Object.entries(filters).every(([key,filter]) => {if(!filter)return true;if(key==='unmapped')return !(roleCounts.get(c.id)||0);if(key==='potential_client')return String(c.potential_client)===filter;if(key==='searches')return records.some(r=>r.kind==='mapping'&&r.candidate_id===c.id&&JSON.parse(filter).includes(r.role_id));if(key.startsWith('tag:'))return (c.tag_values?.[key.slice(4)]?.length?c.tag_values[key.slice(4)]:['']).some((v:string)=>JSON.parse(filter).some((selected:string)=>key==='tag:geography'?geographyMatches(v,selected):v===selected));if(key==='company')return [c.company,...records.filter(r=>r.kind==='mapping'&&r.candidate_id===c.id).map(r=>r.company)].some(v=>text(v).includes(text(filter)));return text(value(c,key)).includes(text(filter));});
  }).sort((a,b) => {
   const av=value(a,sort), bv=value(b,sort);
   if(sort.startsWith('tag:')&&(!av||!bv))return av? -1:bv?1:String(a.id).localeCompare(String(b.id));

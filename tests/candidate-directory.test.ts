@@ -57,7 +57,7 @@ test('geography uses country names for storage/filtering and compact codes for d
  const tags=cleanTagValues({geography:['US','USA','UK','GB','FR','DE','GE']},[]);
  assert.deepEqual(tags.geography,['United States','United Kingdom','France','Germany','Georgia']);
  assert.equal(geographyCode('Germany'),'DE');assert.equal(geographyCode('Georgia'),'GE');
- assert.equal(geographyFullName('US Northeast'),'United States — Northeast');assert.equal(geographyCode('US Northeast'),'US');
+ assert.equal(geographyFullName('US Northeast'),'United States — Northeast');assert.equal(geographyCode('US Northeast'),'US Northeast');
  assert.match(geographySearchText('United Kingdom'),/UK/);
  assert.throws(()=>cleanTagValues({geography:['some random place']},[]),/standardized/);
  const c={id:'c',kind:'candidate',tag_values:{geography:['Germany'],compensation:[]},compensation_details:'Current total USD 450k; minimum next role USD 500k'};

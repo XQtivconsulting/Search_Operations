@@ -1,3 +1,4 @@
+import {lookupGeography,signGeography,verifyGeographies} from './geography-lookup';
 import {readJSONBody} from './request-security';
 import {backupPrefix} from './backup-service';
 import {companySuggestions} from './company-enrichment';
@@ -222,6 +223,12 @@ export default {
             const state=await workspace.state(a,await identity.members(a.tenant));
             res = json({...state,partners,people,staff:state.staff?.filter((s:any)=>people.some((p:any)=>p.staff_id===s.id)).map((s:any)=>({...s,name:people.find((p:any)=>p.staff_id===s.id)?.name||s.name,archived:people.some((p:any)=>p.staff_id===s.id&&hasRole(p,'researcher'))?0:1}))});
           }
+          else if (url.pathname === '/api/geography-lookup'&&req.method==='POST') {
+            requireThat(canPlan(a)||['data_quality','researcher','partner','engagement'].some(role=>hasRole(a,role as any)),'Candidate editing permission required.',403);
+            await identity.limit('geography-lookup:'+a.tenant+':'+a.id,90);
+            const labels=await lookupGeography(body.query);
+            res=json(await Promise.all(labels.map(label=>signGeography(label,rawCookie,a.tenant))));
+          }
           else if (url.pathname === '/api/company-lookup'&&req.method==='POST') {
             requireThat(canPlan(a),'Planning permission required.',403);
             await identity.limit('company-lookup:'+a.id,30);
@@ -240,6 +247,10 @@ export default {
             }
           }
           else if (url.pathname === '/api/research' && req.method === 'POST') {
+            // Never trust a caller-supplied list of verified locations.
+            delete body.verified_geographies;
+            if(body.action==='candidate-tags')body.verified_geographies=await verifyGeographies(body.geography_choices,rawCookie,a.tenant);
+            delete body.geography_choices;
             res=json(await workspace.research(a,body,await identity.members(a.tenant)));
           }
           else if(url.pathname==='/api/members/update'&&req.method==='POST') {
