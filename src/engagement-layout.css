@@ -32,3 +32,6 @@
 .app .app-navigation{display:flex;gap:6px;align-items:center;margin:0 0 8px;flex-shrink:0}
 .app .app-navigation button{font-size:11px;padding:3px 7px;background:transparent;border:1px solid #dce3ec;box-shadow:none;color:#385476}
 .app .app-navigation button:disabled{opacity:.4;cursor:default}
+
+.app .funnel-assignee-options{display:flex;flex-wrap:wrap;gap:6px 14px}
+.app .funnel-assignee-options .checkbox{display:flex;flex-direction:row;align-items:center;gap:5px;margin:0;font-size:12px}

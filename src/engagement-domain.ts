@@ -8,7 +8,12 @@ type R=Record<string,any>;
 type DB={rows:(q:string,...p:any[])=>any[];audit:(a:Actor,k:string,id:string,old:any,next:any)=>void};
 export const interactionTypes=['Note','Phone call','Phone message','LinkedIn message','Email','Screening call','Interview','Transcript','Assessment link'];
 export const engagementSearchClosed=(status:unknown)=>['closed','abandoned','cancelled','canceled','filled','placed'].includes(String(status||'').trim().toLowerCase());
-export const engagementAssignees=(records:R[],role:string):string[]=>records.find(r=>r.kind==='engagement-assignment'&&r.role_id===role)?.member_ids||[];
+export const engagementAssignees=(records:R[],role:string,group?:string):string[]=>{
+ const assignment=records.find(r=>r.kind==='engagement-assignment'&&r.role_id===role);
+ if(!assignment)return [];
+ if(assignment.group_member_ids)return group?assignment.group_member_ids[group]||[]:[...new Set<string>(Object.values(assignment.group_member_ids).flat() as string[])];
+ return assignment.member_ids||[];
+};
 export const engagementReady=(m:R)=>m.status==='Approved'||m.status==='Imported'&&m.source==='RecruitCRM';
 export const engagementRows=(records:R[],searches:R[]=[]):R[]=>records.filter(m=>m.kind==='mapping'&&(engagementReady(m)||records.some(e=>e.kind==='engagement'&&e.mapping_id===m.id))).map(m=>{const e=records.find(e=>e.kind==='engagement'&&e.mapping_id===m.id),base=e||{stage:'Assigned',stage_id:'assigned'},stage=resolvedStage(base,pipelineStages(records));return {...e,mapping_id:m.id,candidate_id:m.candidate_id,role_id:m.role_id,mapping_version:m.version,search_closed:engagementSearchClosed(searches.find(s=>s.id===m.role_id)?.status),approved:engagementReady(m),stage:stage.label,stage_id:stage.id};});
 const read=(db:DB,id:string)=>{const r=db.rows('SELECT * FROM research_records WHERE id=?',id)[0];return r?{...JSON.parse(r.data),id:r.id,kind:r.kind,role_id:r.role_id,version:r.version}:null;};
@@ -48,8 +53,15 @@ export function engagementMutation(db:DB,a:Actor,b:R,members:Member[]){
   requireThat(search&&manager,'Only the planner or search partner can assign engagement work for this search.',403);
   requireThat(!closed,'This search is closed, abandoned or cancelled. Further engagement assignments are stopped.',409);
   requireThat(!old||old.kind==='engagement-assignment','Choose a search assignment.');const existing=byKey(db,'engagement-assignment',role);requireThat(existing?.id===old?.id,'Search assignment changed. Reload.',409);
-  requireThat(Array.isArray(b.member_ids),'Choose engagement members.');const ids=[...new Set<string>(b.member_ids)];requireThat(ids.every(eligible),'Choose active Engagement members.');
-  const result=save(db,a,'engagement-assignment',role,role,{member_ids:ids},existing,b.action);
+  let group_member_ids:Record<string,string[]>|undefined;
+  if(b.group_member_ids!==undefined){
+   requireThat(b.group_member_ids&&typeof b.group_member_ids==='object'&&!Array.isArray(b.group_member_ids),'Choose members by funnel group.');
+   requireThat(Object.keys(b.group_member_ids).every(g=>funnelGroups.includes(g as any)),'Choose a valid funnel group.');
+   group_member_ids={};
+   for(const group of funnelGroups){const values=b.group_member_ids[group]??[];requireThat(Array.isArray(values)&&values.every((id:unknown)=>typeof id==='string'&&eligible(id)),'Choose active Engagement members.');group_member_ids[group]=[...new Set<string>(values)];}
+  }else{requireThat(!existing?.group_member_ids,'Reload and assign members by funnel group.',409);requireThat(Array.isArray(b.member_ids),'Choose engagement members.');}
+  const ids=group_member_ids?[...new Set(Object.values(group_member_ids).flat())]:[...new Set<string>(b.member_ids)];requireThat(ids.every(eligible),'Choose active Engagement members.');
+  const result=save(db,a,'engagement-assignment',role,role,{member_ids:ids,...(group_member_ids?{group_member_ids}:{})},existing,b.action);
   if(ids.length)for(const row of db.rows("SELECT id FROM research_records WHERE kind='mapping' AND role_id=? AND json_extract(data,'$.status')='Approved'",role))handoffEngagement(db,a,read(db,row.id));
   return result;
  }
@@ -78,10 +90,11 @@ export function engagementMutation(db:DB,a:Actor,b:R,members:Member[]){
  const existing=byKey(db,'engagement',m.id);requireThat(existing?.id===old?.id&&(!old||old.kind==='engagement'),'Engagement record changed. Reload.',409);
  const current=existing||{mapping_id:m.id,candidate_id:m.candidate_id,stage:'Assigned',stage_id:'assigned',handoff_at:null,stage_at:null};
  const assignment=byKey(db,'engagement-assignment',role);
- requireThat(manager||eligible(a.id)&&assignment?.member_ids?.includes(a.id),'This search is not assigned to you for engagement.',403);
+
  const config=byKey(db,'engagement-pipeline','global'),stages=normalizeStages(config?.stages||defaultPipeline);
  requireThat(Number(b.pipeline_version||0)===Number(config?.version||0),'Pipeline configuration changed. Reload before moving this candidate.',409);
  const from=resolvedStage(current,stages),requested=(b.stage_id==='ready'?'assigned':b.stage_id)||stageId(b)||from.id,target=stages.find((s:R)=>s.id===requested)||(requested===from.id?from:null);
+ requireThat(manager||eligible(a.id)&&engagementAssignees(assignment?[assignment]:[],role,from.group).includes(a.id),'This search funnel is not assigned to you for engagement.',403);
  requireThat(target,'Choose a configured pipeline stage.');const changed=target.id!==from.id;
  requireThat(!closed||!changed||['Exited','Placed'].includes(target.group),'This search is closed. Further outreach is stopped; record an outcome instead.',409);
  requireThat(text(b.notes),'Add a note describing what happened and why you are moving the candidate.');

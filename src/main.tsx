@@ -1,4 +1,4 @@
-const navigationLabel=(name:string)=>({'Daily Work':'Work Queue','Pipeline':'Candidate Pipeline','Organization':'Admin'} as Record<string,string>)[name]||name;
+const navigationLabel=(name:string)=>({'Daily Work':'Work Queue','Pipeline':'Candidate Pipeline','Organization':'Admin','Search assignments':'Engagement Assignments'} as Record<string,string>)[name]||name;
 import './engagement-layout.css';
 import {useNavigationHistory} from './useNavigationHistory';
 import {Backups} from './Backups';

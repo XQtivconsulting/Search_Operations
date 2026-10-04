@@ -427,3 +427,22 @@ test('directory assignment links candidates without team membership or changing 
  await f.run(peer,{...await f.rec(m.id),action:'mapping-review',decision:'Approve'});assert.equal((await f.rec(m.id)).status,'Partner review');assert.equal((await f.rec(m.id)).peer_reviewed_by,'peer');
  f.db.close();
 });
+
+test('funnel assignments hand work between members while partner retains all-stage authority',async()=>{
+ const f=await engagementFixture(),second={id:'engager2',role:'engagement',status:'active',name:'Later funnel member'},ms=[...members,engMember,second],run=(a:any,b:any)=>f.w.research(a,b,ms),other={...engActor,id:'engager2'};
+ const assignment=await run(partner,{action:'engagement-search-assign',role_id:'r',group_member_ids:{'Top Funnel':['engager'],Outreach:['engager'],Engaged:['engager2'],Screening:['engager2']}});
+ assert.deepEqual((await f.rec(assignment.id)).member_ids,['engager','engager2']);
+ await assert.rejects(run(other,{...await f.body(),action:'engagement-update',stage_id:'linkedin',notes:'Wrong funnel',occurred_on:'2026-10-04'}),/not assigned/);
+ await run(engActor,{...await f.body(),action:'engagement-update',stage_id:'engaged-email',notes:'Positive response hands off',occurred_on:'2026-10-04'});
+ await assert.rejects(run(engActor,{...await f.body(),action:'engagement-update',stage_id:'screening',notes:'Former funnel owner',occurred_on:'2026-10-04'}),/not assigned/);
+ await run(other,{...await f.body(),action:'engagement-update',stage_id:'screening',notes:'Screening completed',occurred_on:'2026-10-04'});
+ await run(partner,{...await f.body(),action:'engagement-update',stage_id:'shortlist',notes:'Partner across funnels',occurred_on:'2026-10-04'});
+ await run(admin,{...await f.body(),action:'engagement-update',stage_id:'engaged-phone',notes:'Admin across funnels',occurred_on:'2026-10-04'});
+ await assert.rejects(run(admin,{...await f.rec(assignment.id),action:'engagement-search-assign',group_member_ids:{Wrong:['engager']}}),/valid funnel/);
+ await assert.rejects(run(admin,{...await f.rec(assignment.id),action:'engagement-search-assign',group_member_ids:{Outreach:['mapper']}}),/active Engagement/);
+ const current=await f.rec(assignment.id);
+ await run(admin,{...current,action:'engagement-search-assign',group_member_ids:{Engaged:[]}});
+ await assert.rejects(run(other,{...await f.body(),action:'engagement-update',stage_id:'screening',notes:'Unassigned funnel',occurred_on:'2026-10-04'}),/not assigned/);
+ await assert.rejects(run(admin,{...current,action:'engagement-search-assign',group_member_ids:{Engaged:['engager2']}}),/changed/);
+ f.db.close();
+});

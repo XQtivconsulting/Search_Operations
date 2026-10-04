@@ -13,7 +13,7 @@ export function InterviewTracker({data,api,reload,onDirty,onCandidate,initialRol
  const records:R[]=data.research.records,stages=pipelineStages(records),rows=engagementRows(records,data.searches),clients:string[]=Array.from(new Set<string>(data.searches.map((s:R)=>s.client))).sort();
  useEffect(()=>{onDirty(!!edit||busy);return()=>onDirty(false);},[!!edit,busy]);
  const search=(id:string)=>data.searches.find((s:R)=>s.id===id),candidate=(r:R)=>records.find(c=>c.kind==='candidate'&&c.id===r.candidate_id);
- const canEdit=(r:R)=>r.approved&&(canPlan(data.actor)||hasRole(data.actor,'partner')&&search(r.role_id)?.partner_id===data.actor.id||hasRole(data.actor,'engagement')&&engagementAssignees(records,r.role_id).includes(data.actor.id));
+ const canEdit=(r:R)=>r.approved&&(canPlan(data.actor)||hasRole(data.actor,'partner')&&search(r.role_id)?.partner_id===data.actor.id||hasRole(data.actor,'engagement')&&engagementAssignees(records,r.role_id,resolvedStage(r,stages).group).includes(data.actor.id));
  const visible=rows.filter(r=>(!role||r.role_id===role)&&(!client||search(r.role_id)?.client===client)&&matchesSearchStatus(search(r.role_id),searchStatus)&&candidateMatches(candidate(r),query)&&(all||inInterviewTracker(r,resolvedStage(r,stages).group)));
  const searches=data.searches.filter((s:R)=>visible.some(r=>r.role_id===s.id)).sort((a:R,b:R)=>a.client.localeCompare(b.client)||a.title.localeCompare(b.title));
  const count=Math.max(roundCount,...visible.flatMap(r=>(r.interviews||[]).map((v:R)=>v.number))),numbers=Array.from({length:count},(_,i)=>i+1);
