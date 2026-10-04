@@ -136,7 +136,7 @@ export class Workspace extends DurableObject {
         requireThat(['Resume','Candidate information','Transcript','Email exchange','Recording','Assessment','Other'].includes(b.category),'Choose a file category.');
         const id=uuid();this.rows('INSERT INTO candidate_files VALUES(?,?,?,?,?,?,?)',id,c.id,name,'application/octet-stream',b.category,a.id,now());for(let i=0;i<base64.length;i+=131072)this.rows('INSERT INTO candidate_file_chunks VALUES(?,?,?)',id,i,base64.slice(i,i+131072));this.audit(a,'candidate-file-save',id,null,{name,candidate_id:c.id,category:b.category});return {id};
       }
-      if(String(b.action).startsWith('engagement-')||['candidate-note','candidate-tags','candidate-compensation'].includes(b.action))return engagementMutation(this,a,b,members);
+      if(String(b.action).startsWith('engagement-')||['candidate-note','candidate-tags','candidate-compensation','candidate-attributes'].includes(b.action))return engagementMutation(this,a,b,members);
       if(['brief-file-save','brief-file-list','brief-file-read'].includes(b.action)) {
         const search=this.rows('SELECT * FROM searches WHERE id=?',text(b.role_id))[0];requireThat(search,'Search not found.',404);
         if(b.action==='brief-file-list')return this.rows('SELECT * FROM brief_files WHERE role_id=? ORDER BY created_at DESC',b.role_id);

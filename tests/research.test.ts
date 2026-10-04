@@ -464,3 +464,17 @@ test('target coverage revisions preserve actuals, enforce permission, zero, reas
  await assert.rejects(f.run(partner,{...old,action:'target-coverage',expected:5,notes:'Revised'}),/changed/);
  assert.ok((await f.state()).research.events.some(e=>e.action==='target-coverage'));f.db.close();
 });
+
+test('candidate personal attributes preserve profile data, validate and require current version and permission',async()=>{
+ const f=await engagementFixture(),cid=(await f.rec(f.mid)).candidate_id,c=await f.rec(cid);
+ const body={action:'candidate-attributes',candidate_id:cid,candidate_version:c.version,age:47,gender:'Male'};
+ await assert.rejects(f.run({...engActor,role:'founder'},body),/permission/);
+ await f.run(engActor,body);const saved=await f.rec(cid);
+ assert.equal(saved.age,47);assert.equal(saved.gender,'Male');assert.equal(saved.name,c.name);assert.equal(saved.attributes_updated_by,engActor.id);
+ await assert.rejects(f.run(engActor,body),/changed/);
+ for(const age of [-1,121,2.5,'abc'])await assert.rejects(f.run(engActor,{...body,candidate_version:saved.version,age}),/whole number/);
+ await assert.rejects(f.run(engActor,{...body,candidate_version:saved.version,gender:'invalid'}),/gender/);
+ await f.run(engActor,{...body,candidate_version:saved.version,age:'',gender:''});
+ assert.equal((await f.rec(cid)).age,null);assert.equal((await f.rec(cid)).gender,'');
+ assert.ok((await f.state()).research.events.some((e:any)=>e.action==='candidate-attributes'&&e.record_id===cid));f.db.close();
+});
