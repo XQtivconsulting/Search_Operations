@@ -45,3 +45,5 @@ Selected searches now start directly with funnel counts and candidate controls. 
 Live verification of f0ece557 (run 37375994279, all deployment steps successful): selected search starts with funnel controls; the master candidate table renders 13px LinkedIn icons at the same horizontal position in each inspected row. Sourcing count drilldown opened the matching pending candidates; Rahul Raj's detail showed one Partner review status, researcher notes and a single weighted fit score. No production records changed.
 
 Follow-up UI: bold client names in weekly decisions and search names in dashboard/work queue. Removed permanent engagement instructions and the Work Queue narration/date line. Nonzero Due today/Overdue counts use Interview Tracker red styling; New today uses its green styling, in both summaries and table cells. Zero counts remain neutral.
+
+Release 3ef37742 deployed successfully in run 37376524609. Live read-only checks confirmed the removed dashboard/queue instructions, bold search markup, red Due today and green New today summaries, with neutral zero counts.

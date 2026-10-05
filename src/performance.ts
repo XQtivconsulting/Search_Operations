@@ -21,3 +21,29 @@ export function searchAge(role:R,records:R[],today:string){
  return {age:elapsed(role.start_date),sinceFirst:elapsed(first),first};
 }
 export function recentWeeks(today:string){const current=weekStart(today);return {current:{from:current,to:today},previous:{from:addDays(current,-7),to:addDays(current,-1)}};}
+
+export function performancePeriod(preset:string,today:string,first:string,from='',to=''){
+ const weeks=recentWeeks(today);
+ const end=to&&to<today?to:today;
+ if(preset==='week')return weeks.current;
+ if(preset==='previous')return weeks.previous;
+ if(preset==='month')return {from:today.slice(0,7)+'-01',to:today};
+ if(preset==='all')return {from:first&&first<today?first:today,to:today};
+ if(preset==='custom')return {from:from&&from<=end?from:end,to:end};
+ return {from:addDays(today,-29),to:today};
+}
+
+/** Exact researcher/date/search/team groups excluded from effort-based rates. */
+export function performanceAllocationGaps(data:R,f:PerformanceFilter){
+ const effort=effectiveEffort(data),positive=new Set(effort.filter(r=>r.days>0).map(key)),groups=new Map<string,R>();
+ for(const r of data.research?.records||[]){
+  if(r.kind!=='mapping'||!r.submitted_at||(f.from&&r.work_date<f.from)||(f.to&&r.work_date>f.to)||(f.roles!==null&&!f.roles.includes(r.role_id))||(f.team&&r.team_id!==f.team)||(f.staff&&r.staff_id!==f.staff)||positive.has(key(r)))continue;
+  const id=key(r);if(!groups.has(id)){
+   const pto=(data.timeOff||[]).some((p:R)=>p.staff_id===r.staff_id&&p.work_date===r.work_date&&p.pto);
+   const zero=effort.some(e=>key(e)===id&&e.days===0);
+   groups.set(id,{id,staff_id:r.staff_id,role_id:r.role_id,team_id:r.team_id,work_date:r.work_date,mapped:0,reason:pto?'PTO recorded':zero?'Recorded effort is zero':'No matching allocation'});
+  }
+  groups.get(id)!.mapped++;
+ }
+ return [...groups.values()].sort((a,b)=>(b.work_date||'').localeCompare(a.work_date||''));
+}

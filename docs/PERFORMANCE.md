@@ -31,3 +31,13 @@ Rates using planned days are estimates and change when the underlying historical
 
 ## Focused detail layout
 View details opens a dedicated subject view instead of inserting nested tables into the comparison rows. Back retains the main filters and sort. Four key measures lead the Overview; on detail tabs they compress into a single slim strip. Researcher/team details separate Overview from By search. Search details separate Overview, Researchers, Work dates and Company coverage. Breakdown tables default to six compact columns for effort/output/quality; contribution percentages use a separate Show selection. Work-date detail has a bounded scroll area. All existing metric calculations and reporting scopes are unchanged.
+
+## Partner dashboard — 5 October 2026
+
+Both views default to the last 30 calendar days through today (US Eastern), with populated From/Through dates. Presets include this week, last week, this month, all recorded dates and custom dates; future dates are capped at today. Historical saved custom bounds remain supported. The selected period is repeated above results and in detail views. All-recorded starts at the earliest recorded plan/effort/work date.
+
+Replaced the raw summary sentence with clickable priority cards: awaiting review, allocation gaps, subjects with allocated effort but no submitted mappings, and approved candidates. Cards filter comparison rows; amber flags work to examine without claiming a missed target, green identifies approved output. The comparison shows submitted/approved/pending outcomes and final-decision sample sizes. CSV follows the active priority filter. Opening the optional matrix resets that filter.
+
+Allocation gaps open a sortable popup by work date, researcher, search and team, with the affected mapping count and exact reason (no matching allocation, zero recorded effort or PTO). Review plan opens the existing sourcing planning flow. No allocation is fabricated, and productivity rates remain unavailable when their denominator is incomplete. Row/detail links scope the popup to that subject. Removed persistent instructional paragraphs; metric definitions remain collapsed.
+
+Local validation: typecheck, 294 tests and production build passed, including date preset boundaries and gap/cohort/PTO/filter coverage. Live deployment is verified separately.

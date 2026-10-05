@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {performanceMetrics,searchAge} from '../src/performance';
+import {performanceMetrics,searchAge,performancePeriod,performanceAllocationGaps} from '../src/performance';
 const base={assignments:[],entries:[],effort:[],research:{records:[]}};
 const map=(id:string,status:string,staff_id='s',role_id='r')=>({id,kind:'mapping',status,staff_id,role_id,team_id:'t',work_date:'2026-09-27',submitted_at:'2026-09-27T12:00:00Z'});
 const effort=(days:number,search_id='r',staff_id='s')=>({search_id,staff_id,team_id:'t',work_date:'2026-09-27',days});
@@ -33,5 +33,21 @@ test('performance renders definitions, separate tabs and no invented historical 
  const React=await import('react'),{renderToStaticMarkup}=await import('react-dom/server'),{Performance}=await import('../src/Performance');
  const data={...base,actor:{role:'partner'},searches:[{id:'r',client:'Client',title:'Role'}],teams:[],staff:[{id:'s',name:'Researcher'}],priorities:[],research:{records:[map('a','Approved')]}};
  const html=renderToStaticMarkup(React.createElement(Performance,{data,api:async()=>{},reload:async()=>{},onDirty:()=>{},onDecision:()=>{}}));
- assert.ok(html.includes('Search effort &amp; yield'));assert.ok(html.includes('1 work entries without allocated effort'));assert.ok(html.includes('1 decided'));assert.ok(html.includes('0 person-days (plan-based)'));
+ assert.ok(html.includes('Search effort &amp; yield'));assert.ok(html.includes('Allocation gaps'));assert.ok(html.includes('final decisions'));assert.ok(html.includes('Last 30 days'));assert.ok(!html.includes('person-days (plan-based)'));assert.ok(!html.includes('work entries without allocated effort'));
+});
+
+test('reporting presets always resolve to explicit bounded dates',()=>{
+ assert.deepEqual(performancePeriod('30','2026-10-05','2026-01-01'),{from:'2026-09-06',to:'2026-10-05'});
+ assert.deepEqual(performancePeriod('previous','2026-10-05','2026-01-01'),{from:'2026-09-28',to:'2026-10-04'});
+ assert.deepEqual(performancePeriod('all','2026-10-05','2026-01-01'),{from:'2026-01-01',to:'2026-10-05'});
+ assert.deepEqual(performancePeriod('custom','2026-10-05','2026-01-01','2026-10-01','2026-12-01'),{from:'2026-10-01',to:'2026-10-05'});
+ assert.deepEqual(performancePeriod('custom','2026-10-05','2026-01-01','',''),{from:'2026-10-05',to:'2026-10-05'});
+});
+test('allocation gap drilldown matches metric groups, filters and PTO rather than inventing effort',()=>{
+ const d={...base,research:{records:[map('a','Approved'),map('b','Partner review'),map('c','Approved','s2'),map('d','Approved','s3'),{...map('e','Draft'),submitted_at:null}]},effort:[effort(1,'r','s2'),effort(0,'r','s3')],timeOff:[{staff_id:'s',work_date:'2026-09-27',pto:true}]};
+ const gaps=performanceAllocationGaps(d,filter);
+ assert.equal(gaps.length,performanceMetrics(d,filter).missing);assert.equal(gaps.length,2);
+ assert.equal(gaps.find(g=>g.staff_id==='s')?.mapped,2);assert.equal(gaps.find(g=>g.staff_id==='s')?.reason,'PTO recorded');assert.equal(gaps.find(g=>g.staff_id==='s3')?.reason,'Recorded effort is zero');
+ assert.equal(performanceAllocationGaps(d,{...filter,team:'other'}).length,0);assert.equal(performanceAllocationGaps(d,{...filter,from:'2026-09-28'}).length,0);assert.equal(performanceAllocationGaps(d,{...filter,roles:[]}).length,0);
+ assert.equal(performanceAllocationGaps({...base,research:{records:[map('a','Approved')]}},filter)[0].reason,'No matching allocation');
 });

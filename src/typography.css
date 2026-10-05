@@ -465,3 +465,24 @@
 .app .engagement-daily .daily-searches :is(.due-count,.new-count){display:inline-flex;justify-content:center;min-width:30px;padding:3px 7px;border-radius:4px}
 .app .engagement-daily .daily-searches .due-count{background:#fdebed}
 .app .engagement-daily .daily-searches .new-count{background:#e7f4eb}
+
+.app .delivery-grid :is(th,td):last-child{width:76px}
+.app .monitor-icon-actions{display:flex;gap:4px;justify-content:center}
+.app .main .monitor-icon-action{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;min-height:0;padding:4px;border:0;box-shadow:none;background:transparent;color:#526b82}
+.app .main .monitor-icon-action:hover,.app .main .monitor-icon-action:focus-visible{background:#e7edf5;color:#002552}
+.app .monitor-icon-action svg{flex-shrink:0}
+.app .performance-insights{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:16px 0}
+.app .main .performance-insight{display:flex;align-items:center;gap:12px;padding:14px;text-align:left;border:1px solid #dce4ec;border-left:3px solid #9aa9b9;box-shadow:none;background:#f6f8fb;color:#425569;white-space:normal}
+.app .performance-insight strong{font-size:25px;line-height:1.1}
+.app .performance-insight.attention{background:#fff5d9;color:#7e641b;border-left-color:#a88422}
+.app .performance-insight.positive{background:#e7f4eb;color:#226744;border-left-color:#438b69}
+.app .performance-insight.selected{outline:2px solid #183b63;outline-offset:2px}
+.app .performance-value{display:inline-block;padding:3px 7px;border-radius:4px;font-weight:600}
+.app .performance-value.positive{background:#e7f4eb;color:#226744}
+.app .performance-value.attention{background:#fff5d9;color:#7e641b}
+.app .performance-result-heading{display:flex;align-items:center;gap:12px;margin:16px 0 9px;flex-wrap:wrap}
+.app .performance-result-heading h3{margin:0}.app .performance-result-heading>span{color:#61748a;font-size:12px}
+.app .performance-panel .performance-gap-link{color:#7e641b;font-weight:600}
+.app .performance-table td:last-child{min-width:150px}.app .performance-table td:last-child>button{display:block;margin:3px 0}
+.app .performance-controls{align-items:flex-end;gap:9px}.app .performance-controls>label{min-width:125px;flex:1}.app .performance-controls input[type=date]{width:100%}
+@media(max-width:850px){.app .performance-insights{grid-template-columns:repeat(2,minmax(0,1fr))}}
