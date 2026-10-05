@@ -41,3 +41,7 @@ Live checks of release 753ff795: deployment run 37373996128 passed every step. C
 Final live verification: source c9e6748, workflow run 37374461364 and job 111979411253 completed successfully. The activity icon renders at 16×16px and opens the correct candidate's search-scoped activity; name/title spacing and full-height stage columns were visually checked. All 290 tests, typecheck and build passed again. Live inspection was read-only; no assignment or candidate changes were saved.
 
 Selected searches now start directly with funnel counts and candidate controls. Removed the duplicate dashboard link, search selector, search actions and Candidates/Activity tabs. Candidate activity remains available from each candidate. Persisted Activity-tab state no longer hides the candidate view.
+
+Live verification of f0ece557 (run 37375994279, all deployment steps successful): selected search starts with funnel controls; the master candidate table renders 13px LinkedIn icons at the same horizontal position in each inspected row. Sourcing count drilldown opened the matching pending candidates; Rahul Raj's detail showed one Partner review status, researcher notes and a single weighted fit score. No production records changed.
+
+Follow-up UI: bold client names in weekly decisions and search names in dashboard/work queue. Removed permanent engagement instructions and the Work Queue narration/date line. Nonzero Due today/Overdue counts use Interview Tracker red styling; New today uses its green styling, in both summaries and table cells. Zero counts remain neutral.

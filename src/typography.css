@@ -456,3 +456,12 @@
 .app .candidate-directory-table .candidate-linkedin-column .person-linkedin{margin:0;width:22px;height:24px;color:#52748d}
 .app .candidate-directory-table .candidate-linkedin-column .person-linkedin svg{width:13px;height:13px}
 .app .candidate-directory-table .candidate-linkedin-column .person-linkedin:hover{color:#0a66c2}
+
+.app .engagement-daily .daily-count.has-attention strong,.app .engagement-daily .daily-searches .due-count{color:#a53245;font-weight:700}
+
+.app .engagement-daily .daily-count.has-attention{background:#fdebed;border-left-color:#a53245}
+.app .engagement-daily .daily-count.has-new{background:#e7f4eb;border-left-color:#226744}
+.app .engagement-daily .daily-count.has-new strong,.app .engagement-daily .daily-searches .new-count{color:#226744;font-weight:700}
+.app .engagement-daily .daily-searches :is(.due-count,.new-count){display:inline-flex;justify-content:center;min-width:30px;padding:3px 7px;border-radius:4px}
+.app .engagement-daily .daily-searches .due-count{background:#fdebed}
+.app .engagement-daily .daily-searches .new-count{background:#e7f4eb}
