@@ -486,3 +486,14 @@
 .app .performance-table td:last-child{min-width:150px}.app .performance-table td:last-child>button{display:block;margin:3px 0}
 .app .performance-controls{align-items:flex-end;gap:9px}.app .performance-controls>label{min-width:125px;flex:1}.app .performance-controls input[type=date]{width:100%}
 @media(max-width:850px){.app .performance-insights{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Funnel identity is shared by filters, list stages and Kanban columns. */
+.app .engagement-funnel-strip button{background:var(--funnel-tint);color:var(--funnel-color);border-color:var(--funnel-border);box-shadow:none}
+.app .engagement-funnel-strip button:hover{border-color:var(--funnel-color)}
+.app .engagement-funnel-strip button.selected{background:var(--funnel-color);border-color:var(--funnel-color);color:#fff;box-shadow:inset 0 -3px #ffffff55}
+.app .engagement-funnel-strip button:focus-visible{outline:2px solid var(--funnel-color);outline-offset:2px}
+.app .engagement-stage-label{display:inline-block;padding:4px 7px;border-radius:5px;background:var(--funnel-tint);color:var(--funnel-color);border:1px solid var(--funnel-border);font-size:var(--type-caption);font-weight:600;line-height:1.4}
+.app .engagement-pipeline .engagement-column{background:var(--funnel-tint);border-color:var(--funnel-border);border-top-color:var(--funnel-color)}
+.app .engagement-stage-heading{color:var(--funnel-color)}
+.app .engagement-stage-heading h3,.app .engagement-stage-heading>small{color:inherit}
+.app .engagement-stage-heading h3>span{background:var(--funnel-color);color:#fff;border-radius:9px;padding:1px 6px;font-size:11px;align-self:flex-start}

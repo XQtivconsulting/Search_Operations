@@ -47,3 +47,7 @@ Live verification of f0ece557 (run 37375994279, all deployment steps successful)
 Follow-up UI: bold client names in weekly decisions and search names in dashboard/work queue. Removed permanent engagement instructions and the Work Queue narration/date line. Nonzero Due today/Overdue counts use Interview Tracker red styling; New today uses its green styling, in both summaries and table cells. Zero counts remain neutral.
 
 Release 3ef37742 deployed successfully in run 37376524609. Live read-only checks confirmed the removed dashboard/queue instructions, bold search markup, red Due today and green New today summaries, with neutral zero counts.
+
+## Consistent funnel colors
+
+Each funnel has one shared color across its filter button, candidate list stage badge, candidate detail stage badge and Kanban column. Unselected buttons and columns use a light tint; selected filters use the solid color with white text and retained pressed state. Sourcing is slate blue, Top Funnel blue, Outreach purple, Engaged teal, Screening ochre, Shortlist orange, Client Process rose, Placed green and Exited gray. Labels remain visible so color is not the only identifier.

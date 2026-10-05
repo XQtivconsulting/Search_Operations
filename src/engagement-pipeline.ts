@@ -1,7 +1,7 @@
 type R=Record<string,any>;
 export const funnelGroups=['Top Funnel','Outreach','Engaged','Screening','Shortlist','Client Process','Placed','Exited'] as const;
 export type PipelineStage={id:string;label:string;group:string;threshold:number;action_label?:string};
-export const funnelColors:Record<string,string>={'Top Funnel':'#326cba',Outreach:'#8056a8',Engaged:'#358367',Screening:'#967719',Shortlist:'#b76926','Client Process':'#b54755',Placed:'#27764e',Exited:'#697586'};
+export const funnelColors:Record<string,string>={Sourcing:'#49617e','Top Funnel':'#326cba',Outreach:'#8056a8',Engaged:'#087f8c',Screening:'#806312',Shortlist:'#9c4f14','Client Process':'#b54755',Placed:'#27764e',Exited:'#697586'};
 const defaults:[string,string,string][]=[
  ['assigned','Assigned','Top Funnel'],
  ['linkedin','LinkedIn Connections Sent','Outreach'],['salesnav','SalesNav Message Sent','Outreach'],['email1','Email 1 Sent','Outreach'],['text1','Text Message 1 Sent','Outreach'],['phone1','Phone Call 1 Placed','Outreach'],['email2','Email Follow up (second email sent)','Outreach'],['text2','Text Message 2 Sent','Outreach'],['phone2','Phone Call 2 Placed','Outreach'],['email3','Email Follow up (3rd email) sent','Outreach'],['closing','Closing / Last follow up email sent','Outreach'],
