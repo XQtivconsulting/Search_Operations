@@ -15,3 +15,17 @@ test('decision evidence uses current mappings, independent approval state, and E
  ].map(([created_at,status])=>({kind:'mapping',role_id:'r',created_at,status})),{kind:'mapping',role_id:'other',status:'Approved'}];
  assert.deepEqual(sourcingEvidence(records,{id:'r'},'2026-09-28','2026-09-28'),{mapped:4,approved:1,pending:2,lastWeek:2,started:'2026-09-14',weeks:2});
 });
+
+test('weekly evidence drilldowns use the same complete cohorts as their counts',async()=>{
+ const {evidenceMappings}=await import('../src/search-decisions');
+ const records=[
+ {id:'draft',kind:'mapping',role_id:'r',status:'Draft',created_at:'2026-09-28T04:00:00Z'},
+ {id:'approved',kind:'mapping',role_id:'r',status:'Approved',created_at:'2026-10-05T03:59:59Z'},
+ {id:'peer',kind:'mapping',role_id:'r',status:'Peer review',created_at:'2026-10-05T04:00:00Z'},
+ {id:'partner',kind:'mapping',role_id:'r',status:'Partner review',created_at:'2026-09-28T03:59:59Z'},
+ {id:'other',kind:'mapping',role_id:'other',status:'Approved',created_at:'2026-10-01T12:00:00Z'}];
+ const counts=sourcingEvidence(records,{id:'r'},'2026-10-05','2026-10-05');
+ for(const group of ['mapped','approved','pending','lastWeek'] as const)assert.equal(evidenceMappings(records,'r','2026-10-05',group).length,counts[group]);
+ assert.deepEqual(evidenceMappings(records,'r','2026-10-05','lastWeek').map(r=>r.id),['draft','approved']);
+ assert.deepEqual(evidenceMappings(records,'r','2026-10-05','pending').map(r=>r.id),['peer','partner']);
+});

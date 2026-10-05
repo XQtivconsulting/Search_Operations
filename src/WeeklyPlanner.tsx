@@ -13,9 +13,9 @@ import {hasRole,canPlan,canPartnerReview,roleList,roleLabel} from './domain';
 import React,{useEffect,useState} from 'react';
 import {addDays,weekStart,weekDays} from './planning';
 type Row=Record<string,any>;
-type Props={data:Row;api:(path:string,body?:unknown)=>Promise<any>;reload:()=>Promise<void>;initialSearch?:string;initialDate?:string;initialView?:'decisions'|'allocation';onDirty:(dirty:boolean)=>void;onTeams:()=>void};
+type Props={data:Row;api:(path:string,body?:unknown)=>Promise<any>;reload:()=>Promise<void>;initialSearch?:string;initialDate?:string;initialView?:'decisions'|'allocation';onDirty:(dirty:boolean)=>void;onTeams:()=>void;onCandidate:(id:string)=>void};
 const label=(date:string)=>displayDate(date);
-export function WeeklyPlanner({data,api,reload,initialSearch='',initialDate='',initialView='decisions',onDirty,onTeams}:Props) {
+export function WeeklyPlanner({data,api,reload,initialSearch='',initialDate='',initialView='decisions',onDirty,onTeams,onCandidate}:Props) {
  const [week,setWeek]=useViewState('WeeklyPlanner.week',()=>weekStart(initialDate||new Date().toLocaleDateString('en-CA'))),[mode,setMode]=useViewState<'search'|'team'>('WeeklyPlanner.mode','search');
  const [gridSort,setGridSort]=useViewState('WeeklyPlanner.gridSort',{key:'name',descending:false});
  const [view,setView]=useViewState<'decisions'|'allocation'>('WeeklyPlanner.view',initialView),[decisionFilter,setDecisionFilter]=useViewState('WeeklyPlanner.decisionFilter','');
@@ -40,7 +40,7 @@ export function WeeklyPlanner({data,api,reload,initialSearch='',initialDate='',i
  }
  function choosePair(search_id:string,team_id:string){if(dirty&&!confirm('Discard edits before changing the search or team?'))return;setEditor(pair(search_id,team_id,editor?.clickedDate));setDirty(false);setError('');}
  function changeDay(index:number,patch:Row){setEditor({...editor,days:editor!.days.map((d:Row,i:number)=>i===index?{...d,...patch}:d)});setDirty(true);}
- async function savePlan(e:React.FormEvent){e.preventDefault();setBusy(true);setError('');try{await api('mutate',{kind:'week-plan',week,...editor});await reload();setEditor(null);setDirty(false);setNotice('Weekly assignments saved. Researchers can add candidate mappings in My Work.');}catch(e:any){setError(e.message);}finally{setBusy(false);}}
+ async function savePlan(e:React.FormEvent){e.preventDefault();setBusy(true);setError('');try{await api('mutate',{kind:'week-plan',week,...editor});await reload();setEditor(null);setDirty(false);setNotice('');}catch(e:any){setError(e.message);}finally{setBusy(false);}}
  async function savePriority(e:React.FormEvent){e.preventDefault();setBusy(true);setError('');try{await api('mutate',{kind:'decision',...priority});await reload();setPriority(null);setDirty(false);setNotice('');}catch(e:any){setError(e.message);}finally{setBusy(false);}}
  function openChange(search_id:string,team_id:string,date='') {
   if(dirty&&!confirm('Discard unsaved edits before moving assignments?'))return;
@@ -49,7 +49,7 @@ export function WeeklyPlanner({data,api,reload,initialSearch='',initialDate='',i
  }
  async function transfer(e:React.FormEvent){e.preventDefault();setBusy(true);setError('');try{await api('mutate',{kind:'plan-transfer',operation:change!.operation,week,search_id:change!.search_id,team_id:change!.team_id,destination_team_id:change!.destination_team_id,roster_version:teams.get(change!.destination_team_id)?.roster_version||0,items:change!.rows.filter((a:Row)=>change!.selected.includes(a.id)).map((a:Row)=>({id:a.id,version:a.version}))});await reload();setNotice(change!.operation==='move'?'Selected daily assignments moved to the new team.':'Selected daily assignments unassigned.');setChange(null);setDirty(false);}catch(e:any){setError(e.message);}finally{setBusy(false);}}
  const decisionFor=(id:string,w=week)=>effectiveDecision(data.priorities,id,w);
- const eligible=(r:Row)=>decisionFilter==='working'?isWorkingDecision(decisionFor(r.id)):decisionFilter==='undecided'?!decisionFor(r.id):!decisionFilter||decisionFor(r.id)?.disposition===decisionFilter;
+ const eligible=(r:Row)=>decisionFilter==='undecided'?!decisionFor(r.id):!decisionFilter||decisionFilter==='working'||decisionFor(r.id)?.disposition===decisionFilter;
  const decisionRoles=data.searches.filter((r:Row)=>(roles===null||roles.includes(r.id))&&eligible(r));
  const entities=(mode==='search'?data.searches:data.teams).filter((r:Row)=>(mode==='search'?(roles===null||roles.includes(r.id))&&(eligible(r)||tasks.some((t:Row)=>t.role_id===r.id)):(!filter||r.id===filter)));
  const visible=assignments.filter((a:Row)=>entities.some((r:Row)=>r.id===(mode==='search'?a.search_id:a.team_id))&&eligible(searches.get(a.search_id)||{id:a.search_id}));
@@ -57,10 +57,10 @@ export function WeeklyPlanner({data,api,reload,initialSearch='',initialDate='',i
  const sortedEntities=[...entities].sort((a:Row,b:Row)=>compareTableValues(entityValue(a),entityValue(b),gridSort.descending)||String(a.id).localeCompare(String(b.id)));
  const gridHeading=(key:string,title:string)=><th key={key} scope="col" aria-sort={gridSort.key===key?(gridSort.descending?'descending':'ascending'):'none'}><button className="table-sort-heading" onClick={()=>setGridSort({key,descending:gridSort.key===key?!gridSort.descending:false})}>{title} <span aria-hidden="true">{gridSort.key===key?(gridSort.descending?'↓':'↑'):'↕'}</span></button></th>;
  function editPriority(s:Row,decisionWeek=week){const p=data.priorities.find((p:Row)=>p.search_id===s.id&&p.week===decisionWeek),effective=decisionFor(s.id,decisionWeek);setPriority({search_id:s.id,week:decisionWeek,disposition:effective?.disposition || 'Start',notes:effective?.notes || '',version:p?.version || 0,base_week:effective?.week||'',base_version:effective?.version||0});setError('');setDirty(false);}
- function allocation(id:string,review=false){setView('allocation');setMode('search');setRoles([id]);setDecisionFilter(review?'':'working');if(!review)openPair(id);}
+ function allocation(id:string,review=false){setView('allocation');setMode('search');setRoles([id]);setDecisionFilter('');if(!review)openPair(id);}
 
  return <section className="panel weekly-planner">
-  <div className="research-tabs"><button className={view==='decisions'?'primary':''} onClick={()=>{setView('decisions');setDecisionFilter('');}}>Search Decisions</button><button className={view==='allocation'?'primary':''} onClick={()=>{setView('allocation');setDecisionFilter('working');}}>Team Allocation</button></div>
+  <div className="weekly-topbar"><div className="research-tabs"><button className={view==='decisions'?'primary':''} onClick={()=>{setView('decisions');setDecisionFilter('');}}>Search Decisions</button><button className={view==='allocation'?'primary':''} onClick={()=>{setView('allocation');setDecisionFilter('');}}>Team Allocation</button></div><div className="weekly-top-actions"><TimeOff data={data} dates={dates} api={api} reload={reload} disabled={dirty||busy}/>{planner&&<button className="primary" onClick={()=>openPair(mode==='search'&&roles?.length===1?roles[0]:'',mode==='team'?filter:'')}>Plan week</button>}</div></div>
   <div className="plan-toolbar">
    <button aria-label="Previous week" onClick={()=>setWeek(addDays(week,-7))}>←</button>
    <label>Week of Monday<input type="date" value={week} onChange={e=>{if(e.target.value)setWeek(weekStart(e.target.value));}}/></label>
@@ -68,15 +68,12 @@ export function WeeklyPlanner({data,api,reload,initialSearch='',initialDate='',i
    <button onClick={()=>setWeek(weekStart(new Date().toLocaleDateString('en-CA')))}>This week</button>
    {view==='allocation'&&<label>View<select value={mode} onChange={e=>{setMode(e.target.value as 'search'|'team');setFilter('');}}><option value="search">By search</option><option value="team">By team</option></select></label>}
    {(view==='decisions'||mode==='search')?<SearchMultiFilter searches={data.searches} value={roles} onChange={setRoles} disabled={dirty||busy}/>:<label>Team<select value={filter} onChange={e=>setFilter(e.target.value)}><option value="">All teams</option>{data.teams.map((r:Row)=><option key={r.id} value={r.id}>{r.name}</option>)}</select></label>}
-   <label>Sourcing decision<select value={decisionFilter} onChange={e=>setDecisionFilter(e.target.value)}><option value="">All decisions</option><option value="working">Needs sourcing</option><option value="undecided">Not decided</option>{sourcingDecisions.map(d=><option key={d}>{d}</option>)}</select></label>
-   {planner&&view==='allocation'&&<button className="primary" onClick={()=>openPair(mode==='search'&&roles?.length===1?roles[0]:'',mode==='team'?filter:'')}>Plan week</button>}
+   <label>Sourcing decision<select value={decisionFilter==='working'?'':decisionFilter} onChange={e=>setDecisionFilter(e.target.value)}><option value="">All decisions</option><option value="undecided">Not decided</option>{sourcingDecisions.map(d=><option key={d}>{d}</option>)}</select></label>
   </div>
-  {view==='allocation'&&<div className="plan-action-legend"><span><Plus size={13}/> Assign</span><span><ArrowsLeftRight size={13}/> Move / unassign</span><span>Click an assignment to edit</span></div>}
   {notice&&<p className="notice" role="status">{notice}</p>}
   {!editor&&!priority&&!change&&error&&<p className="error" role="alert">{error}</p>}
-  <TimeOff data={data} dates={dates} api={api} reload={reload} disabled={dirty||busy}/>
   {!data.teams.length&&<p className="source-note">Create teams and add their researchers in Teams before allocating work.</p>}
-  {view==='decisions'?<SearchDecisions data={data} roles={decisionRoles} week={week} canEdit={planner} onDecide={editPriority} onAllocate={id=>allocation(id)} onReviewPlan={(id,date)=>{setWeek(weekStart(date));allocation(id,true);}}/>:<div className="plan-scroll"><table className="plan-grid"><thead><tr>{gridHeading('name',mode==='search'?'Search / weekly priority':'Team / researchers')}{dates.map(d=>gridHeading(d,label(d)))}{gridHeading('total','Week target')}</tr></thead><tbody>
+  {view==='decisions'?<SearchDecisions onCandidate={onCandidate} data={data} roles={decisionRoles} week={week} canEdit={planner} onDecide={editPriority} onAllocate={id=>allocation(id)} onReviewPlan={(id,date)=>{setWeek(weekStart(date));allocation(id,true);}}/>:<div className="plan-scroll"><table className="plan-grid"><thead><tr>{gridHeading('name',mode==='search'?'Search / weekly priority':'Team / researchers')}{dates.map(d=>gridHeading(d,label(d)))}{gridHeading('total','Week target')}</tr></thead><tbody>
    {sortedEntities.map((r:Row)=>{const row=visible.filter((a:Row)=>(mode==='search'?a.search_id:a.team_id)===r.id),p=decisionFor(r.id);return <tr key={r.id}>
     <th scope="row">{mode==='search'?<><strong>{r.client}</strong><span>{r.title}</span><small>Partner: {r.partner || 'Not assigned'}</small><div className="priority-line"><span className={p?`badge plan-priority-badge priority-${p.disposition.toLowerCase()}`:"plan-priority-text priority-text-none"}>{p?.disposition || 'No priority'}</span>{planner&&<button className="plan-priority-edit" aria-label={`${p?'Edit':'Set'} weekly priority for ${r.client} — ${r.title}`} onClick={()=>editPriority(r)}>{p?'Edit':'Set'}</button>}</div>{p?.notes&&<small>{p.notes}</small>}</>:<><strong style={{borderLeft:`4px solid ${teamColor(r.name,r.id)}`,paddingLeft:6}}>{r.name}</strong><small>{data.team_members.filter((m:Row)=>m.team_id===r.id).map((m:Row)=>data.staff.find((s:Row)=>s.id===m.staff_id)?.name).join(', ')||'No members configured'}</small>{canPlan(data.actor)&&<button onClick={onTeams}>Edit team</button>}</>}</th>
     {dates.map(date=>{const cell=row.filter((a:Row)=>a.work_date===date),cellTasks=tasks.filter((t:Row)=>t.work_date===date&&(mode==='search'?t.role_id===r.id:t.team_id===r.id)),cellTeams=[...new Set<string>([...cell.map((a:Row)=>a.team_id),...cellTasks.map((t:Row)=>t.team_id)])];return <td key={date}>

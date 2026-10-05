@@ -16,3 +16,4 @@
 .app.navigation-shell>.app-sidebar button:focus-visible{outline:2px solid #315d9e;outline-offset:-2px}
 .app.navigation-shell>.app-sidebar nav button.active{box-shadow:inset 3px 0 #ea2450;background:#edf2f5}
 @media(max-width:760px){.app.navigation-shell{grid-template-columns:56px minmax(0,1fr)}.app.navigation-shell>.app-sidebar{padding:8px 6px}.app.navigation-expanded>.app-sidebar{position:fixed;left:0;width:240px;z-index:40;box-shadow:8px 0 24px #13243c33}.app.navigation-shell>.main{padding:20px 12px}.app.navigation-expanded>.app-sidebar .identity{display:block}}
+.navigation-tooltip{position:fixed;z-index:200;padding:8px 12px;border-radius:6px;background:#10213c;color:#fff;font:500 13px/1.4 system-ui,sans-serif;box-shadow:0 3px 12px #10213c33;pointer-events:none;white-space:nowrap}

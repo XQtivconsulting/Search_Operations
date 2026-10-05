@@ -39,10 +39,18 @@ Adjust allocation is visible to planners/admins and opens the relevant search an
 
 ## PTO and automatic effort
 
-Open Time off in Weekly Plan to mark a researcher/date On PTO, or Remove PTO. Researchers manage their own dates; planners manage team dates. PTO contributes zero person-days across all searches. The team target remains unchanged so planners can review capacity. Allocation cards and My Work indicate PTO. Performance defaults to the planned researcher/day split; no daily confirmation is needed. See PERFORMANCE.md for calculation details.
+Open PTO calendar in the Weekly plan toolbar. Rows show team members and columns show the seven days of the selected week. Select a day to toggle PTO. Individuals manage their own linked staff record; admins and super admins manage all active staff. Other users can view the calendar. Week navigation and member search are available inside the popup. PTO contributes zero person-days across all searches. The team target remains unchanged so planners can review capacity. Allocation cards and My Work indicate PTO. Performance defaults to the planned researcher/day split; no daily confirmation is needed. See PERFORMANCE.md for calculation details.
 
 ## Search tasks and team identity
 
 Search preparation & other tasks appears in the weekly plan, scoped to the selected week/search filters. Planners assign Role brief, Search strategy, Target companies, Sourcing or Other to an active team researcher on a date, with a deliverable and notes. Assignees see these in My Work and update their status; planners can reassign/edit. Brief assignees may upload originals; strategy assignees may save drafts but cannot approve/publish through that assignment. Tasks can be planned before sourcing starts. Past/today non-cancelled tasks contribute to planned person-days, deduplicated with sourcing allocations by person/date/search/team and subject to PTO. There are no additional effort forms.
 
 Team allocation uses a colored team marker alongside the sourcing-decision background, preserving Start/Continue/Pause decision colors. Red/Blue/Green/Tiger/Elephant use distinct recognizable colors. Future Start decisions appear as Scheduled to start week of [date] in Search Decisions' Next step.
+
+## Compact weekly workspace (October 2026)
+
+Plan week and PTO calendar sit alongside the two view tabs. Permanent training legends, CRM status, and explanatory banners were removed from the main workspace. The combined Needs sourcing filter is removed; individual sourcing decisions and allocation validation remain unchanged.
+
+Mapped, Partner approved, Awaiting review, and Mapped last week open sortable candidate lists using the same predicates as the displayed counts. Candidate names open full profiles, with LinkedIn icons alongside them. Last-week boundaries use US Eastern dates.
+
+Local verification: typecheck, production build, and all 290 tests passed. Synthetic tests exercise PTO ownership/admin permissions, version conflicts and audit records, plus evidence count/drilldown parity and week boundaries. Live verification is recorded separately after deployment.

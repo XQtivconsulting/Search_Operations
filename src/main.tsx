@@ -1,3 +1,4 @@
+import {NavigationTooltip} from './NavigationTooltip';
 import './engagement-workspace.css';
 import {ViewStateProvider} from './ViewState';
 const navigationLabel=(name:string)=>({'Daily Work':'Work Queue','Pipeline':'Engagement dashboard','Organization':'Admin','Delivery Monitor':'Sourcing Monitor','Performance':'Sourcing Performance','Search assignments':'Engagement Assignments'} as Record<string,string>)[name]||name;
@@ -364,7 +365,7 @@ function App() {
         <div className="brand">
           <img src="/brand/xqtiv-logo.svg" alt="XQtiv"/><span>Search Operations</span>
         </div>
-        <nav id="application-navigation" aria-label="Main navigation">
+        <NavigationTooltip collapsed={!navExpanded}/><nav id="application-navigation" aria-label="Main navigation">
           {Array.from(new Set(nav.map(item=>item[2]))).map(group=><section className="nav-module" key={group}><button className="nav-module-toggle" aria-expanded={!collapsedModules[group]} aria-controls={'nav-'+group.replaceAll(' ','-')} onClick={()=>setCollapsedModules(previous=>({...previous,[group]:!previous[group]}))}><span>{navigationLabel(group)}</span><span aria-hidden="true">{collapsedModules[group]?'▸':'▾'}</span></button><div id={'nav-'+group.replaceAll(' ','-')} hidden={navExpanded&&!!collapsedModules[group]}>{nav.filter(item=>item[2]===group).map(([label,Icon])=>(<React.Fragment key={label}>
             <button
               key={label}
@@ -556,7 +557,7 @@ function App() {
             </div>
           </>
         )}
-        {page === "Weekly plan" && <WeeklyPlanner data={data} api={api} reload={load} initialSearch={selected} initialDate={allocationStart.date} initialView={allocationStart.view} onDirty={setSheetDirty} onTeams={()=>setPage('Teams')}/>}
+        {page === "Weekly plan" && <WeeklyPlanner onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} data={data} api={api} reload={load} initialSearch={selected} initialDate={allocationStart.date} initialView={allocationStart.view} onDirty={setSheetDirty} onTeams={()=>setPage('Teams')}/>}
         {page==='Backups & exports'&&hasRole(actor,'super_admin')&&<Backups api={api} download={downloadBackup}/>}
         {page==='Daily Work'&&<EngagementDaily onSearch={(role:string)=>{setViewStates(previous=>({...previous,Pipeline:{...previous.Pipeline,'Engagement.role':role,'Engagement.group':'all','Engagement.candidateQuery':'','Engagement.workspaceAttention':false,'Engagement.activeOnly':false,'Engagement.focus':'','Engagement.workspaceTab':'Candidates'}}));setEngagementStart({role,mapping:'',stage:''});setPage('Pipeline');}} data={data} onAssignments={()=>setPage('Search assignments')} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}} onWork={(role:string,mapping:string,stage:string)=>{setViewStates(previous=>({...previous,Pipeline:{...previous.Pipeline,'Engagement.role':role}}));setEngagementStart({role,mapping,stage});setPage('Pipeline');}}/>}
         {['Pipeline','Search assignments'].includes(page)&&<Engagement onAllAssignments={()=>setPage('Search assignments')} initialRole={engagementStart.role} initialMapping={page==='Pipeline'?engagementStart.mapping:''} initialStage={engagementStart.stage} key={page+engagementStart.mapping} section={page} onInterviews={(id:string)=>{setViewStates(previous=>({...previous,'Interview tracker':{...previous['Interview tracker'],'InterviewTracker.role':id}}));setInterviewRole(id);setPage('Interview tracker');}} data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}

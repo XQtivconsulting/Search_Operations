@@ -425,8 +425,8 @@ export class Workspace extends DurableObject {
   private applyMutation(a: Actor, kind: string, b: any): { id: string } {
       if(kind==='pto'){
         const staff=text(b.staff_id),date=day(b.work_date);
-        requireThat(canPlan(a)||hasRole(a,'researcher')&&a.staffId===staff,'You can update only your own PTO.',403);
-        requireThat(this.rows('SELECT id FROM staff WHERE id=?',staff).length&&this.assignableStaff(staff),'Choose an active researcher.',404);
+        requireThat(hasRole(a,'admin')||!!a.staffId&&a.staffId===staff,'You can update only your own PTO.',403);
+        requireThat(this.rows('SELECT s.id FROM staff s LEFT JOIN staff_profiles p ON p.staff_id=s.id WHERE s.id=? AND COALESCE(p.archived,0)=0',staff).length,'Choose an active researcher.',404);
         requireThat(typeof b.pto==='boolean','Choose PTO or working.');
         const old=this.rows('SELECT * FROM time_off WHERE staff_id=? AND work_date=?',staff,date)[0];
         requireThat(Number(b.version)===(old?.version||0),'PTO changed. Reload before saving.',409);

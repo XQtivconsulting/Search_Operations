@@ -1,0 +1,7 @@
+import React,{useEffect,useState} from 'react';
+import {createPortal} from 'react-dom';
+export function NavigationTooltip({collapsed}:{collapsed:boolean}){
+ const [tip,setTip]=useState<{label:string;top:number;left:number}|null>(null);
+ useEffect(()=>{if(!collapsed){setTip(null);return;}const show=(e:Event)=>{const button=(e.target as HTMLElement)?.closest<HTMLButtonElement>('.app-sidebar button[aria-label]');if(!button){setTip(null);return;}const r=button.getBoundingClientRect();setTip({label:button.getAttribute('aria-label')||'',top:Math.max(8,Math.min(r.top,window.innerHeight-44)),left:r.right+12});};const hide=()=>setTip(null);document.addEventListener('mouseover',show);document.addEventListener('focusin',show);document.addEventListener('focusout',hide);document.addEventListener('scroll',hide,true);document.addEventListener('click',hide);const key=(e:KeyboardEvent)=>{if(e.key==='Escape')hide();};document.addEventListener('keydown',key);return()=>{document.removeEventListener('mouseover',show);document.removeEventListener('focusin',show);document.removeEventListener('focusout',hide);document.removeEventListener('scroll',hide,true);document.removeEventListener('click',hide);document.removeEventListener('keydown',key);};},[collapsed]);
+ return collapsed&&tip?createPortal(<div className="navigation-tooltip" role="tooltip" style={{top:tip.top,left:tip.left}}>{tip.label}</div>,document.body):null;
+}

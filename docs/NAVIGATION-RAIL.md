@@ -5,3 +5,5 @@ The shell defaults to a 64px icon rail (56px on small screens), freeing content 
 At mobile widths the expanded menu overlays content rather than squeezing it. The icon rail remains visible. Shell styling is scoped to the application sidebar so candidate details and other aside panels are unaffected. Navigation scrolls independently, leaving expand and account actions reachable on shorter screens.
 
 Actual local verification: typecheck, all 288 existing tests and production build passed on 5 October 2026. Deployment and live verification are recorded separately.
+
+Collapsed navigation also displays a high-contrast label beside each icon on pointer hover or keyboard focus. Labels render outside the scrolling rail, and dismiss on Escape, scroll or navigation.

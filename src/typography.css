@@ -371,3 +371,21 @@
 .app .search-picker-menu [role=option]{grid-template-columns:55px minmax(0,1fr)!important;width:100%;white-space:normal;word-break:normal;overflow-wrap:break-word}
 .app .search-picker-menu [role=option] span{min-width:180px;word-break:normal}
 .app .app-navigation{display:flex;gap:8px;flex-wrap:wrap}.app .app-navigation button{max-width:min(500px,46vw);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app .weekly-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.app .weekly-topbar .research-tabs{margin:0}
+.app .weekly-top-actions{display:flex;align-items:center;gap:8px}
+.app .weekly-popup{width:min(1100px,95vw);max-width:1100px}
+.app .pto-calendar{min-width:850px}
+.app .pto-calendar td{text-align:center}
+.app .pto-calendar .pto-day{width:100%;background:#f4f7fa;border:1px solid #e0e5ec;box-shadow:none}
+.app .pto-calendar .on-pto{background:#ffe3dd;color:#7b2e20;border-color:#d79885}
+.app .pto-calendar button:disabled{opacity:1;cursor:default}
+.app .repository-list-toolbar{align-items:center;flex-wrap:nowrap}
+.app .repository-list-toolbar>label{flex-direction:row;align-items:center;white-space:nowrap;gap:8px}
+.app .repository-list-toolbar .view-toggle{margin:0;flex-shrink:0}
+.app .repository-list-toolbar .repository-find{max-width:none;min-width:200px}
+.app .repository-list-toolbar input,.app .repository-list-toolbar select{height:36px;min-width:0}
+.app .repository-list-toolbar>button{min-height:36px}
+.app .main .decision-grid :is(th,td){padding:6px 8px}
+.app .main .decision-grid small{margin-top:2px}
+@media(max-width:1000px){.app .repository-list-toolbar{flex-wrap:wrap}}

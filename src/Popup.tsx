@@ -1,0 +1,6 @@
+import React,{useEffect,useRef} from 'react';
+export function Popup({title,onClose,children}:{title:string;onClose:()=>void;children:React.ReactNode}){
+ const ref=useRef<HTMLElement>(null),close=useRef(onClose);close.current=onClose;
+ useEffect(()=>{const previous=document.activeElement as HTMLElement;ref.current?.querySelector<HTMLElement>('button')?.focus();const key=(e:KeyboardEvent)=>{if(e.key==='Escape')close.current();if(e.key!=='Tab')return;const items=Array.from(ref.current?.querySelectorAll<HTMLElement>('button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),[tabindex="0"]')||[]),first=items[0],last=items.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}};document.addEventListener('keydown',key);return()=>{document.removeEventListener('keydown',key);previous?.focus();};},[]);
+ return <div className="modal-backdrop"><section ref={ref} className="modal weekly-popup" role="dialog" aria-modal="true" aria-label={title}><div className="section-head"><h2>{title}</h2><button onClick={onClose}>Close</button></div>{children}</section></div>;
+}
