@@ -51,3 +51,5 @@ Release 3ef37742 deployed successfully in run 37376524609. Live read-only checks
 ## Consistent funnel colors
 
 Each funnel has one shared color across its filter button, candidate list stage badge, candidate detail stage badge and Kanban column. Unselected buttons and columns use a light tint; selected filters use the solid color with white text and retained pressed state. Sourcing is slate blue, Top Funnel blue, Outreach purple, Engaged teal, Screening ochre, Shortlist orange, Client Process rose, Placed green and Exited gray. Labels remain visible so color is not the only identifier.
+
+Actual verification: typecheck, all 294 tests and build passed. Release e7bb097e49bd052606b88da8d3704bc97b4103ca deployed successfully in run 37378076887 (job 111992420063). Live checks confirmed distinct filter colors, solid selected Outreach, matching purple list badges and matching Sourcing/Outreach/Placed/Exited Kanban accents and tints. No production records were changed.
