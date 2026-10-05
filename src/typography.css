@@ -445,12 +445,6 @@
 .app .mapping-researcher-notes h3{font-size:13px;margin:0 0 6px}
 .app .mapping-researcher-notes p{margin:0;line-height:1.5}
 .app .delivery-monitor .delivery-grid{min-width:1100px;width:100%;table-layout:fixed}
-.app .delivery-monitor .delivery-grid th:first-child{width:19%}
-.app .delivery-monitor .delivery-grid th:nth-child(2){width:10%}
-.app .delivery-monitor .delivery-grid th:nth-child(3){width:10%}
-.app .delivery-monitor .delivery-grid th:nth-child(n+4):nth-child(-n+7){width:9%}
-.app .delivery-monitor .delivery-grid th:nth-child(8){width:13%}
-.app .delivery-monitor .delivery-grid th:nth-child(9){width:12%}
 
 .app .spreadsheet-directory .candidate-directory-table .candidate-linkedin-column{width:30px;padding:4px 3px;text-align:center}
 .app .candidate-directory-table .candidate-linkedin-column .person-linkedin{margin:0;width:22px;height:24px;color:#52748d}
@@ -466,7 +460,6 @@
 .app .engagement-daily .daily-searches .due-count{background:#fdebed}
 .app .engagement-daily .daily-searches .new-count{background:#e7f4eb}
 
-.app .delivery-grid :is(th,td):last-child{width:76px}
 .app .monitor-icon-actions{display:flex;gap:4px;justify-content:center}
 .app .main .monitor-icon-action{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;min-height:0;padding:4px;border:0;box-shadow:none;background:transparent;color:#526b82}
 .app .main .monitor-icon-action:hover,.app .main .monitor-icon-action:focus-visible{background:#e7edf5;color:#002552}
@@ -497,3 +490,27 @@
 .app .engagement-stage-heading{color:var(--funnel-color)}
 .app .engagement-stage-heading h3,.app .engagement-stage-heading>small{color:inherit}
 .app .engagement-stage-heading h3>span{background:var(--funnel-color);color:#fff;border-radius:9px;padding:1px 6px;font-size:11px;align-self:flex-start}
+
+.action-tooltip{position:fixed;z-index:1000;max-width:210px;padding:7px 10px;border-radius:5px;background:#17324d;color:#fff;font:500 12px/1.4 system-ui,sans-serif;box-shadow:0 3px 12px #14233833;pointer-events:none;white-space:normal}
+.app .main .delivery-monitor .delivery-grid thead th{width:auto}
+.app .main .delivery-monitor .delivery-grid thead th:first-child{width:18%}
+.app .main .delivery-monitor .delivery-grid thead th:nth-child(2){width:7%}
+.app .main .delivery-monitor .delivery-grid thead th:nth-last-child(2){width:16%}
+.app .main .delivery-monitor .delivery-grid thead th:last-child{width:68px}
+.app .main .delivery-monitor .delivery-grid :is(th,td):last-child{padding-left:4px;padding-right:4px}
+.app .plan-progress{border-radius:5px;padding:6px 8px;line-height:1.4}
+.app .plan-progress.behind{background:#fdebed;color:#a53245;border-left:3px solid #a53245}
+.app .plan-progress.on-track{background:#e7f4eb;color:#226744}
+.app .plan-progress.incomplete{background:#fff5d9;color:#7e641b}
+.app .plan-progress.neutral{color:#52677d;padding-left:0}
+.app .plan-progress small{color:inherit;margin-top:3px}
+.app .monitor-candidate-name{display:flex;align-items:flex-start;gap:6px;min-width:0}
+.app .monitor-linkedin-slot{display:inline-flex;flex:0 0 20px;width:20px;align-items:center}
+.app .monitor-linkedin-slot .person-linkedin{margin:0;width:20px;height:20px;color:#52748d}
+.app .monitor-linkedin-slot svg{width:13px;height:13px}
+.app .monitor-candidate-name>.text-button{min-width:0;padding:0;text-align:left;white-space:normal;line-height:20px}
+.app .main .delivery-pipeline{min-width:760px}
+.app .main .delivery-pipeline th:first-child{width:23%}
+.app .main .delivery-pipeline th:nth-child(2){width:28%}
+.app .main .delivery-pipeline th:last-child{width:52px}
+.app .monitor-action-cell{text-align:center!important}

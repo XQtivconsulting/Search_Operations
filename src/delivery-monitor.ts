@@ -1,3 +1,4 @@
+import {effectiveEffort} from './planned-effort';
 import {dailyRows} from './daily-view';
 import {addDays,weekStart} from './planning';
 type R=Record<string,any>;
@@ -27,13 +28,18 @@ export function deliveryRows(data:R,roles:string[]|null,from:string,to:string,to
 export function sourcingProgressRows(data:R,roles:string[]|null,from:string,to:string,today:string):R[]{
  const groups=new Map<string,R>();
  const selected=(id:string)=>roles===null||roles.includes(id);
- const ensure=(search_id:string,team_id='')=>{const id=JSON.stringify([search_id,team_id]);if(!groups.has(id)){const s=data.searches.find((r:R)=>r.id===search_id);if(!s)return null;groups.set(id,{id,search_id,team_id,client:s.client,role:s.title,team:data.teams.find((t:R)=>t.id===team_id)?.name||'Unassigned',allocations:[],mappings:[]});}return groups.get(id)!;};
+ const ensure=(search_id:string,team_id='')=>{const id=JSON.stringify([search_id,team_id]);if(!groups.has(id)){const s=data.searches.find((r:R)=>r.id===search_id);if(!s)return null;groups.set(id,{id,search_id,team_id,client:s.client,role:s.title,team:data.teams.find((t:R)=>t.id===team_id)?.name||'Unassigned',allocations:[],mappings:[],effort:[]});}return groups.get(id)!;};
  for(const a of data.assignments||[])if(selected(a.search_id))ensure(a.search_id,a.team_id||'')?.allocations.push(a);
  for(const m of data.research?.records||[])if(m.kind==='mapping'&&selected(m.role_id))ensure(m.role_id,m.team_id||'')?.mappings.push(m);
+ for(const e of effectiveEffort(data,today))if(selected(e.search_id))ensure(e.search_id,e.team_id||'')?.effort.push(e);
  for(const s of data.searches)if(selected(s.id)&&![...groups.values()].some(r=>r.search_id===s.id))ensure(s.id);
  const eastern=(m:R)=>{const value=Date.parse(m.created_at);return Number.isFinite(value)?new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'}).format(new Date(value)):m.work_date||'';};
  return [...groups.values()].map(r=>{const known=r.allocations.filter((a:R)=>a.target!==null&&a.target!==undefined),periodMappings=r.mappings.filter((m:R)=>{const d=eastern(m);return d&&d>=from&&d<=to;}),waitingMappings=r.mappings.filter((m:R)=>['Peer review','Partner review'].includes(m.status)),approvedMappings=r.mappings.filter((m:R)=>m.status==='Approved');
- const attention=[];if(waitingMappings.length)attention.push(`${waitingMappings.length} awaiting review`);
- const dueTarget=known.filter((a:R)=>a.work_date<today).reduce((n:number,a:R)=>n+a.target,0);if(dueTarget>approvedMappings.length)attention.push('Below target due to date');
- return {...r,target:known.length?known.reduce((n:number,a:R)=>n+a.target,0):null,targetIncomplete:known.length<r.allocations.length,mapped:r.mappings.length,periodMapped:periodMappings.length,waiting:waitingMappings.length,partner:approvedMappings.length,periodMappings,waitingMappings,approvedMappings,attention};});
+ const due=known.filter((a:R)=>a.work_date<today),dueTarget=due.reduce((n:number,a:R)=>n+Number(a.target),0),shortfall=Math.max(0,dueTarget-approvedMappings.length);
+ const missingDueTarget=r.allocations.some((a:R)=>a.work_date<today&&(a.target===null||a.target===undefined));
+ const currentPlan=known.some((a:R)=>a.work_date===today&&a.target>0),futurePlan=known.some((a:R)=>a.work_date>today&&a.target>0);
+ const planStatus=shortfall>0?'Behind plan':missingDueTarget?'Target not set':dueTarget>0?'On track':currentPlan?'In progress':futurePlan?'Scheduled':'No dated target';
+ const attention=shortfall>0?[`${shortfall} approvals behind plan`]:missingDueTarget?['Past allocation needs a target']:[];
+ const periodEffort=r.effort.filter((e:R)=>e.work_date>=from&&e.work_date<=to),sumDays=(items:R[])=>Math.round(items.reduce((n:number,e:R)=>n+e.days,0)*100)/100;
+ return {...r,target:known.length?known.reduce((n:number,a:R)=>n+Number(a.target),0):null,targetIncomplete:known.length<r.allocations.length,mapped:r.mappings.length,periodMapped:periodMappings.length,waiting:waitingMappings.length,partner:approvedMappings.length,periodMappings,waitingMappings,approvedMappings,attention,dueTarget,shortfall,planStatus,missingDueTarget,days:sumDays(r.effort),periodDays:sumDays(periodEffort),periodEffort};});
 }

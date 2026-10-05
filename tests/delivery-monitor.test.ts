@@ -57,3 +57,22 @@ test('sourcing progress retains unassigned drafts and empty searches without inv
  const r=sourcingProgressRows(d,null,'2026-10-05','2026-10-05','2026-10-05')[0];assert.equal(r.team,'Unassigned');assert.equal(r.target,null);assert.equal(r.mapped,1);
  const empty=sourcingProgressRows({...d,research:{records:[]}},null,'2026-10-05','2026-10-05','2026-10-05');assert.equal(empty.length,1);assert.equal(empty[0].mapped,0);
 });
+
+test('progress attention compares approvals with elapsed plan, not today, future effort or review queue alone',()=>{
+ const d={...data,assignments:[data.assignments[0],{...data.assignments[0],id:'future',work_date:'2026-09-30',target:20}]};
+ const row=(today:string,source=d)=>sourcingProgressRows(source,null,'2026-09-28','2026-09-28',today).find(r=>r.team_id==='t')!;
+ const scheduled=row('2026-09-27');assert.equal(scheduled.planStatus,'Scheduled');assert.deepEqual(scheduled.attention,[]);assert.equal(scheduled.days,0);
+ const active=row('2026-09-28');assert.equal(active.planStatus,'In progress');assert.deepEqual(active.attention,[]);assert.equal(active.waiting,1);assert.equal(active.days,1);assert.equal(active.dueTarget,0);
+ const late=row('2026-09-29');assert.equal(late.planStatus,'Behind plan');assert.equal(late.dueTarget,5);assert.equal(late.shortfall,5);assert.equal(late.target,25);
+ const caughtUp=row('2026-09-29',{...d,research:{records:[...d.research.records,...Array.from({length:5},(_,i)=>({id:'ok'+i,kind:'mapping',role_id:'r',team_id:'t',status:'Approved'}))]}} as typeof d);
+ assert.equal(caughtUp.planStatus,'On track');assert.equal(caughtUp.waiting,1);assert.deepEqual(caughtUp.attention,[]);
+ const noTarget=row('2026-09-29',{...d,assignments:[{...d.assignments[0],target:null}]} as any);assert.equal(noTarget.planStatus,'Target not set');assert.equal(noTarget.shortfall,0);
+});
+test('progress person-days split before filters and respect PTO, corrections and future dates',()=>{
+ const assignments=[{id:'a',search_id:'r',team_id:'t',work_date:'2026-09-28',target:1},{id:'b',search_id:'r2',team_id:'t',work_date:'2026-09-28',target:1},{id:'pto',search_id:'r',team_id:'t',work_date:'2026-09-29',target:1},{id:'future',search_id:'r',team_id:'t',work_date:'2026-09-30',target:1}];
+ const d={...data,searches:[...data.searches,{id:'r2',client:'Other',title:'Other role'}],assignments,entries:assignments.map(a=>({...a,assignment_id:a.id,staff_id:'s'})),timeOff:[{staff_id:'s',work_date:'2026-09-29',pto:true}]};
+ const result=sourcingProgressRows(d,['r'],'2026-09-29','2026-09-29','2026-09-29').find(r=>r.team_id==='t')!;
+ assert.equal(result.days,.5);assert.equal(result.periodDays,0);assert.equal(result.effort.length,1);
+ const earlier=sourcingProgressRows(d,['r'],'2026-09-28','2026-09-28','2026-09-29').find(r=>r.team_id==='t')!;assert.equal(earlier.periodDays,.5);
+ const corrected=sourcingProgressRows({...d,effort:[{search_id:'r',team_id:'t',staff_id:'s',work_date:'2026-09-28',days:.25}]},['r'],'2026-09-28','2026-09-28','2026-09-29').find(r=>r.team_id==='t')!;assert.equal(corrected.days,.25);assert.equal(corrected.effort[0].source,'exception');
+});

@@ -60,3 +60,13 @@ Mapped, Partner approved, Awaiting review, and Mapped last week open sortable ca
 Local verification: typecheck, production build, and all 290 tests passed. Synthetic tests exercise PTO ownership/admin permissions, version conflicts and audit records, plus evidence count/drilldown parity and week boundaries. Live verification is recorded separately after deployment.
 
 Live verification, 5 October 2026: release f8b250e deployed successfully in workflow run 37372197105, retry job 111973974701. Verified the compact weekly toolbar, removed Needs sourcing option and CRM line, two-record Awaiting review drilldown, seven-day PTO popup, aligned repository toolbar, and collapsed navigation label on keyboard focus. PTO and candidate data were not mutated during live checks. The initial attempt was cancelled while waiting for a hosted runner; the retry passed every deployment step.
+
+## Plan-aware sourcing monitor — 5 October 2026
+
+Sourcing progress now distinguishes Behind plan, On track, In progress, Scheduled and missing dated targets. Red attention is the positive difference between targets on completed dates (strictly before today in US Eastern) and current approved mappings for the same search/team. Today and future targets are not overdue. Waiting reviews alone do not trigger attention. Past allocations missing targets are amber because plan progress cannot be fully assessed. Needs attention filters only shortfalls and these missing past targets.
+
+Person-days to date and in the reporting period use the shared effective-effort calculation: splits across all assignments before search/team filtering, PTO excluded, historical corrections honored and future days excluded. Today's allocation is a full planned day, not measured actual time. Each count opens date/researcher/day/basis details.
+
+Monitor actions use immediate, focus-accessible portal tooltips and fixed compact columns. Candidate review/drilldown tables align a small LinkedIn icon before every name and use a View mapping icon.
+
+Local verification: typecheck, 296 tests and production build passed. Added regression coverage for future/today/completed-day targets, pending reviews without delay, caught-up approvals, missing targets, effort splitting, PTO and manual corrections. Live verification follows deployment.
