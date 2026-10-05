@@ -424,3 +424,35 @@
 @media(max-width:700px),(max-height:600px){.app .engagement-pipeline .engagement-board{height:calc(100dvh - 300px);min-height:260px}.app .engagement-pipeline .engagement-column{flex-basis:240px}}
 
 .app .main .engagement-card .candidate-activity-icon svg{flex:none;width:16px;height:16px}
+.app .decision-cell{position:relative;padding-right:24px;min-height:30px}
+.app .decision-state{display:inline-flex;align-items:center;gap:6px;font-weight:600;color:#40516a;line-height:1.4}
+.app .decision-state:before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+.app .decision-state-start,.app .decision-state-continue{color:#23734d}
+.app .decision-state-stop{color:#a63043}.app .decision-state-pause,.app .decision-state-recalibrate{color:#95621b}
+.app .main .decision-grid .decision-reviewed{margin-top:7px;line-height:1.4}
+.app .main .decision-grid td button.decision-edit-icon{position:absolute;right:0;top:0;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;min-height:22px;padding:2px;background:transparent;color:#31557e;border:0;box-shadow:none}
+.app .decision-edit-icon svg{flex:none}
+.app .main .decision-grid td button.allocate-team-button{background:#062453;color:white;border:1px solid #062453;padding:5px 9px;min-height:28px;margin-top:4px}
+.app .delivery-monitor .sheet-toolbar .checkbox{display:flex;flex-direction:row;align-items:center;gap:7px}
+.app .delivery-monitor .sheet-toolbar .checkbox input{width:16px;height:16px;margin:0}
+.app .delivery-summary{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.app .delivery-summary button.text-button{padding:0;min-height:24px;text-align:left}
+.app .delivery-period{margin:8px 0}
+.app .metric-definitions{margin-top:12px;font-size:12px;color:#617088}
+.app .mapping-detail-review{align-items:center;gap:14px;padding:10px 12px}
+.app .mapping-detail-review .review-owner-note{margin:0;font-size:12px;color:#526174}
+.app .mapping-researcher-notes{margin:18px 0}
+.app .mapping-researcher-notes h3{font-size:13px;margin:0 0 6px}
+.app .mapping-researcher-notes p{margin:0;line-height:1.5}
+.app .delivery-monitor .delivery-grid{min-width:1100px;width:100%;table-layout:fixed}
+.app .delivery-monitor .delivery-grid th:first-child{width:19%}
+.app .delivery-monitor .delivery-grid th:nth-child(2){width:10%}
+.app .delivery-monitor .delivery-grid th:nth-child(3){width:10%}
+.app .delivery-monitor .delivery-grid th:nth-child(n+4):nth-child(-n+7){width:9%}
+.app .delivery-monitor .delivery-grid th:nth-child(8){width:13%}
+.app .delivery-monitor .delivery-grid th:nth-child(9){width:12%}
+
+.app .spreadsheet-directory .candidate-directory-table .candidate-linkedin-column{width:30px;padding:4px 3px;text-align:center}
+.app .candidate-directory-table .candidate-linkedin-column .person-linkedin{margin:0;width:22px;height:24px;color:#52748d}
+.app .candidate-directory-table .candidate-linkedin-column .person-linkedin svg{width:13px;height:13px}
+.app .candidate-directory-table .candidate-linkedin-column .person-linkedin:hover{color:#0a66c2}

@@ -34,7 +34,7 @@ test('search workspace renders the full candidate list and preserves the read-on
  const React=await import('react'),{renderToStaticMarkup}=await import('react-dom/server'),{Engagement}=await import('../src/Engagement');
  const data={actor:{id:'viewer',roles:[]},people:[],searches:[{id:'s1',title:'Synthetic search',client:'Example',status:'Open'}],research:{records:[...mappings,{kind:'candidate',id:'c1',name:'Sample One'},{kind:'candidate',id:'c2',name:'Sample Two'}]}};
  const html=renderToStaticMarkup(React.createElement(Engagement,{data,initialRole:'s1',onDirty:()=>{},onCandidate:()=>{},api:async()=>({}),reload:async()=>{}}));
- assert.match(html,/Sample One/);assert.match(html,/Sample Two/);assert.match(html,/Awaiting sourcing approval/);assert.match(html,/Next action/);assert.match(html,/Kanban/);assert.match(html,/Activity/);assert.doesNotMatch(html,/Save update/);
+ assert.match(html,/Sample One/);assert.match(html,/Sample Two/);assert.match(html,/Awaiting sourcing approval/);assert.match(html,/Next action/);assert.match(html,/Kanban/);assert.match(html,/Find candidate/);assert.doesNotMatch(html,/engagement-context-bar|engagement-workspace-tabs/);assert.doesNotMatch(html,/Save update/);
 });
 test('awaiting recommendation expands interview tracker only to the to-be-recommended stage',async()=>{
  const {matchesInterviewTracker}=await import('../src/interviews');

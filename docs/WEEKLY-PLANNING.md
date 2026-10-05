@@ -31,11 +31,15 @@ Open a role/team allocation in Weekly Assignment. Each working day has Researche
 
 ## Delivery Monitor
 
-Daily Work and the separate Workflow Monitor navigation are replaced by Delivery Monitor. Daily delivery defaults to Today in US Eastern time, with Yesterday, This week, or a chosen date. Each row is a search/team/work date, including submitted work without an allocation. Researchers are visible alongside their team; targets are partner-approved candidate targets, mapped excludes drafts, and approvals reflect the current status of candidates attributed to that work date (not the date their approval occurred).
+Sourcing Monitor has two views: **Sourcing progress** and **Candidate reviews**. Progress has one row per search/team across all recorded work, including unassigned mappings and searches without allocations. Search and team filters apply to all counts. The mapping-period filter changes only Mapped in selected period.
 
-No mappings yet, pending reviews, and past work dates below their approval target are attention indicators. Future plans are not flagged as late; current-day targets are not flagged as missed. Pending review counts open the role's entire outstanding pipeline, including earlier work. The pipeline includes Peer review, Partner review, Needs information and Hold; its role filter is shared with daily delivery, but daily period/team filters do not hide outstanding reviews. Candidate links open profiles, and Open mappings leads to the existing permission-controlled repository review actions. Company coverage and other workflow blockers remain available in an expandable section.
+Approval target · total plan sums all planned daily targets, including future allocations; missing targets remain explicit. Mapped · total to date includes all statuses, including drafts and imported records. Mapped · selected period uses the mapping creation date in US Eastern time, falling back to work date for legacy records. Awaiting review · total includes current Peer review and Partner review mappings. Approved · total to date includes mappings currently Approved regardless of creation or approval date. These are current totals, not historical snapshots or approval events counted by date. Counts open the exact contributing mappings.
 
-Adjust allocation is visible to planners/admins and opens the relevant search and week on Team Allocation. All existing decision gating, write permissions, optimistic versions and audit behavior remain unchanged. My Work remains the individual execution screen.
+Candidate reviews includes all outstanding team/partner reviews, Needs information and Hold, with explicit status filtering. The unlabeled queue count was removed from the tab. Adjust allocation retains its planner/admin authorization and opens the selected mapping-period week. No underlying work attribution, review permissions or audit records change.
+
+Weekly sourcing decisions render as information with a colored dot, separated from the reviewed date. A pencil icon edits the decision. Allocate team is a primary action. Candidate mapping detail displays review status once, distinguishes researcher notes from the weighted fit score, and shows an enabled Review candidate action only when the current user is eligible. Existing free-text notes are preserved verbatim.
+
+Local verification, 5 October 2026: typecheck, 292 tests and build passed. Added tests cover cross-period totals, drafts/imported/rejected mappings, US Eastern date boundaries, team isolation, future plan targets and unassigned/empty searches. Live verification follows deployment.
 
 ## PTO and automatic effort
 
