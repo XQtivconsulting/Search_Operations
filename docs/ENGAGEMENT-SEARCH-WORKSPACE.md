@@ -35,3 +35,5 @@ Kanban cards share candidate name/title spacing with the list, with LinkedIn and
 The assignment table exposes View assigned funnels and Assign funnels directly. The redundant View assignments action and assignment guidance paragraph are removed. Member checkboxes sit next to their names in compact rows. The Engagement members header sorts member choices alphabetically within every funnel; Funnel group sorts the funnel rows. Sorting does not change selections. Work Queue no longer has an Engagement Assignments shortcut.
 
 Local verification: typecheck, all 290 tests and production build passed. No business rules, mutation APIs or permissions changed. Live UI and deployment checks are recorded separately.
+
+Live checks of release 753ff795: deployment run 37373996128 passed every step. Confirmed direct assignment actions, compact checkbox rows, member names reversing on header click, absence of the Work Queue assignment shortcut, and compact Kanban content. No selections or business records were saved. Visual inspection caught a shared button rule shrinking the activity icon; a scoped CSS correction restores its 16px icon and removes the extra heading height.

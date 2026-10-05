@@ -395,8 +395,8 @@
 .app .candidate-identity .candidate-name{min-height:0;padding:0;margin:0;text-align:left;line-height:1.35;font-size:var(--type-body);font-weight:var(--weight-medium);white-space:normal;overflow-wrap:anywhere}
 .app .candidate-identity-actions{display:inline-flex;align-items:center;gap:5px;flex-shrink:0}
 .app .candidate-identity-actions .person-linkedin{margin:0;padding:1px;display:inline-flex;align-items:center}
-.app .candidate-activity-icon{width:20px;height:20px;min-height:0;padding:1px;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:0;box-shadow:none;color:#526781}
-.app .candidate-activity-icon:hover{background:#e7effa;color:#163d70}
+.app .main .engagement-card .candidate-activity-icon{width:20px;height:20px;min-height:0;padding:1px;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:0;box-shadow:none;color:#526781}
+.app .main .engagement-card .candidate-activity-icon:hover{background:#e7effa;color:#163d70}
 .app .candidate-identity>small{display:block;margin:3px 0 0;font-size:var(--type-caption);line-height:1.35;color:#64748b}
 .app .engagement-card{padding:10px;margin:0 0 7px;min-height:0}
 .app .engagement-card:last-child{margin-bottom:0}
@@ -422,3 +422,5 @@
 .app .engagement-assignment-modal .funnel-assignee-options input[type=checkbox]{width:16px;height:16px;min-width:16px;margin:0;padding:0;flex:0 0 16px}
 .app .engagement-assignment-modal form>.primary{margin-top:12px}
 @media(max-width:700px),(max-height:600px){.app .engagement-pipeline .engagement-board{height:calc(100dvh - 300px);min-height:260px}.app .engagement-pipeline .engagement-column{flex-basis:240px}}
+
+.app .main .engagement-card .candidate-activity-icon svg{flex:none;width:16px;height:16px}
