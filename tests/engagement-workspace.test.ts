@@ -36,3 +36,11 @@ test('search workspace renders the full candidate list and preserves the read-on
  const html=renderToStaticMarkup(React.createElement(Engagement,{data,initialRole:'s1',onDirty:()=>{},onCandidate:()=>{},api:async()=>({}),reload:async()=>{}}));
  assert.match(html,/Sample One/);assert.match(html,/Sample Two/);assert.match(html,/Awaiting sourcing approval/);assert.match(html,/Next action/);assert.match(html,/Kanban/);assert.match(html,/Activity/);assert.doesNotMatch(html,/Save update/);
 });
+test('awaiting recommendation expands interview tracker only to the to-be-recommended stage',async()=>{
+ const {matchesInterviewTracker}=await import('../src/interviews');
+ assert.equal(matchesInterviewTracker({stage_id:'shortlist'},'Shortlist',false),false);
+ assert.equal(matchesInterviewTracker({stage_id:'shortlist'},'Shortlist',true),true);
+ for(const id of ['assigned','linkedin','screening','engaged-email','xqtiv-rejected'])assert.equal(matchesInterviewTracker({stage_id:id},'Outreach',true),false);
+ assert.equal(matchesInterviewTracker({stage_id:'recommended'},'Shortlist',false),true);
+ assert.equal(matchesInterviewTracker({stage_id:'client-rejected',recommended_on:'2026-01-01'},'Exited',true),true);
+});

@@ -1,6 +1,6 @@
 import './engagement-workspace.css';
 import {ViewStateProvider} from './ViewState';
-const navigationLabel=(name:string)=>({'Daily Work':'Work Queue','Pipeline':'Engagement searches','Organization':'Admin','Delivery Monitor':'Sourcing Monitor','Performance':'Sourcing Performance','Search assignments':'Engagement Assignments'} as Record<string,string>)[name]||name;
+const navigationLabel=(name:string)=>({'Daily Work':'Work Queue','Pipeline':'Engagement dashboard','Organization':'Admin','Delivery Monitor':'Sourcing Monitor','Performance':'Sourcing Performance','Search assignments':'Engagement Assignments'} as Record<string,string>)[name]||name;
 import './engagement-layout.css';
 import {useNavigationHistory} from './useNavigationHistory';
 import {Backups} from './Backups';
@@ -416,7 +416,7 @@ function App() {
         <div className="app-navigation" aria-label="Page navigation"><button disabled={!navigation.back||navigation.traveling} onClick={()=>navigation.go('back')} title={navigation.back?'Back to '+visitLabel(navigation.back):'No previous page'}>← {navigation.back?'Back to '+visitLabel(navigation.back):'Back'}</button><button disabled={!navigation.forward||navigation.traveling} onClick={()=>navigation.go('forward')} title={navigation.forward?'Forward to '+visitLabel(navigation.forward):'No next page'}>{navigation.forward?'Forward to '+visitLabel(navigation.forward):'Forward'} →</button></div>
         {!(page === "Candidates" && candidateId) && <header>
           <div>
-            <h1>{page === "Search repository" && sBy[selected] ? sBy[selected].title : navigationLabel(page)}</h1>
+            <h1>{page === "Search repository" && sBy[selected] ? sBy[selected].title : page==='Pipeline'?(data.searches.find((s:Row)=>s.id===viewStates.Pipeline?.['Engagement.role'])?.title||'Engagement dashboard'):navigationLabel(page)}</h1>
           </div>
         </header>}
         {notice && (
@@ -558,7 +558,7 @@ function App() {
         )}
         {page === "Weekly plan" && <WeeklyPlanner data={data} api={api} reload={load} initialSearch={selected} initialDate={allocationStart.date} initialView={allocationStart.view} onDirty={setSheetDirty} onTeams={()=>setPage('Teams')}/>}
         {page==='Backups & exports'&&hasRole(actor,'super_admin')&&<Backups api={api} download={downloadBackup}/>}
-        {page==='Daily Work'&&<EngagementDaily onSearch={(role:string)=>{setViewStates(previous=>({...previous,Pipeline:{...previous.Pipeline,'Engagement.role':role,'Engagement.group':'all','Engagement.candidateQuery':'','Engagement.workspaceAttention':false,'Engagement.focus':'','Engagement.workspaceTab':'Candidates'}}));setEngagementStart({role,mapping:'',stage:''});setPage('Pipeline');}} data={data} onAssignments={()=>setPage('Search assignments')} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}} onWork={(role:string,mapping:string,stage:string)=>{setViewStates(previous=>({...previous,Pipeline:{...previous.Pipeline,'Engagement.role':role}}));setEngagementStart({role,mapping,stage});setPage('Pipeline');}}/>}
+        {page==='Daily Work'&&<EngagementDaily onSearch={(role:string)=>{setViewStates(previous=>({...previous,Pipeline:{...previous.Pipeline,'Engagement.role':role,'Engagement.group':'all','Engagement.candidateQuery':'','Engagement.workspaceAttention':false,'Engagement.activeOnly':false,'Engagement.focus':'','Engagement.workspaceTab':'Candidates'}}));setEngagementStart({role,mapping:'',stage:''});setPage('Pipeline');}} data={data} onAssignments={()=>setPage('Search assignments')} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}} onWork={(role:string,mapping:string,stage:string)=>{setViewStates(previous=>({...previous,Pipeline:{...previous.Pipeline,'Engagement.role':role}}));setEngagementStart({role,mapping,stage});setPage('Pipeline');}}/>}
         {['Pipeline','Search assignments'].includes(page)&&<Engagement onAllAssignments={()=>setPage('Search assignments')} initialRole={engagementStart.role} initialMapping={page==='Pipeline'?engagementStart.mapping:''} initialStage={engagementStart.stage} key={page+engagementStart.mapping} section={page} onInterviews={(id:string)=>{setViewStates(previous=>({...previous,'Interview tracker':{...previous['Interview tracker'],'InterviewTracker.role':id}}));setInterviewRole(id);setPage('Interview tracker');}} data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page==='Interview tracker'&&<InterviewTracker key={interviewRole} initialRole={interviewRole} data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page==='Engagement Config'&&isAdmin&&<EngagementAdmin data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
