@@ -47,3 +47,11 @@ export function performanceAllocationGaps(data:R,f:PerformanceFilter){
  }
  return [...groups.values()].sort((a,b)=>(b.work_date||'').localeCompare(a.work_date||''));
 }
+
+/** Period output and current action queues deliberately have different date scopes. */
+export function performanceCandidates(data:R,f:PerformanceFilter,statuses:string[]|null=null,current=false):R[]{
+ return (data.research?.records||[]).filter((r:R)=>r.kind==='mapping'&&r.submitted_at&&
+  (current||((!f.from||r.work_date>=f.from)&&(!f.to||r.work_date<=f.to)))&&
+  (f.roles===null||f.roles.includes(r.role_id))&&(!f.team||r.team_id===f.team)&&(!f.staff||r.staff_id===f.staff)&&
+  (!statuses||statuses.includes(r.status)));
+}

@@ -514,3 +514,5 @@
 .app .main .delivery-pipeline th:nth-child(2){width:28%}
 .app .main .delivery-pipeline th:last-child{width:52px}
 .app .monitor-action-cell{text-align:center!important}
+
+.performance-insight.urgent{background:#fdebed;border-color:#b33e50;color:#a53245}.performance-next-actions{display:flex;flex-direction:column;align-items:flex-start;gap:5px}.performance-next-actions .performance-follow-up{color:#a53245}.performance-table .performance-subject{text-align:left}.performance-table td:last-child{min-width:195px}.performance-table .performance-value{min-width:24px}.performance-insights+.performance-result-heading{margin-top:18px}

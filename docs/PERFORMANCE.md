@@ -43,3 +43,9 @@ Allocation gaps open a sortable popup by work date, researcher, search and team,
 Local validation: typecheck, 294 tests and production build passed, including date preset boundaries and gap/cohort/PTO/filter coverage. Live deployment is verified separately.
 
 Actual live verification: release 363561d84209ec5c6aa994031464759b723f771e, deployment run 37377160771 and job 111989163651 succeeded in every gate. Checked researcher and search dashboards, explicit last-30-day and last-week bounds, priority filtering, the full gap popup and a researcher-scoped two-row popup. Verified monitor action controls are 28px with 17px icons, accessible names and native hover titles; visually inspected compact rows. No business data was changed.
+
+## Action-first revision
+
+Actions now uses current pending work across submission dates, scoped to selected searches and team. Team/partner reviews and researcher requests for information open exact candidate lists with responsible role and direct mapping navigation. Hold is separate from a request for information. Period output counts open the matching submitted-work cohort and retain explicit bounds. Pending reviews do not lower approval rate.
+
+Search priorities reuse sourcing-monitor dated targets: only dates before today are due, and team shortfalls are preserved rather than offset by another team's surplus. Red means behind dated plan or researcher follow-up needed; green marks on-track plans and approved output. Current actions are explicitly distinguished from selected-period results. Allocation gaps live under Data completeness; no invented productivity thresholds or researcher performance scores are applied. Search rows show total and selected-period person-days; yield details remain available by opening the subject.

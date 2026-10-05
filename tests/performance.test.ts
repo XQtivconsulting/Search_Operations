@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {performanceMetrics,searchAge,performancePeriod,performanceAllocationGaps} from '../src/performance';
+import {performanceCandidates,performanceMetrics,searchAge,performancePeriod,performanceAllocationGaps} from '../src/performance';
 const base={assignments:[],entries:[],effort:[],research:{records:[]}};
 const map=(id:string,status:string,staff_id='s',role_id='r')=>({id,kind:'mapping',status,staff_id,role_id,team_id:'t',work_date:'2026-09-27',submitted_at:'2026-09-27T12:00:00Z'});
 const effort=(days:number,search_id='r',staff_id='s')=>({search_id,staff_id,team_id:'t',work_date:'2026-09-27',days});
@@ -50,4 +50,15 @@ test('allocation gap drilldown matches metric groups, filters and PTO rather tha
  assert.equal(gaps.find(g=>g.staff_id==='s')?.mapped,2);assert.equal(gaps.find(g=>g.staff_id==='s')?.reason,'PTO recorded');assert.equal(gaps.find(g=>g.staff_id==='s3')?.reason,'Recorded effort is zero');
  assert.equal(performanceAllocationGaps(d,{...filter,team:'other'}).length,0);assert.equal(performanceAllocationGaps(d,{...filter,from:'2026-09-28'}).length,0);assert.equal(performanceAllocationGaps(d,{...filter,roles:[]}).length,0);
  assert.equal(performanceAllocationGaps({...base,research:{records:[map('a','Approved')]}},filter)[0].reason,'No matching allocation');
+});
+
+
+test('current action queues retain old pending work but respect search, team and researcher scope',()=>{
+ const data={research:{records:[map('old','Peer review'),{...map('new','Partner review'),work_date:'2026-10-05'},map('other','Peer review','other','other'),map('return','Needs information'),map('hold','Hold'),{...map('draft','Peer review'),submitted_at:null}]}};
+ const f={from:'2026-10-01',to:'2026-10-05',roles:['r'],team:'t',staff:'s'};
+ assert.deepEqual(performanceCandidates(data,f,['Peer review','Partner review']).map(r=>r.id),['new']);
+ assert.deepEqual(performanceCandidates(data,f,['Peer review','Partner review'],true).map(r=>r.id),['old','new']);
+ assert.deepEqual(performanceCandidates(data,f,['Needs information'],true).map(r=>r.id),['return']);
+ assert.equal(performanceCandidates(data,{...f,team:'other'},null,true).length,0);
+ assert.equal(performanceCandidates(data,{...f,roles:[]},null,true).length,0);
 });
