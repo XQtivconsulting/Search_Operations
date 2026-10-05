@@ -389,3 +389,36 @@
 .app .main .decision-grid :is(th,td){padding:6px 8px}
 .app .main .decision-grid small{margin-top:2px}
 @media(max-width:1000px){.app .repository-list-toolbar{flex-wrap:wrap}}
+/* Compact candidate identity, shared by engagement lists and cards. */
+.app .candidate-identity{min-width:0;line-height:1.35}
+.app .candidate-identity-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:6px}
+.app .candidate-identity .candidate-name{min-height:0;padding:0;margin:0;text-align:left;line-height:1.35;font-size:var(--type-body);font-weight:var(--weight-medium);white-space:normal;overflow-wrap:anywhere}
+.app .candidate-identity-actions{display:inline-flex;align-items:center;gap:5px;flex-shrink:0}
+.app .candidate-identity-actions .person-linkedin{margin:0;padding:1px;display:inline-flex;align-items:center}
+.app .candidate-activity-icon{width:20px;height:20px;min-height:0;padding:1px;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:0;box-shadow:none;color:#526781}
+.app .candidate-activity-icon:hover{background:#e7effa;color:#163d70}
+.app .candidate-identity>small{display:block;margin:3px 0 0;font-size:var(--type-caption);line-height:1.35;color:#64748b}
+.app .engagement-card{padding:10px;margin:0 0 7px;min-height:0}
+.app .engagement-card:last-child{margin-bottom:0}
+.app .engagement-card .candidate-identity>small{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.app .engagement-pipeline .engagement-board{padding-bottom:4px;gap:10px;overflow-y:hidden}
+.app .engagement-pipeline .engagement-column{flex-basis:260px;align-self:stretch;min-height:0;max-height:100%;overflow-y:auto;padding:7px;scrollbar-width:thin}
+.app .engagement-stage-heading{padding:3px 0 5px}
+.app .engagement-column h3{margin:3px 0 6px}
+.app .engagement-context-bar{margin-bottom:8px;gap:10px}
+.app .engagement-workspace-tabs{margin:8px 0;padding-bottom:7px}
+.app .engagement-funnel-strip{padding-bottom:7px}
+.app .engagement-assignment-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.app .engagement-assignments-table td:last-child{width:245px}
+.app .engagement-assignments-table .text-button{min-height:0;padding:2px 0;white-space:nowrap;box-shadow:none}
+.app .engagement-workspace .engagement-assignments-table td{padding:7px 10px;vertical-align:middle}
+.app .engagement-assignment-modal{max-width:800px}
+.app .engagement-assignment-modal .section-head{margin-bottom:8px}
+.app .engagement-assignment-modal p{margin:8px 0}
+.app .engagement-assignment-modal .sheet-table :is(th,td){padding:7px 10px;vertical-align:middle;text-align:left}
+.app .engagement-assignment-grid th:first-child{width:150px}
+.app .engagement-assignment-modal .funnel-assignee-options{display:flex;flex-wrap:wrap;gap:5px 16px}
+.app .engagement-assignment-modal .funnel-assignee-options .checkbox{display:inline-flex;flex-direction:row;justify-content:flex-start;align-items:center;gap:6px;width:auto;min-height:24px;margin:0;padding:0}
+.app .engagement-assignment-modal .funnel-assignee-options input[type=checkbox]{width:16px;height:16px;min-width:16px;margin:0;padding:0;flex:0 0 16px}
+.app .engagement-assignment-modal form>.primary{margin-top:12px}
+@media(max-width:700px),(max-height:600px){.app .engagement-pipeline .engagement-board{height:calc(100dvh - 300px);min-height:260px}.app .engagement-pipeline .engagement-column{flex-basis:240px}}

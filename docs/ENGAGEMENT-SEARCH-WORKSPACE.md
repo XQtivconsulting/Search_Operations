@@ -27,3 +27,11 @@ The display name is now Engagement dashboard. Each search's Candidates, Active, 
 Within the workspace, the page title is the search name. The redundant inner title and client/status/partner detail line are removed. The dashboard return link and navigation use the new display name.
 
 Interview tracker's inclusion checkbox now adds only stage ID shortlist (To be recommended), rather than all engagement rows. Existing recommended/interview-history rows remain included. Local verification: typecheck and all 289 tests passed, including the added regression for shortlist versus outreach/screening. Production build also passed. Deployment remains a separate check.
+
+## Compact cards and assignments — 5 October 2026
+
+Kanban cards share candidate name/title spacing with the list, with LinkedIn and activity icons at the upper right. Next action and assigned members remain in candidate detail, not on cards. The redundant filtered/total candidate sentence is removed. Stage columns use the available board height and scroll independently, with compact card spacing.
+
+The assignment table exposes View assigned funnels and Assign funnels directly. The redundant View assignments action and assignment guidance paragraph are removed. Member checkboxes sit next to their names in compact rows. The Engagement members header sorts member choices alphabetically within every funnel; Funnel group sorts the funnel rows. Sorting does not change selections. Work Queue no longer has an Engagement Assignments shortcut.
+
+Local verification: typecheck, all 290 tests and production build passed. No business rules, mutation APIs or permissions changed. Live UI and deployment checks are recorded separately.
