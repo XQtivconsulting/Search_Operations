@@ -19,6 +19,9 @@ import {AccountSettings} from './AccountSettings';
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
+  List,
+  PushPin,
+  CaretDoubleLeft,
   Briefcase,
   CalendarBlank,
   ClipboardText,
@@ -43,6 +46,7 @@ import {ResearchPanel,PublicBrief} from "./ResearchPanel";
 import { Setup } from './Setup';
 import "./style.css";
 import "./typography.css";
+import "./navigation-rail.css";
 type Row = Record<string, any>;
 let workspace = sessionStorage.getItem("workspace") || "xqtiv";
 let expectedUser:string|null=null;
@@ -94,6 +98,10 @@ function App() {
   const [allocationStart,setAllocationStart]=useState<{date:string;view:'decisions'|'allocation'}>({date:'',view:'decisions'});
   const [memberships,setMemberships]=useState<Row[]>([]);
   const [teamType,setTeamType]=useState('Sourcing teams');
+  const [navPinned,setNavPinned]=useState(()=>{try{return localStorage.getItem('xqtiv.navigationPinned')==='true';}catch{return false;}});
+  const [navExpanded,setNavExpanded]=useState(navPinned);
+  useEffect(()=>{if(!navPinned)setNavExpanded(false);},[page,navPinned]);
+  const toggleNavPin=()=>{const next=!navPinned;setNavPinned(next);setNavExpanded(next);try{localStorage.setItem('xqtiv.navigationPinned',String(next));}catch{}};
   const [collapsedModules,setCollapsedModules]=useState<Record<string,boolean>>({Organization:true});
   useEffect(()=>{if(!page)return;const group=['Search repository','Weekly plan','Delivery Monitor','Performance'].includes(page)?'Sourcing':['Daily Work','Pipeline','Search assignments','Interview tracker'].includes(page)?'Engagement':['Candidates','Companies'].includes(page)?'Talent assets':page==='My Work'?'Work':'Organization';setCollapsedModules(previous=>({...previous,[group]:false}));},[page]);
   const [engagementStart,setEngagementStart]=useState({role:'',mapping:'',stage:''});
@@ -350,15 +358,17 @@ function App() {
     ));
   }
   return (
-    <div className="app">
-      <aside>
+    <div className={"app navigation-shell "+(navExpanded?"navigation-expanded":"navigation-collapsed")}>
+      <aside className="app-sidebar" aria-label="Application sidebar" onKeyDown={e=>{if(e.key==='Escape'&&!navPinned)setNavExpanded(false);}}>
+        <div className="sidebar-controls"><button aria-label={navExpanded?'Collapse navigation':'Expand navigation'} title={navExpanded?'Collapse navigation':'Expand navigation'} aria-expanded={navExpanded} aria-controls="application-navigation" onClick={()=>{if(navExpanded&&navPinned){setNavPinned(false);try{localStorage.setItem('xqtiv.navigationPinned','false');}catch{}}setNavExpanded(!navExpanded);}}>{navExpanded?<CaretDoubleLeft size={20}/>:<List size={20}/>}</button>{navExpanded&&<button aria-label={navPinned?'Unpin navigation':'Keep navigation open'} title={navPinned?'Unpin navigation':'Keep navigation open'} aria-pressed={navPinned} onClick={toggleNavPin}><PushPin size={18} weight={navPinned?'fill':'regular'}/></button>}</div>
         <div className="brand">
           <img src="/brand/xqtiv-logo.svg" alt="XQtiv"/><span>Search Operations</span>
         </div>
-        <nav aria-label="Main navigation">
-          {Array.from(new Set(nav.map(item=>item[2]))).map(group=><section className="nav-module" key={group}><button className="nav-module-toggle" aria-expanded={!collapsedModules[group]} aria-controls={'nav-'+group.replaceAll(' ','-')} onClick={()=>setCollapsedModules(previous=>({...previous,[group]:!previous[group]}))}><span>{navigationLabel(group)}</span><span aria-hidden="true">{collapsedModules[group]?'▸':'▾'}</span></button><div id={'nav-'+group.replaceAll(' ','-')} hidden={!!collapsedModules[group]}>{nav.filter(item=>item[2]===group).map(([label,Icon])=>(<React.Fragment key={label}>
+        <nav id="application-navigation" aria-label="Main navigation">
+          {Array.from(new Set(nav.map(item=>item[2]))).map(group=><section className="nav-module" key={group}><button className="nav-module-toggle" aria-expanded={!collapsedModules[group]} aria-controls={'nav-'+group.replaceAll(' ','-')} onClick={()=>setCollapsedModules(previous=>({...previous,[group]:!previous[group]}))}><span>{navigationLabel(group)}</span><span aria-hidden="true">{collapsedModules[group]?'▸':'▾'}</span></button><div id={'nav-'+group.replaceAll(' ','-')} hidden={navExpanded&&!!collapsedModules[group]}>{nav.filter(item=>item[2]===group).map(([label,Icon])=>(<React.Fragment key={label}>
             <button
               key={label}
+              aria-label={navigationLabel(label)} title={!navExpanded?navigationLabel(label):undefined} aria-current={page===label?"page":undefined}
               className={page === label ? "active" : ""}
               onClick={() => {
                 if (sheetDirty && !confirm("Discard unsaved changes?")) return;
@@ -370,12 +380,12 @@ function App() {
                 if(label==='Interview tracker')setInterviewRole('');
                 if(label==='Delivery Monitor')setDeliveryStart({view:'daily',roles:null});
                 if(label==='Weekly plan')setAllocationStart({date:'',view:'decisions'});
-                setMappingStart('');setPage(label);
+                setMappingStart('');setPage(label);if(!navPinned)setNavExpanded(false);
                 setNotice("");
               }}
             >
               <Icon size={21} />
-              {navigationLabel(label)}
+              <span className="nav-item-label">{navigationLabel(label)}</span>
               {label === "Reviews" && queue.length > 0 && (
                 <span className="nav-count">{queue.length}</span>
               )}
@@ -388,8 +398,8 @@ function App() {
           {memberships.length>1?<label>Workspace<select value={workspace} onChange={async e=>{if(sheetDirty&&!confirm('Discard unsaved changes and switch workspace?'))return;sessionRevision++;workspace=e.target.value;sessionStorage.setItem('workspace',workspace);setData(null);setLoading(true);setModal(null);setSelected('');setCompanySearch('');setCandidateId('');setEngagementStart({role:'',mapping:'',stage:''});setInterviewRole('');setPage('');setSheetDirty(false);await load();}}>{memberships.map(m=><option key={m.tenant} value={m.tenant}>{m.tenant==='xqtiv'?'XQtiv':m.tenant}</option>)}</select></label>:<small>{workspace==='xqtiv'?'XQtiv':workspace}</small>}
           <small className="identity-email">{actor.email}</small>
           <small>{roleList(actor).map(roleLabel).join(' · ')}</small>
-          <button className={page==='Account settings'?'active':''} onClick={()=>{if(sheetDirty&&!confirm('Discard unsaved changes?'))return;setSheetDirty(false);setPage('Account settings');}}><Users/>Account settings</button>
-          <button
+          <button aria-label="Account settings" title={!navExpanded?'Account settings':undefined} className={page==='Account settings'?'active':''} onClick={()=>{if(sheetDirty&&!confirm('Discard unsaved changes?'))return;setSheetDirty(false);setPage('Account settings');}}><Users/><span className="nav-item-label">Account settings</span></button>
+          <button aria-label="Sign out" title={!navExpanded?'Sign out':undefined}
             onClick={async () => {
               if (sheetDirty && !confirm("Discard unsaved changes and sign out?")) return;
               setSheetDirty(false);
@@ -398,7 +408,7 @@ function App() {
             }}
           >
             <SignOut />
-            Sign out
+            <span className="nav-item-label">Sign out</span>
           </button>
         </div>
       </aside>

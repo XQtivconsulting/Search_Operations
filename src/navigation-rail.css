@@ -1,0 +1,18 @@
+/* Scope shell behavior to its own sidebar, never candidate detail panels. */
+.app.navigation-shell{display:grid;grid-template-columns:64px minmax(0,1fr)}
+.app.navigation-expanded{grid-template-columns:240px minmax(0,1fr)}
+.app.navigation-shell>.main{min-width:0;max-width:none;width:100%;grid-column:2}
+.app.navigation-shell>.app-sidebar{padding:12px 10px;position:sticky;top:0;height:100dvh;min-height:0;border-right:1px solid #dce2eb;border-bottom:0;z-index:20;overflow:hidden}
+.app-sidebar .sidebar-controls{display:flex;align-items:center;justify-content:space-between;flex-shrink:0;margin-bottom:8px}
+.app-sidebar .sidebar-controls button{display:flex;justify-content:center;align-items:center;width:40px;height:36px;padding:6px;background:transparent;border:1px solid transparent;box-shadow:none}
+.app-sidebar .sidebar-controls button:hover,.app-sidebar .sidebar-controls button[aria-pressed=true]{background:#edf2f5;border-color:#dce2eb}
+.app.navigation-shell>.app-sidebar>nav{display:block;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;margin:8px 0}
+.app.navigation-shell>.app-sidebar .identity{display:block;flex-shrink:0;margin-top:0;padding:10px 6px 0}
+.app.navigation-shell>.app-sidebar .identity button{display:flex;width:100%;gap:8px;align-items:center;min-height:34px}
+.app.navigation-collapsed>.app-sidebar .brand,.app.navigation-collapsed>.app-sidebar .nav-module-toggle,.app.navigation-collapsed>.app-sidebar .nav-item-label,.app.navigation-collapsed>.app-sidebar .identity>:not(button),.app.navigation-collapsed>.app-sidebar .nav-count{display:none}
+.app.navigation-collapsed>.app-sidebar .nav-module{padding:5px 0;border-bottom:1px solid #edf2f5}
+.app.navigation-collapsed>.app-sidebar nav .nav-module>div>button,.app.navigation-collapsed>.app-sidebar .identity button{display:flex;justify-content:center;align-items:center;width:42px;min-height:38px;padding:8px;margin:2px 0;gap:0;border-radius:6px}
+.app.navigation-collapsed>.app-sidebar .identity{padding:6px 0 0}
+.app.navigation-shell>.app-sidebar button:focus-visible{outline:2px solid #315d9e;outline-offset:-2px}
+.app.navigation-shell>.app-sidebar nav button.active{box-shadow:inset 3px 0 #ea2450;background:#edf2f5}
+@media(max-width:760px){.app.navigation-shell{grid-template-columns:56px minmax(0,1fr)}.app.navigation-shell>.app-sidebar{padding:8px 6px}.app.navigation-expanded>.app-sidebar{position:fixed;left:0;width:240px;z-index:40;box-shadow:8px 0 24px #13243c33}.app.navigation-shell>.main{padding:20px 12px}.app.navigation-expanded>.app-sidebar .identity{display:block}}
