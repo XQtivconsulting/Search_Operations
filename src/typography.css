@@ -516,3 +516,9 @@
 .app .monitor-action-cell{text-align:center!important}
 
 .performance-insight.urgent{background:#fdebed;border-color:#b33e50;color:#a53245}.performance-next-actions{display:flex;flex-direction:column;align-items:flex-start;gap:5px}.performance-next-actions .performance-follow-up{color:#a53245}.performance-table .performance-subject{text-align:left}.performance-table td:last-child{min-width:195px}.performance-table .performance-value{min-width:24px}.performance-insights+.performance-result-heading{margin-top:18px}
+.app .main .performance-insight.urgent{background:#fdebed;border-left-color:#b33e50;color:#a53245}
+.app .main .performance-table>thead>tr>th:last-child{width:24%}
+.app .main .performance-table>thead>tr>th:first-child{width:24%}
+.app .main .performance-table .performance-next-actions .plan-progress{width:100%;box-sizing:border-box}
+.app .main .performance-next-actions .text-button{padding:0;text-align:left;white-space:normal}
+.app .main .performance-panel>.performance-supporting,.app .main .performance-panel>.metric-definitions{margin-top:16px;padding:12px 0}
