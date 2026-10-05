@@ -37,3 +37,5 @@ The assignment table exposes View assigned funnels and Assign funnels directly. 
 Local verification: typecheck, all 290 tests and production build passed. No business rules, mutation APIs or permissions changed. Live UI and deployment checks are recorded separately.
 
 Live checks of release 753ff795: deployment run 37373996128 passed every step. Confirmed direct assignment actions, compact checkbox rows, member names reversing on header click, absence of the Work Queue assignment shortcut, and compact Kanban content. No selections or business records were saved. Visual inspection caught a shared button rule shrinking the activity icon; a scoped CSS correction restores its 16px icon and removes the extra heading height.
+
+Final live verification: source c9e6748, workflow run 37374461364 and job 111979411253 completed successfully. The activity icon renders at 16×16px and opens the correct candidate's search-scoped activity; name/title spacing and full-height stage columns were visually checked. All 290 tests, typecheck and build passed again. Live inspection was read-only; no assignment or candidate changes were saved.
