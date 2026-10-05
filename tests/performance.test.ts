@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {performanceCandidates,performanceMetrics,searchAge,performancePeriod,performanceAllocationGaps} from '../src/performance';
+import {performanceAssessment,performanceDistribution,performanceThreshold,performanceCandidates,performanceMetrics,searchAge,performancePeriod,performanceAllocationGaps} from '../src/performance';
 const base={assignments:[],entries:[],effort:[],research:{records:[]}};
 const map=(id:string,status:string,staff_id='s',role_id='r')=>({id,kind:'mapping',status,staff_id,role_id,team_id:'t',work_date:'2026-09-27',submitted_at:'2026-09-27T12:00:00Z'});
 const effort=(days:number,search_id='r',staff_id='s')=>({search_id,staff_id,team_id:'t',work_date:'2026-09-27',days});
@@ -61,4 +61,24 @@ test('current action queues retain old pending work but respect search, team and
  assert.deepEqual(performanceCandidates(data,f,['Needs information'],true).map(r=>r.id),['return']);
  assert.equal(performanceCandidates(data,{...f,team:'other'},null,true).length,0);
  assert.equal(performanceCandidates(data,{...f,roles:[]},null,true).length,0);
+});
+
+
+test('throughput and quality comparisons use explicit thresholds without treating missing results as failure',()=>{
+ assert.equal(performanceThreshold(''),null);assert.equal(performanceThreshold('abc'),null);assert.equal(performanceThreshold('-1'),null);
+ assert.equal(performanceThreshold('101',true),null);assert.equal(performanceThreshold('80',true),.8);assert.equal(performanceThreshold('2.5'),2.5);
+ assert.equal(performanceAssessment(null,3),'unavailable');assert.equal(performanceAssessment(0,null),'unset');
+ assert.equal(performanceAssessment(3,3),'met');assert.equal(performanceAssessment(2.9,3),'below');assert.equal(performanceAssessment(0,3),'below');
+ const rows=[{throughput:3,quality:.8},{throughput:2,quality:null},{throughput:null,quality:.5}];
+ assert.deepEqual(performanceDistribution(rows,'throughput',3),{met:1,below:1,unavailable:1,unset:0});
+ assert.deepEqual(performanceDistribution(rows,'quality',.8),{met:1,below:1,unavailable:1,unset:0});
+ assert.deepEqual(performanceDistribution(rows,'quality',null),{met:0,below:0,unavailable:1,unset:2});
+});
+test('dashboard leads with researcher throughput and quality and excludes search-plan and action queue cards',async()=>{
+ const React=await import('react'),{renderToStaticMarkup}=await import('react-dom/server'),{Performance}=await import('../src/Performance');
+ const data={...base,actor:{role:'partner'},searches:[{id:'r',client:'Client',title:'Role'}],teams:[],staff:[{id:'s',name:'Researcher'}],priorities:[],research:{records:[map('a','Approved')]}};
+ const html=renderToStaticMarkup(React.createElement(Performance,{data,api:async()=>{},reload:async()=>{},onDirty:()=>{},onDecision:()=>{}}));
+ assert.ok(html.includes('Researcher throughput'));assert.ok(html.includes('Researcher quality'));
+ assert.ok(!html.includes('Actions now'));assert.ok(!html.includes('Searches behind plan'));assert.ok(!html.includes('Team / partner reviews'));
+ assert.ok(html.includes('Set throughput threshold'));assert.ok(html.includes('Set quality threshold'));assert.ok(html.includes('Effort incomplete'));
 });

@@ -55,3 +55,19 @@ export function performanceCandidates(data:R,f:PerformanceFilter,statuses:string
   (f.roles===null||f.roles.includes(r.role_id))&&(!f.team||r.team_id===f.team)&&(!f.staff||r.staff_id===f.staff)&&
   (!statuses||statuses.includes(r.status)));
 }
+
+export type PerformanceAssessment='met'|'below'|'unavailable'|'unset';
+export function performanceAssessment(value:number|null,threshold:number|null):PerformanceAssessment{
+ if(value===null||!Number.isFinite(value))return 'unavailable';
+ if(threshold===null||!Number.isFinite(threshold)||threshold<0)return 'unset';
+ return value>=threshold?'met':'below';
+}
+export function performanceThreshold(value:string,percent=false):number|null{
+ if(!value.trim())return null;
+ const n=Number(value);return !Number.isFinite(n)||n<0||(percent&&n>100)?null:percent?n/100:n;
+}
+export function performanceDistribution(rows:R[],metric:'throughput'|'quality',threshold:number|null){
+ const counts={met:0,below:0,unavailable:0,unset:0};
+ for(const r of rows)counts[performanceAssessment(r[metric],threshold)]++;
+ return counts;
+}

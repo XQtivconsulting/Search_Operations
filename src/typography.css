@@ -522,3 +522,32 @@
 .app .main .performance-table .performance-next-actions .plan-progress{width:100%;box-sizing:border-box}
 .app .main .performance-next-actions .text-button{padding:0;text-align:left;white-space:normal}
 .app .main .performance-panel>.performance-supporting,.app .main .performance-panel>.metric-definitions{margin-top:16px;padding:12px 0}
+
+/* Throughput and quality are the primary dimensions of both performance views. */
+.app .performance-metric-cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:12px 0 16px}
+.app .performance-metric-card{border:1px solid #dce4ec;border-radius:8px;padding:16px;background:white;min-width:0}
+.app .performance-metric-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.app .performance-metric-top h3{margin:0 0 5px;font-size:16px}
+.app .performance-metric-top span,.app .performance-threshold-label{font-size:12px;color:#62758b}
+.app .performance-metric-top>strong{font-size:28px;color:#183b63}
+.app .performance-threshold-label{margin:10px 0}
+.app .performance-distribution{display:flex;gap:8px;flex-wrap:wrap}
+.app .main .performance-distribution-count{display:flex;flex:1;flex-direction:column;gap:4px;align-items:flex-start;text-align:left;padding:8px;border:1px solid transparent;box-shadow:none;white-space:normal;background:#f2f5f8;color:#52677d;border-radius:5px}
+.app .main .performance-distribution-count strong{font-size:20px}.app .performance-distribution-count span{font-size:11px}
+.app .main .performance-distribution-count.met,.app .performance-rate.met{background:#e7f4eb;color:#226744}
+.app .main .performance-distribution-count.below,.app .performance-rate.below{background:#fdebed;color:#a53245}
+.app .main .performance-distribution-count[aria-pressed=true]{outline:2px solid #183b63;outline-offset:1px}
+.app .main .performance-distribution-count:disabled{background:#f2f5f8;color:#768599;opacity:.7}
+.app .performance-rate{padding:6px 8px;border-radius:5px;color:#52677d}
+.app .performance-rate small{font-size:11px;line-height:1.35;color:inherit;margin-top:3px}
+.app .main .performance-rate .text-button{color:inherit;padding:0;text-align:left}.app .performance-rate strong{font-size:18px}
+.app .main .performance-metrics-table{min-width:1000px}
+.app .main .performance-metrics-table>thead>tr>th:first-child{width:22%}
+.app .main .performance-metrics-table>thead>tr>th:nth-child(2),.app .main .performance-metrics-table>thead>tr>th:nth-child(3){width:20%}
+.app .main .performance-metrics-table>thead>tr>th:last-child{width:48px}
+.app .main .performance-metrics-table>tbody>tr>td:last-child{min-width:0;text-align:center}
+.app .performance-core-detail{display:flex;gap:16px;align-items:flex-start;margin:18px 0}.app .performance-core-detail>section{flex:1}
+.app .performance-core-detail h3{font-size:14px;margin:0 0 6px}
+@media(max-width:800px){.app .performance-metric-cards{grid-template-columns:1fr}}
+
+.app .performance-overall-rate{text-align:right}.app .performance-overall-rate strong{font-size:28px;color:#183b63}.app .performance-overall-rate small{display:block;font-size:11px;color:#62758b;margin-top:3px}
