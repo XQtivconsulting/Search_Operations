@@ -54,3 +54,5 @@ Plan week and PTO calendar sit alongside the two view tabs. Permanent training l
 Mapped, Partner approved, Awaiting review, and Mapped last week open sortable candidate lists using the same predicates as the displayed counts. Candidate names open full profiles, with LinkedIn icons alongside them. Last-week boundaries use US Eastern dates.
 
 Local verification: typecheck, production build, and all 290 tests passed. Synthetic tests exercise PTO ownership/admin permissions, version conflicts and audit records, plus evidence count/drilldown parity and week boundaries. Live verification is recorded separately after deployment.
+
+Live verification, 5 October 2026: release f8b250e deployed successfully in workflow run 37372197105, retry job 111973974701. Verified the compact weekly toolbar, removed Needs sourcing option and CRM line, two-record Awaiting review drilldown, seven-day PTO popup, aligned repository toolbar, and collapsed navigation label on keyboard focus. PTO and candidate data were not mutated during live checks. The initial attempt was cancelled while waiting for a hosted runner; the retry passed every deployment step.
