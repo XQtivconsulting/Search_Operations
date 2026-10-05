@@ -70,3 +70,5 @@ Person-days to date and in the reporting period use the shared effective-effort 
 Monitor actions use immediate, focus-accessible portal tooltips and fixed compact columns. Candidate review/drilldown tables align a small LinkedIn icon before every name and use a View mapping icon.
 
 Local verification: typecheck, 296 tests and production build passed. Added regression coverage for future/today/completed-day targets, pending reviews without delay, caught-up approvals, missing targets, effort splitting, PTO and manual corrections. Live verification follows deployment.
+
+Actual live verification: release 0acf6e39f519dc717282dbf57b4970cde7646d09 deployed successfully in run 37379232186 (job 111996534871). Verified red approved/due/shortfall display, total and period effort, and an allocation popup whose rows reconcile to 2.5 days. The progress action column measured 68px and review action column 52px. Custom tooltip appeared immediately on keyboard focus. Five inspected LinkedIn icons aligned at the same horizontal coordinate, each 13px; the View mapping icon opened the correct candidate and returned to the monitor. No business data was changed.
