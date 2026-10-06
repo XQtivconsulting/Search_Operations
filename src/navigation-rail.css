@@ -95,3 +95,14 @@
 
 /* Match sidebar icons to the navy in the XQtiv logo, expanded or collapsed. */
 .app.navigation-shell>.app-sidebar svg{color:#001b50}
+
+/* Stable action slots keep the same operation aligned in every row. */
+.app .fixed-row-actions{display:grid;grid-template-columns:repeat(3,28px);gap:6px;width:max-content;align-items:center}
+.app .fixed-row-actions.mapping-row-actions{grid-template-columns:repeat(5,28px)}
+.app .fixed-row-actions>span{display:flex;width:28px;min-height:28px;align-items:center}
+.app .mapping-person{display:flex;align-items:flex-start;gap:6px}
+.app .mapping-person>.monitor-linkedin-slot{display:inline-flex;width:20px;min-width:20px;margin-top:1px}
+.app .mapping-person .person-linkedin{margin:0;width:20px;height:20px;color:#52748d}
+.app .mapping-person .person-linkedin svg{width:13px;height:13px}
+.app .mapping-person>div{min-width:0}
+.app .mapping-person .text-button{font-weight:600;text-align:left}
