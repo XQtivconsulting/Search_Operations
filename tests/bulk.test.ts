@@ -359,3 +359,50 @@ test('CRM refresh preserves local ownership and history, ignores new jobs and un
  assert.equal((await w.state(actor)).searches.find((s:any)=>s.id==='r')!.version,current.version);
  await w.stageCRM(actor,[]);assert.equal((await w.state(actor)).searches.find((s:any)=>s.id==='r')!.title,'Renamed');db.close();
 });
+
+test('local search takeover is versioned, audited and protects refresh and selected CRM apply',async()=>{
+ const {db,w}=fixture();db.exec("UPDATE searches SET external_id='77' WHERE id='r'");
+ const body={id:'r',version:1,title:'Local name',client:'Local client',status:'Closed'};
+ await assert.rejects(w.mutate({...actor,role:'researcher'},'search-manage',{...body,take_over:true}),/permission/);
+ await assert.rejects(w.mutate(actor,'search-manage',body),/Manage in this app/);
+ await w.mutate(actor,'search-manage',{...body,take_over:true});
+ await assert.rejects(w.mutate(actor,'search-manage',{...body,take_over:true}),/changed/);
+ await w.stageCRM(actor,[{external_id:'77',title:'Remote name',status:'Open',company_slug:'co',company_name:'Remote client'}]);
+ const job=(await w.crmState(actor)).jobs[0];await assert.rejects(w.applyCRM(actor,[{...job,search_id:'r',version:2}]),/managed in this app/);
+ const saved=db.prepare("SELECT * FROM searches WHERE id='r'").get()!;assert.equal(saved.title,'Local name');assert.equal(saved.status,'Closed');assert.equal(saved.external_id,'77');assert.equal(saved.crm_managed,0);
+ assert.equal(db.prepare("SELECT COUNT(*) n FROM assignments WHERE search_id='r'").get()!.n,1);
+ await w.mutate(actor,'search-manage',{...body,version:2,status:'Abandoned'});assert.equal(db.prepare("SELECT status FROM searches WHERE id='r'").get()!.status,'Abandoned');
+ assert.equal(db.prepare("SELECT COUNT(*) n FROM audit WHERE action='search-manage'").get()!.n,2);db.close();
+});
+test('Excel historical search import previews, deduplicates and assigns unique numbers atomically',async()=>{
+ const {db,w}=fixture(),rows=[{title:'Historical role',client:'Example',status:'Closed',search_number:201},{title:'Another role',client:'Example',status:'Abandoned'}];
+ const preview=await w.mutate(actor,'search-import',{rows,preview:true});assert.equal(preview.plan.length,2);assert.equal(db.prepare('SELECT COUNT(*) n FROM searches').get()!.n,1);
+ const saved=await w.mutate(actor,'search-import',{rows,signature:preview.signature});assert.equal(saved.count,2);
+ const imported=db.prepare("SELECT * FROM searches WHERE origin='Excel' ORDER BY search_number").all();assert.deepEqual(imported.map(s=>s.search_number),[201,202]);assert.ok(imported.every(s=>s.crm_managed===0));
+ const again=await w.mutate(actor,'search-import',{rows,preview:true});assert.equal((await w.mutate(actor,'search-import',{rows,signature:again.signature})).count,0);
+ await assert.rejects(w.mutate(actor,'search-import',{rows:[{...rows[0],title:'Wrong'}],preview:true}),/belongs to another/);
+ const items=imported.map((s:any,i)=>({id:s.id,version:s.version,search_number:202-i}));await w.mutate(actor,'search-number-batch',{items});assert.equal(db.prepare('SELECT search_number FROM searches WHERE id=?').get(imported[0].id)!.search_number,202);
+ await assert.rejects(w.mutate(actor,'search-number-batch',{items}),/changed/);assert.equal(db.prepare('SELECT COUNT(*) n FROM searches').get()!.n,3);db.close();
+});
+test('Excel import links candidates to search IDs, reuses profiles and rolls back invalid candidate rows',async()=>{
+ const {db,w}=fixture(),a:Actor={...actor,roles:['super_admin','admin','researcher'],staffId:'s'},members=[{...a,status:'active',staff_id:'s',staffId:'s'}];
+ const rows=[{title:'History one',client:'Example',status:'Closed',search_number:301},{title:'History two',client:'Example',status:'Open',search_number:302}];
+ const candidates=[301,302].map(search_number=>({search_number,first_name:'Alex',last_name:'Example',url:'linkedin.com/in/synthetic-excel',company:'Synthetic company'}));
+ await assert.rejects(w.mutate(a,'search-import',{rows,candidates:[{...candidates[0],search_number:999}],preview:true},members),/not found/);
+ let preview=await w.mutate(a,'search-import',{rows,candidates,preview:true},members);
+ const result=await w.mutate(a,'search-import',{rows,candidates,signature:preview.signature},members);assert.equal(result.count,2);assert.equal(result.created,1);assert.equal(result.mapped,2);
+ const mappings=db.prepare("SELECT data FROM research_records WHERE kind='mapping'").all().map((r:any)=>JSON.parse(r.data));assert.ok(mappings.every(m=>m.status==='Draft'));assert.equal(mappings.length,2);
+ preview=await w.mutate(a,'search-import',{rows,candidates,preview:true},members);assert.ok(preview.candidates.every((c:any)=>c.mapping==='Already mapped'));
+ assert.equal((await w.mutate(a,'search-import',{rows,candidates,signature:preview.signature},members)).mapped,0);db.close();
+});
+
+test('combined import rejects stale previews and rolls back inserts if researcher validation fails',async()=>{
+ const {db,w}=fixture(),a:Actor={...actor,roles:['super_admin','admin','researcher'],staffId:'s'};
+ const rows=[{title:'Rollback role',client:'Synthetic',search_number:801}],candidates=[{search_number:801,first_name:'Test',last_name:'Profile',url:'linkedin.com/in/synthetic-rollback'}];
+ const preview=await w.mutate(a,'search-import',{rows,candidates,preview:true});
+ await assert.rejects(w.mutate(a,'search-import',{rows,candidates,signature:'stale'}),/Preview the import again/);
+ await assert.rejects(w.mutate(a,'search-import',{rows,candidates,signature:preview.signature},[]));
+ assert.equal(db.prepare('SELECT COUNT(*) n FROM searches').get()!.n,1);
+ assert.equal(db.prepare("SELECT COUNT(*) n FROM research_records WHERE kind='candidate'").get()!.n,0);
+ assert.equal(db.prepare("SELECT COUNT(*) n FROM audit WHERE action='search-import'").get()!.n,0);db.close();
+});

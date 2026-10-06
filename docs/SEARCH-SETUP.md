@@ -50,3 +50,13 @@ Production verification for `317375c0b2d6341567001185a354db8621cb699b`: GitHub A
 Follow-up: make repository landing destinations read simply Search repository and persist candidate-profile section, scope and page in navigation snapshots. Assessment/note links pointing to LinkedIn also use the shared icon. Local typecheck, all 282 tests and production build passed again; live profile-section verification follows deployment.
 
 Final production source `2b64daec925f839b05df56f05d6893fb76eec682` deployed successfully in GitHub Actions run `37221489788`; all validation and deploy steps succeeded. After reloading the deployed app, opened a candidate's Searches section, followed a linked search, and used app Back: the same candidate and active Searches section were restored. Forward named the correct search and Candidates tab. Returned the live UI to the compact repository table. No production data mutations were performed.
+
+## Local ownership and Excel migration
+
+Search settings lets a planner explicitly take over an imported search. Its RecruitCRM identifier remains for provenance and candidate imports, but search refresh/import no longer overwrites its local name, client or status. Local searches support Open, On Hold, Closed, Abandoned and Canceled.
+
+Integrations has All searches, Import searches and Import candidates by search tabs. The all-sources register includes historical/closed searches and lets admins assign unique XQtiv Search IDs, with optimistic versions and atomic swaps.
+
+Both Excel entry points download `public/templates/xqtiv-search-candidate-import.xlsx`. Searches and Candidates sheets share XQtiv Search ID. Candidate-only uploads remain supported in Candidates. A combined import previews all rows and commits transactionally; existing profiles and mappings are reused, existing searches are preserved. Imported mappings are drafts attributed to the importing researcher. Historical reviews, dates and engagement stages are not fabricated. Existing admin, data-quality and researcher permissions apply.
+
+People & teams combines People & access, Sourcing teams and Engagement teams. Only admins can access account management; team planning permissions are unchanged. Both team directories are searchable and sortable, with sourcing leads edited alongside the roster.

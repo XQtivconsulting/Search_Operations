@@ -1,8 +1,8 @@
 import {linkedinKey} from './candidate-identity';
-import {linkedin} from './research';
+import {linkedin} from './candidate-identity';
 export function candidateRows(grid:any[][]){
  if(grid.length<2)throw new Error('Add a header row and at least one candidate.');
- const aliases:Record<string,string>={firstname:'first_name',lastname:'last_name',linkedin:'url',linkedinurl:'url',linkedinprofile:'url',url:'url',email:'email',emailaddress:'email',phone:'phone',phonenumber:'phone',title:'title',currenttitle:'title',company:'company',currentcompany:'company',rationale:'rationale'};
+ const aliases:Record<string,string>={xqtivsearchid:'search_number',executivesearchid:'search_number',searchid:'search_number',notes:'rationale',firstname:'first_name',lastname:'last_name',linkedin:'url',linkedinurl:'url',linkedinprofile:'url',url:'url',email:'email',emailaddress:'email',phone:'phone',phonenumber:'phone',title:'title',currenttitle:'title',company:'company',currentcompany:'company',rationale:'rationale'};
  const keys=grid[0].map(v=>aliases[String(v??'').toLowerCase().replace(/[^a-z]/g,'')]||'');
  for(const k of ['first_name','last_name','url'])if(!keys.includes(k))throw new Error('Required columns: First Name, Last Name, LinkedIn URL.');
  if(keys.filter(Boolean).length!==new Set(keys.filter(Boolean)).size)throw new Error('Remove duplicate columns.');

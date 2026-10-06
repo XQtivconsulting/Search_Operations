@@ -1,7 +1,7 @@
 import {NavigationTooltip} from './NavigationTooltip';
 import './engagement-workspace.css';
 import {ViewStateProvider} from './ViewState';
-const navigationLabel=(name:string)=>({'Daily Work':'Engagement Queue','Pipeline':'Engagement dashboard','Organization':'Admin','Delivery Monitor':'Sourcing Monitor','Performance':'Sourcing Performance','Search assignments':'Engagement Assignments'} as Record<string,string>)[name]||name;
+const navigationLabel=(name:string)=>({'Teams':'People & teams','People & access':'People & teams','Daily Work':'Engagement Queue','Pipeline':'Engagement dashboard','Organization':'Admin','Delivery Monitor':'Sourcing Monitor','Performance':'Sourcing Performance','Search assignments':'Engagement Assignments'} as Record<string,string>)[name]||name;
 import './engagement-layout.css';
 import {useNavigationHistory} from './useNavigationHistory';
 const Backups=lazy(()=>import('./Backups').then(m=>({default:m.Backups})));
@@ -302,7 +302,7 @@ function App() {
     ['Interview tracker',Chats,'Engagement'],
     ['Teams',Users,'Organization'],
     ...(hasRole(actor,'super_admin')?[['Backups & exports',Database,'Organization'] as [string,React.ElementType,string]]:[]),
-    ...(isAdmin?[['People & access',ShieldCheck,'Organization'] as [string,React.ElementType,string],['Integrations',Plugs,'Organization'] as [string,React.ElementType,string],['Engagement Config',SlidersHorizontal,'Organization'] as [string,React.ElementType,string]]:[]),
+    ...(isAdmin?[['Integrations',Plugs,'Organization'] as [string,React.ElementType,string],['Engagement Config',SlidersHorizontal,'Organization'] as [string,React.ElementType,string]]:[]),
   ];
   const open = (m: Row) => {
     setError("");
@@ -570,10 +570,11 @@ function App() {
 
         {page==='Candidates'&&candidateId&&<CandidateProfile key={candidateId} id={candidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} backLabel={navigation.back?.page==='Search repository'?'Back to '+(sBy[navigation.back.selected]?.title||'search'):navigation.back?'Back to '+visitLabel(navigation.back):'Back to candidates'} onBack={()=>navigation.back?navigation.go('back'):setCandidateId('')} onRole={id=>{setSelected(id);setRepoTab('Candidate mappings');setPage('Search repository');}}/>}
         {page==='Candidates'&&!candidateId&&<Candidates onCandidate={setCandidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} onOpen={id=>{setSelected(id);setRepoTab("Candidate mappings");setPage("Search repository");}}/>}
-        {page==='Teams'&&<><div className="research-tabs">{['Sourcing teams','Engagement teams'].map(type=><button key={type} className={teamType===type?'primary':''} onClick={()=>{if(!sheetDirty||confirm('Discard unsaved team edits?'))setTeamType(type);}}>{type}</button>)}</div>{teamType==='Engagement teams'?<Engagement section="Teams" data={data} api={api} reload={load} onDirty={setSheetDirty}/>:<><TeamsPanel data={data} api={api} reload={load} onAdd={()=>open({kind:'team'})}/>{planner?<PeerSetup data={data} api={api} reload={load}/>:<p>Team planners designate the team review lead.</p>}</>}</>}
+        {(page==='Teams'||page==='People & access')&&<div className="people-teams-workspace"><div className="research-tabs" role="group" aria-label="People and teams sections">{[...(isAdmin?['People & access']:[]),'Sourcing teams','Engagement teams'].map(type=><button key={type} aria-pressed={teamType===type} className={teamType===type?'primary':''} onClick={()=>{if(!sheetDirty||confirm('Discard unsaved edits?'))setTeamType(type);}}>{type}</button>)}</div>{teamType==='People & access'&&isAdmin?<PeoplePanel data={data} api={api} reload={load} onDirty={setSheetDirty}/>:teamType==='Engagement teams'?<Engagement section="Teams" data={data} api={api} reload={load} onDirty={setSheetDirty}/>:<TeamsPanel data={data} api={api} reload={load} onDirty={setSheetDirty} onAdd={()=>open({kind:'team'})}/>}</div>}
+
         {page === "Delivery Monitor" && <DeliveryMonitor data={data} initialState={deliveryStart} onStateChange={setDeliveryStart} initialView={deliveryStart.view} initialRoles={deliveryStart.roles} onOpen={(id,tab,mapping='')=>{setMappingStart(mapping);setSelected(id);setRepoTab(tab);setPage('Search repository');}} onCandidate={id=>{setCandidateId(id);setPage('Candidates');}} onAllocate={(id,date)=>{setViewStates(previous=>({...previous,'Weekly plan':{'WeeklyPlanner.roles':[id],'WeeklyPlanner.view':'allocation'}}));setSelected(id);setAllocationStart({date,view:'allocation'});setPage('Weekly plan');}}/>}
         {page === "Performance" && <Performance onOpen={(id,mapping)=>{setMappingStart(mapping);setSelected(id);setRepoTab("Candidate mappings");setPage("Search repository");}} data={data} api={api} reload={load} onDirty={setSheetDirty} onDecision={id=>{setViewStates(previous=>({...previous,'Weekly plan':{'WeeklyPlanner.roles':[id],'WeeklyPlanner.view':'decisions'}}));setSelected(id);setAllocationStart({date:'',view:'decisions'});setPage('Weekly plan');}}/>}
-        {page==='People & access'&&isAdmin&&<PeoplePanel data={data} api={api} reload={load} onDirty={setSheetDirty}/>}
+
         <footer>
           <button onClick={() => load()}>Refresh data</button>
         </footer>

@@ -2,7 +2,7 @@ import {requireThat} from './domain';
 type DB={rows:(sql:string,...params:any[])=>any[]};
 export function searchNumber(value:unknown):number {
  const n=Number(value);
- requireThat(value!==''&&value!==null&&value!==undefined&&Number.isSafeInteger(n)&&n>0&&n<=2147483647,'Search ID must be a positive whole number (up to 2147483647).');
+ requireThat(value!==''&&value!==null&&value!==undefined&&Number.isSafeInteger(n)&&n>0&&n<=2147483647,'XQtiv Search ID must be a positive whole number (up to 2147483647).');
  return n;
 }
 export function nextSearchNumber(db:DB):number {

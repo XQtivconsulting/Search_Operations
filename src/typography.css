@@ -587,7 +587,7 @@
 .app .main .decision-grid:not(.decision-history) th:nth-child(9){width:152px}
 .app .main .decision-grid:not(.decision-history) th:nth-child(10){width:150px}
 .app .weekly-planner .plan-grid tbody th{min-width:190px}
-.app .crm-panel input[aria-label^="Search ID for"]{width:90px}
+.app .crm-panel input[aria-label^="XQtiv Search ID for"]{width:90px}
 
 /* Compact allocation cards: stable action positions, details on demand. */
 .app .main .plan-grid.allocation-compact{min-width:1120px}
@@ -620,3 +620,9 @@
 .app .target-company-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-left:auto}
 .app .target-company-actions button{width:auto;white-space:nowrap}
 @media(max-width:640px){.app .target-company-actions{margin-left:0;justify-content:flex-start;width:100%}}
+
+/* Shared people and team directory layout. */
+.people-teams-workspace{min-width:0}.people-teams-workspace>.research-tabs{margin-bottom:12px;flex-wrap:wrap}
+.team-directory-toolbar{align-items:flex-end;gap:12px;flex-wrap:wrap}.team-directory-toolbar>label{margin:0;min-width:220px;max-width:420px;flex:1}
+.team-directory{table-layout:fixed;width:100%}.team-directory th:first-child{width:20%}.team-directory th:nth-child(3){width:24%}.team-directory th:last-child{width:68px}.team-directory td{white-space:normal;overflow-wrap:anywhere;vertical-align:middle}.team-directory select{width:100%;min-width:0}
+@media(max-width:700px){.team-directory{table-layout:auto}.team-directory th:first-child{width:auto}.team-directory th:nth-child(3){width:auto}.team-directory-toolbar .row-actions{flex-wrap:wrap}}

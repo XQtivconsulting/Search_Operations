@@ -1,8 +1,10 @@
+import {planSearchImport,searchSignature} from './search-import';
+import {isCRMManaged,searchStatuses} from './search-management';
 import {assignmentWorkIds} from './performance-index';
 import {carryoverAssignments} from './plan-carryover';
 import {initializeSearchNumbers,nextSearchNumber,reserveSearchNumbers,searchNumber} from './search-number';
 import {taskCanEdit} from './search-task-types';
-import {sameLinkedin} from './candidate-identity';
+import {sameLinkedin,linkedinKey} from './candidate-identity';
 import {backfillDraftTargets} from './draft-targets';
 import {canImportCandidates} from './candidate-tags';
 import {crmAssignments,crmCandidateDetails,crmSlug,crmList} from './crm-candidates';
@@ -41,6 +43,8 @@ export class Workspace extends DurableObject {
     super(ctx, env);
     ctx.storage.sql.exec(workspaceSchema);
     initializeSearchNumbers(this);
+    if(!this.rows('PRAGMA table_info(searches)').some(c=>c.name==='origin'))this.rows("ALTER TABLE searches ADD COLUMN origin TEXT NOT NULL DEFAULT ''");
+    if(!this.rows('PRAGMA table_info(searches)').some(c=>c.name==='crm_managed'))this.rows("ALTER TABLE searches ADD COLUMN crm_managed INTEGER NOT NULL DEFAULT 1");
     ctx.storage.sql.exec(resetSchema);
     this.rows('CREATE TABLE IF NOT EXISTS account_researchers(staff_id TEXT PRIMARY KEY,user_id TEXT NOT NULL)');
     this.rows('CREATE TABLE IF NOT EXISTS backup_runs(id TEXT PRIMARY KEY,created_at TEXT NOT NULL,status TEXT NOT NULL,details TEXT NOT NULL)');
@@ -339,7 +343,7 @@ export class Workspace extends DurableObject {
         this.rows('INSERT INTO crm_jobs(external_id,title,status,company_slug,fetched_at,company_name,job_slug) VALUES(?,?,?,?,?,?,?)',j.external_id,j.title,j.status,j.company_slug,now(),j.company_name || '',j.job_slug||'');
         const matches=this.rows('SELECT * FROM searches WHERE external_id=?',j.external_id);
         requireThat(matches.length<=1,'Multiple searches share this CRM ID. Reconcile before refreshing.',409);
-        const old=matches[0];if(!old)continue;
+        const old=matches[0];if(!old||!isCRMManaged(old))continue;
         const client=j.company_name||old.client;
         if(old.title===j.title&&old.status===j.status&&old.client===client)continue;
         this.rows('UPDATE searches SET title=?,status=?,client=?,version=version+1 WHERE id=?',j.title,j.status,client,old.id);
@@ -356,7 +360,7 @@ export class Workspace extends DurableObject {
     requireThat(new Set(jobs.map(j=>j.external_id)).size === jobs.length,'Duplicate job selection.');
     return this.ctx.storage.transactionSync(() => {
       const numbers=jobs.filter(j=>j.search_number!==undefined&&j.search_number!==''&&j.search_number!==null).map(j=>searchNumber(j.search_number));
-      requireThat(new Set(numbers).size===numbers.length,'Duplicate Search IDs in this import.');
+      requireThat(new Set(numbers).size===numbers.length,'Duplicate XQtiv Search IDs in this import.');
       reserveSearchNumbers(this,numbers);
       for(const item of [...jobs].sort((a,b)=>String(a.external_id).localeCompare(String(b.external_id),undefined,{numeric:true}))) {
         const source = this.rows('SELECT * FROM crm_jobs WHERE external_id=?',text(item.external_id))[0];
@@ -365,9 +369,10 @@ export class Workspace extends DurableObject {
         const matches = this.rows('SELECT * FROM searches WHERE external_id=?',source.external_id);
         requireThat(matches.length <= 1,'Multiple searches share this CRM ID. Reconcile before applying.',409);
         const old = matches[0];
+        requireThat(!old||isCRMManaged(old),'This search is managed in this app and cannot be updated from RecruitCRM.',409);
         requireThat(old ? old.id === item.search_id && old.version === item.version : !item.search_id,'The local search changed. Reload the preview.',409);
         const assignedNumber=item.search_number===undefined||item.search_number===''||item.search_number===null?(old?.search_number??nextSearchNumber(this)):searchNumber(item.search_number);
-        requireThat(!this.rows('SELECT id FROM searches WHERE search_number=? AND id<>?',assignedNumber,old?.id||'').length,'Search ID '+assignedNumber+' is already assigned.',409);
+        requireThat(!this.rows('SELECT id FROM searches WHERE search_number=? AND id<>?',assignedNumber,old?.id||'').length,'XQtiv Search ID '+assignedNumber+' is already assigned.',409);
         const id = old?.id || uuid(), client = source.company_name || old?.client || text(item.client);
         requireThat(client,'Enter a client name for each new search.');
         const changePartner=Object.prototype.hasOwnProperty.call(item,'partner_id');
@@ -418,7 +423,7 @@ export class Workspace extends DurableObject {
   requireSourcing(role:string,date:string){requireThat(isWorkingDecision(this.sourcingDecision(role,date)),'Choose Start, Continue or Recalibrate in Sourcing Decisions before allocating work. Pause and Stop do not allow new assignments.',409);}
   async mutate(a: Actor, kind: string, b: any,members?:Member[]) {
     if(members)await this.syncPeople(members);
-    return this.ctx.storage.transactionSync(() => this.applyMutation(a, kind, b));
+    return this.ctx.storage.transactionSync(() => this.applyMutation(a, kind, b,members));
   }
   async bulk(a: Actor, changes: any[]) {
     requireThat(Array.isArray(changes) && changes.length > 0 && changes.length <= 200,
@@ -436,7 +441,7 @@ export class Workspace extends DurableObject {
       });
     });
   }
-  private applyMutation(a: Actor, kind: string, b: any): { id: string } {
+  private applyMutation(a: Actor, kind: string, b: any,members:Member[]=[]): any {
       if(kind==='week-copy'){
         requireThat(canPlan(a),'Planning permission required.',403);
         requireThat(Array.isArray(b.items)&&b.items.length>0&&b.items.length<=500,'Choose 1–500 allocations to copy.');
@@ -529,11 +534,58 @@ export class Workspace extends DurableObject {
         requireThat(Number(b.version)===old.version,'The search changed. Reload before removing.',409);
         const used=['assignments','weekly_priorities','weekly_decisions','effort_records'].some(t=>this.rows(`SELECT 1 FROM ${t} WHERE search_id=? LIMIT 1`,b.id).length)
           ||['research_records','brief_shares','role_publications','candidate_invites'].some(t=>this.rows(`SELECT 1 FROM ${t} WHERE role_id=? LIMIT 1`,b.id).length);
-        requireThat(!used,'This role has research or planning history and cannot be removed. Close or abandon it in RecruitCRM instead.',409);
+        requireThat(!used,'This role has research or planning history and cannot be removed. Close or abandon it using search settings instead.',409);
         if(old.external_id) this.rows('INSERT INTO crm_partners(external_id,partner_id,partner,version) VALUES(?,?,?,1) ON CONFLICT(external_id) DO UPDATE SET partner_id=excluded.partner_id,partner=excluded.partner,version=crm_partners.version+1',old.external_id,old.partner_id||'',old.partner||'');
         this.rows('DELETE FROM searches WHERE id=?',b.id);
         this.audit(a,kind,b.id,old,null);
         return {id:b.id};
+      }
+      if(kind==='search-import') {
+        requireThat(Array.isArray(b.rows),'Provide search rows.');
+        requireThat(b.rows.length?hasRole(a,'admin'):canImportCandidates(a),'Search import requires Administrator permission; candidate import requires Data quality analyst or Super admin permission.',403);
+        const searches=this.rows('SELECT * FROM searches'),plan=b.rows.length?planSearchImport(b.rows,searches):[],records=researchRecords(this);
+        const candidateRows=b.candidates||[];requireThat(plan.length||candidateRows.length,'Add searches or candidates to import.');requireThat(Array.isArray(candidateRows)&&candidateRows.length<=500,'Import at most 500 candidate rows.');
+        if(candidateRows.length){requireThat(canImportCandidates(a),'Candidate Excel import requires Data quality analyst or Super admin permission.',403);requireThat(hasRole(a,'researcher'),'Enable the Researcher role before importing search mappings.',403);}
+        const candidatePlan=candidateRows.length?planCandidates(candidateRows,records.filter(r=>r.kind==='candidate')):[];
+        const validNumbers=new Set([...searches.map(s=>s.search_number),...plan.map(s=>s.search_number)].filter(Boolean)),seen=new Set<string>();
+        const previewCandidates=candidatePlan.map(c=>{const number=searchNumber(c.search_number);requireThat(validNumbers.has(number),'Candidate row '+(c.row||'')+': XQtiv Search ID '+number+' was not found in Searches or the register.');const key=number+':'+c.url,duplicate=seen.has(key);seen.add(key);const role=searches.find(s=>s.search_number===number)?.id;return {...c,search_number:number,status:c.existingId?'Reuse existing':'Create new',mapping:duplicate?'Skip duplicate':c.existingId&&records.some(r=>r.kind==='mapping'&&r.candidate_id===c.existingId&&r.role_id===role)?'Already mapped':'Create draft'};});
+        const signature=JSON.stringify({searches:searchSignature(searches),records:records.filter(r=>r.kind==='candidate'||r.kind==='mapping').map(r=>[r.id,r.version]).sort(),plan,candidates:previewCandidates});
+        if(b.preview)return {plan,candidates:previewCandidates,signature};
+        requireThat(b.signature===signature,'Search or candidate data changed. Preview the import again.',409);
+        reserveSearchNumbers(this,plan.flatMap(r=>r.search_number===null?[]:[r.search_number]));
+        let count=0,created=0,mapped=0;
+        for(const row of plan){if(row.existing_id)continue;const id=uuid();
+          this.rows('INSERT INTO searches(id,external_id,client,title,status,search_number,crm_managed,origin) VALUES(?,?,?,?,?,?,0,?)',id,'LOCAL-'+id,row.client,row.title,row.status,row.search_number??nextSearchNumber(this),'Excel');
+          this.audit(a,kind,id,null,{...row,id,origin:'Excel',crm_managed:0});count++;
+        }
+        const roles=new Map(this.rows('SELECT id,search_number FROM searches').map(s=>[s.search_number,s.id])),byUrl=new Map(records.filter(r=>r.kind==='candidate').map(c=>[linkedinKey(c.url),c.id])),links=new Map<string,any[]>();
+        for(const c of previewCandidates){if(c.mapping!=='Create draft')continue;let id=byUrl.get(c.url);if(!id){id=researchMutation(this,a,{action:'candidate-save',first_name:c.first_name,last_name:c.last_name,url:c.url,email:c.email,phone:c.phone,title:c.title,company:c.company},members).id;byUrl.set(c.url,id);created++;}const role=roles.get(c.search_number)!;const group=links.get(role)||[];group.push({candidate_id:id,rationale:c.rationale||''});links.set(role,group);}
+        for(const [role,items] of links)for(let i=0;i<items.length;i+=100){const batch=items.slice(i,i+100);researchMutation(this,a,{action:'mapping-link',role_id:role,items:batch},members);mapped+=batch.length;}
+        return {count,skipped:plan.length-count,created,mapped};
+      }
+      if(kind==='search-number-batch') {
+        requireThat(hasRole(a,'admin'),'Administrator permission required.',403);
+        requireThat(Array.isArray(b.items)&&b.items.length>0&&b.items.length<=200,'Update 1–200 searches.');
+        const ids=new Set(b.items.map((r:any)=>r.id)),numbers=b.items.map((r:any)=>searchNumber(r.search_number));
+        requireThat(ids.size===b.items.length&&new Set(numbers).size===numbers.length,'Each search and XQtiv Search ID must be unique.');
+        const old=b.items.map((r:any)=>{const s=this.rows('SELECT * FROM searches WHERE id=?',r.id)[0];requireThat(s&&s.version===Number(r.version),'A search changed. Reload before assigning IDs.',409);return s;});
+        for(const n of numbers)requireThat(!this.rows('SELECT id FROM searches WHERE search_number=?',n).some(s=>!ids.has(s.id)),'XQtiv Search ID '+n+' is already assigned.',409);
+        for(const r of old)this.rows('UPDATE searches SET search_number=NULL WHERE id=?',r.id);
+        old.forEach((r:any,i:number)=>{this.rows('UPDATE searches SET search_number=?,version=version+1 WHERE id=?',numbers[i],r.id);this.audit(a,kind,r.id,r,{...r,search_number:numbers[i],version:r.version+1});});
+        return {count:old.length};
+      }
+      if(kind === 'search-manage') {
+        requireThat(canPlan(a),'Planning permission required.',403);
+        const old=this.rows('SELECT * FROM searches WHERE id=?',b.id)[0];
+        requireThat(old,'Search not found.',404);
+        requireThat(Number(b.version)===old.version,'The search changed. Reload before editing.',409);
+        requireThat(!isCRMManaged(old)||b.take_over===true,'Choose Manage in this app before editing a RecruitCRM search.',409);
+        const title=text(b.title),client=text(b.client),status=text(b.status);
+        requireThat(title&&client,'Enter the search name and client.');
+        requireThat((searchStatuses as readonly string[]).includes(status)||status===old.status,'Choose a valid search status.');
+        this.rows('UPDATE searches SET title=?,client=?,status=?,crm_managed=0,version=version+1 WHERE id=?',title,client,status,old.id);
+        this.audit(a,kind,old.id,old,{...old,title,client,status,crm_managed:0,version:old.version+1});
+        return {id:old.id};
       }
       if(kind === 'search-owner') {
         requireThat(canPlan(a),'Planning permission required.',403);
@@ -654,7 +706,7 @@ export class Workspace extends DurableObject {
           text(b.partner),
           text(b.notes, 5000),
         );
-        this.rows('UPDATE searches SET partner_id=? WHERE id=?',text(b.partner_id),id);
+        this.rows('UPDATE searches SET partner_id=?,crm_managed=0 WHERE id=?',text(b.partner_id),id);
         this.audit(a, kind, id, null, b);
         return { id };
       }
