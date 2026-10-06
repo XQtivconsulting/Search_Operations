@@ -552,3 +552,27 @@
 
 .app .performance-overall-rate{text-align:right}.app .performance-overall-rate strong{font-size:28px;color:#183b63}.app .performance-overall-rate small{display:block;font-size:11px;color:#62758b;margin-top:3px}
 .app .plan-grid .priority-line{align-items:center}
+
+/* Search strategy: clear section hierarchy and a persistent top-right edit action. */
+.app .strategy-workspace .strategy-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}
+.app .strategy-workspace .strategy-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.app .strategy-workspace .strategy-title h2{margin:0}
+.app .strategy-workspace .strategy-status{font-size:11px;padding:3px 8px;border-radius:4px;background:#edf2f5;color:#526579;white-space:nowrap}
+.app .strategy-workspace .strategy-status.approved{background:#e8f3ed;color:#316449}
+.app .strategy-workspace .strategy-buttons{display:flex;align-items:center;gap:8px;flex:none}
+.app .strategy-workspace .strategy-buttons button{display:inline-flex;align-items:center;justify-content:center;gap:6px;width:auto;margin:0;white-space:nowrap}
+.app .strategy-workspace .strategy-section{border-top:1px solid #e0e6ed;padding:16px 0}
+.app .strategy-workspace .strategy-section h3{margin:0 0 10px}
+.app .strategy-workspace .document-text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.7;margin:6px 0}
+.app .strategy-workspace .strategy-criteria-fieldset{border:0;padding:0;margin:0;min-width:0}
+.app .strategy-workspace .strategy-criteria-table{width:100%;min-width:0;table-layout:fixed}
+.app .strategy-workspace .strategy-criteria-table :is(th,td){text-align:left;white-space:normal;overflow-wrap:anywhere}
+.app .strategy-workspace .strategy-criteria-table th:first-child{width:30%}
+.app .strategy-workspace .strategy-criteria-table th:last-child{width:75px}
+.app .strategy-workspace .strategy-criteria-table td:last-child{min-width:0;text-align:right}
+.app .strategy-workspace .strategy-approval{display:flex;align-items:end;justify-content:flex-end;gap:12px;padding:12px 0}
+.app .strategy-workspace .strategy-approval label{margin:0}
+.app .strategy-workspace .strategy-approved{border-top:1px solid #e0e6ed;padding:12px 0;margin:0}
+.app .strategy-workspace .strategy-footer{display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-top:1px solid #e0e6ed;padding-top:14px}
+.app .strategy-workspace .strategy-footer button{width:auto;margin:0}
+@media(max-width:600px){.app .strategy-workspace .strategy-heading{flex-wrap:wrap}.app .strategy-workspace .strategy-approval{flex-wrap:wrap;justify-content:flex-start}.app .strategy-workspace .strategy-criteria-table th:first-child{width:36%}}

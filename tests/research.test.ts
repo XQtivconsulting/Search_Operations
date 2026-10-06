@@ -538,3 +538,23 @@ test('candidate URL variants reuse a single identity for directory, inline mappi
  const preview=await f.run({...admin,role:'super_admin'},{action:'candidate-import',preview:true,rows:[{first_name:'Canonical',last_name:'Synthetic',url:'http://linkedin.com/in/canonical-synthetic?trk=example'}]});assert.equal(preview.plan[0].existingId,created.id);
  const records=(await f.state()).research.records;assert.equal(records.filter(r=>r.kind==='candidate').length,1);assert.equal(records.find(r=>r.kind==='mapping')?.candidate_id,created.id);f.db.close();
 });
+
+test('any active member can maintain an isolated versioned pitch without changing job description permissions',async()=>{
+ const f=fixture(),founder={...admin,id:'founder',role:'founder'},engagement={...admin,id:'engagement',role:'engagement'};
+ const roster=[...members,{id:'founder',name:'Founder',role:'founder',status:'active'},{id:'engagement',name:'Engagement',role:'engagement',status:'active'}];
+ const run=(a:any,b:any)=>f.w.research(a,b,roster);
+ const first=await run(founder,{action:'pitch-save',role_id:'r',content:'Why this opportunity matters'});
+ const saved=await f.rec(first.id);assert.equal(saved.kind,'pitch');assert.equal(saved.content,'Why this opportunity matters');assert.equal(saved.updated_by,'founder');
+ await assert.rejects(run(engagement,{action:'pitch-save',role_id:'r',content:'Duplicate create'}),/someone else/);
+ await run(engagement,{action:'pitch-save',role_id:'r',id:saved.id,version:saved.version,content:'Revised talking points'});
+ await assert.rejects(run(founder,{action:'pitch-save',role_id:'r',id:saved.id,version:saved.version,content:'Stale overwrite'}),/changed/);
+ const current=await f.rec(saved.id);assert.equal(current.content,'Revised talking points');assert.equal(current.version,saved.version+1);
+ await assert.rejects(run(founder,{action:'pitch-save',role_id:'r2',id:current.id,version:current.version,content:'Wrong search'}),/another search/);
+ await assert.rejects(f.w.research(founder,{action:'pitch-save',role_id:'r2',content:'Inactive'},roster.map(m=>m.id==='founder'?{...m,status:'revoked'}:m)),/membership/);
+ await assert.rejects(run(founder,{action:'brief-save',role_id:'r',content:'Not authorized'}),/read-only/);
+ const second=await run(mapper,{action:'pitch-save',role_id:'r2',content:'Separate role pitch'});assert.notEqual(second.id,first.id);
+ await assert.rejects(run(mapper,{action:'pitch-save',role_id:'r',id:current.id,version:current.version,content:'x'.repeat(20001)}),/20,000/);
+ assert.equal(f.db.prepare("SELECT count(*) n FROM research_events WHERE record_id=? AND action='pitch-save'").get(first.id)?.n,2);
+ assert.equal(f.db.prepare('SELECT count(*) n FROM role_publications').get()?.n,0);
+ assert.equal((await f.rec(first.id)).content,'Revised talking points');f.db.close();
+});

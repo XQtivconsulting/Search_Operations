@@ -22,7 +22,7 @@ export function researchRecords(db:DB){return db.rows('SELECT * FROM research_re
 export function researchState(db:DB) {return {records:researchRecords(db),events:db.rows('SELECT * FROM research_events ORDER BY created_at DESC').map(r=>({...r,data:JSON.parse(r.data)}))};}
 
 export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
- requireThat((b.action==='candidate-save'&&!b.id)||roleList(a).some(r=>r!=='founder'),'This account has read-only access.',403);
+ requireThat(b.action==='pitch-save'||(b.action==='candidate-save'&&!b.id)||roleList(a).some(r=>r!=='founder'),'This account has read-only access.',403);
  const active=members.filter(m=>m.status==='active');
  const member=(id:string)=>{const m=active.find(m=>m.id===id);requireThat(m,'Choose an active workspace member.');return m;};
  const researcher=(id:string)=>{const m=member(id);requireThat(hasRole(m,'researcher')&&(m.staff_id||m.staffId),'Choose a researcher linked to a staff record.');return m;};
@@ -41,7 +41,16 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
   const rid=existing?.id||crypto.randomUUID();
   db.rows('INSERT INTO research_records(id,kind,role_id,record_key,data,version) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET record_key=excluded.record_key,data=excluded.data,version=excluded.version',rid,k,r,rk,JSON.stringify(d),(existing?.version||0)+1);return rid;
  };
- if(b.action==='target-clone') {
+ if(b.action==='pitch-save') {
+  requireThat(active.some(m=>m.id===a.id),'Active workspace membership required.',403);
+  requireThat(search,'Choose a search.');
+  requireThat(!old||old.kind==='pitch','Choose a candidate pitch.');
+  requireThat(!old||!b.role_id||text(b.role_id)===old.role_id,'This pitch belongs to another search.',409);
+  const existing=find('pitch',role);
+  requireThat(!existing||existing.id===old?.id,'This pitch was added by someone else. Reload before saving.',409);
+  requireThat(typeof b.content==='string'&&b.content.length<=20000,'Keep the pitch within 20,000 characters.');
+  kind='pitch';key=role;next={content:b.content.trim(),updated_by:a.id,updated_name:member(a.id).name,updated_at:iso()};
+ } else if(b.action==='target-clone') {
   manage();requireThat(search,'Choose a destination search.');const source=text(b.source_role_id);
   requireThat(source&&source!==role&&db.rows('SELECT id FROM searches WHERE id=?',source).length,'Choose a different source search.');
   const targets=researchRecords(db).filter(r=>r.kind==='target'&&r.role_id===source);
