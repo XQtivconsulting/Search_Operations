@@ -437,7 +437,7 @@ export class Workspace extends DurableObject {
         requireThat(Array.isArray(b.items)&&b.items.length>0&&b.items.length<=500,'Choose 1–500 allocations to copy.');
         const ids=new Set(b.items.map((i:any)=>i.source_id));requireThat(ids.size===b.items.length,'Duplicate allocation selection.');
         const data={searches:this.rows('SELECT * FROM searches'),priorities:this.rows('SELECT * FROM weekly_priorities'),assignments:this.rows('SELECT * FROM assignments'),entries:this.rows('SELECT * FROM entries'),team_members:this.rows('SELECT * FROM team_members').filter(m=>this.assignableStaff(m.staff_id)),teams:this.rows('SELECT t.*,COALESCE(r.version,0) roster_version FROM teams t LEFT JOIN team_rosters r ON r.team_id=t.id'),timeOff:this.rows('SELECT * FROM time_off')};
-        const expected=carryoverAssignments(data,day(b.week)).filter(i=>ids.has(i.source_id));
+        const expected=carryoverAssignments(data,day(b.week)).filter((i:any)=>ids.has(i.source_id));
         requireThat(JSON.stringify(expected)===JSON.stringify(b.items),'The source plan, team, PTO or destination changed. Reload the copy preview.',409);
         for(const item of expected){
           const id=uuid();this.rows('INSERT INTO assignments(id,search_id,team_id,work_date,target,notes) VALUES(?,?,?,?,?,?)',id,item.search_id,item.team_id,item.work_date,item.target,item.notes);

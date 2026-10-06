@@ -588,3 +588,30 @@
 .app .main .decision-grid:not(.decision-history) th:nth-child(10){width:150px}
 .app .weekly-planner .plan-grid tbody th{min-width:190px}
 .app .crm-panel input[aria-label^="Search ID for"]{width:90px}
+
+/* Compact allocation cards: stable action positions, details on demand. */
+.app .main .plan-grid.allocation-compact{min-width:1120px}
+.app .main .allocation-by-search thead th:first-child{width:62px;position:static}
+.app .main .allocation-by-search thead th:nth-child(2){width:78px}
+.app .main .allocation-by-search thead th:nth-child(3){width:270px}
+.app .main .allocation-by-search tbody th{width:270px;min-width:270px}
+.app .main .allocation-by-team thead th:first-child{width:260px}
+.app .main .allocation-compact :is(th,td):last-child{width:74px}
+.app .main .allocation-compact tbody :is(th,td){padding:5px 6px}
+.app .main .allocation-compact .plan-assignment{border:1px solid #d3dce9;border-left:3px solid #a6b4c5;border-radius:4px;background:#f7f8fb;margin-bottom:4px;overflow:hidden}
+.app .main .allocation-compact .plan-assignment.priority-start{background:#e8f5e9;border-left-color:#81b58d}
+.app .main .allocation-compact .plan-assignment.priority-continue{background:#cdebd8;border-left-color:#559d72}
+.app .main .allocation-compact .plan-assignment.priority-recalibrate{background:#fff3e8;border-left-color:#c89155}
+.app .main .allocation-compact .plan-assignment.priority-pause{background:#fce4e6;border-left-color:#d58a94}
+.app .main .allocation-compact .plan-assignment.priority-stop{background:#fff0f3;border-left-color:#bd737a}
+.app .main .allocation-compact .plan-slot{padding:5px 6px 2px;background:transparent;color:inherit;border:0;border-radius:0;box-shadow:none}
+.app .main .allocation-compact .plan-slot strong{margin-top:2px}
+.app .main .allocation-compact .plan-team-badge{padding:0;background:transparent;border:0;font-size:12px}
+.app .main .allocation-compact .allocation-actions{display:flex;align-items:center;gap:3px;padding:1px 4px 3px;min-height:25px}
+.app .main .allocation-compact .allocation-actions button{width:22px;height:22px;min-height:22px;padding:2px;border:0;box-shadow:none;background:transparent;color:#31557e}
+.app .main .allocation-compact .allocation-actions button:hover{background:#ffffff88}
+.app .main .allocation-compact .allocation-overload{margin-left:auto;display:inline-flex}
+.app .main .allocation-compact .allocation-overload button{color:#b42318}
+.app .main .allocation-compact .plan-assign-icon{width:22px;height:22px;min-height:22px}
+.app .main .allocation-compact .plan-other-tasks{margin:2px 0;border:0;background:transparent}
+.app .main .allocation-compact .plan-other-tasks summary{padding:3px 0}

@@ -4,7 +4,7 @@ export const searchDisplayId=(r:Search)=>String(r.search_number??(r.external_id?
 export function matchingSearches(searches:Search[],query:string,sort:string){
  const terms=query.trim().toLowerCase().split(/\s+/).filter(Boolean);
  const compare=(a:string,b:string)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'});
- return searches.filter(r=>terms.every(t=>[searchDisplayId(r),r.client,r.title].join(' ').toLowerCase().includes(t))).sort((a,b)=>compare(sort==='company'?a.client||'':searchDisplayId(a),sort==='company'?b.client||'':searchDisplayId(b))||compare(a.title||'',b.title||'')||compare(String(a.id),String(b.id)));
+ return searches.filter(r=>terms.every(t=>[searchDisplayId(r),r.external_id,r.client,r.title].join(' ').toLowerCase().includes(t))).sort((a,b)=>compare(sort==='company'?a.client||'':searchDisplayId(a),sort==='company'?b.client||'':searchDisplayId(b))||compare(a.title||'',b.title||'')||compare(String(a.id),String(b.id)));
 }
 export function SearchPicker({searches,value,onChange,disabled,allowAll,label:fieldLabel='Search'}:{searches:Search[];value:string;onChange:(id:string)=>void;disabled?:boolean;allowAll?:boolean;label?:string}){
  const [query,setQuery]=useState(''),[open,setOpen]=useState(false),[sort,setSort]=useState('company'),[active,setActive]=useState(0),id=useId();

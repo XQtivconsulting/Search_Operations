@@ -81,3 +81,6 @@ Actual live verification: release 0acf6e39f519dc717282dbf57b4970cde7646d09 deplo
 - Existing setup-task names retain compatibility. New JD assignments permit document upload; Competency map and Keyword guidance assignments permit edits only to their respective sections. Approval permissions remain unchanged.
 
 Verification: synthetic tests added for number uniqueness/high-water behavior, CRM refresh preservation, duplicate import rollback, filter intersections, carryover exclusions and stale/unauthorized copies, and task permission boundaries. Typecheck, full tests and build are deployment gates; actual workflow result is reported after completion. No production historical import or signed-in browser check has been performed for this change.
+
+## Compact Team Allocation review
+The calendar retains one week and its navigation. Cards show team identity and daily target, with add and move/unassign actions in one bottom-left row. A red exclamation at bottom right opens workload detail; repeated sourcing-decision labels and inline workload prose are removed. Search priority has more width and daily cells are tighter. Week target and PTO remain; the duplicate Plan week header button is removed. Card controls are keyboard labelled; no signed-in visual verification has been performed.
