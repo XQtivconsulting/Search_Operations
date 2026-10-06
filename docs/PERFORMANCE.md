@@ -14,6 +14,8 @@ Both views use explicit date bounds, including Since search began (all recorded 
 
 Verification: calculation tests cover relative shares, search/team isolation, zero-output members, draft dates, partner versus peer decisions, reopened reviews, period boundaries, and eight-hour conversion with unavailable denominators. Actual local verification: typecheck, all 301 tests, and the production build passed. Deployment/live verification is recorded separately.
 
+Actual live verification: release 5a03d7dfd8770de7ff31e10f5eaae492c5b23e2c, workflow 37395210286 / job 112049438562 passed every deployment gate. Verified per-search/team shares and sample counts, a mapped-count popup with exactly the advertised 13 rows, last-week versus full-history scope, and no threshold controls. Pinned navigation did not overlap content. Visual review caught a legacy last-column width; the follow-up gives both new tables explicit compact column proportions. All 301 tests, typecheck and build passed again for that follow-up. No business records were changed.
+
 ## Historical implementation notes
 
 

@@ -30,3 +30,23 @@
 .app .performance-search-summary{display:flex;flex-wrap:wrap;gap:20px;padding:12px 0}
 .app .performance-search-summary>span{display:grid;gap:4px;color:#64748b;font-size:12px}
 .app .performance-search-summary strong{font-size:21px;color:#172b45}
+
+.app .main .performance-share{min-width:0;max-width:100%}
+.app .main :is(.relative-researcher-table,.relative-search-table)>tbody>tr>td:last-child{min-width:0}
+.app .main .relative-researcher-table>thead>tr>th:nth-child(1){width:20%}
+.app .main .relative-researcher-table>thead>tr>th:nth-child(2){width:7%}
+.app .main .relative-researcher-table>thead>tr>th:nth-child(3){width:13%}
+.app .main .relative-researcher-table>thead>tr>th:nth-child(4){width:10%}
+.app .main .relative-researcher-table>thead>tr>th:nth-child(5){width:13%}
+.app .main .relative-researcher-table>thead>tr>th:nth-child(6){width:19%}
+.app .main .relative-researcher-table>thead>tr>th:nth-child(7){width:10%}
+.app .main .relative-researcher-table>thead>tr>th:nth-child(8){width:8%}
+.app .main .relative-search-table>thead>tr>th:nth-child(1){width:26%}
+.app .main .relative-search-table>thead>tr>th:nth-child(2){width:7%}
+.app .main .relative-search-table>thead>tr>th:nth-child(3){width:9%}
+.app .main .relative-search-table>thead>tr>th:nth-child(4){width:17%}
+.app .main .relative-search-table>thead>tr>th:nth-child(5){width:8%}
+.app .main .relative-search-table>thead>tr>th:nth-child(6){width:7%}
+.app .main .relative-search-table>thead>tr>th:nth-child(7){width:8%}
+.app .main .relative-search-table>thead>tr>th:nth-child(8){width:13%}
+.app .main .relative-search-table>thead>tr>th:nth-child(9){width:5%}
