@@ -95,6 +95,13 @@ test('dashboard shows per-search contributions without thresholds or aggregate r
  const React=await import('react'),{renderToStaticMarkup}=await import('react-dom/server'),{Performance}=await import('../src/Performance');
  const data={...base,actor:{role:'partner'},searches:[{id:'r',client:'Client',title:'Role'}],teams:[],staff:[{id:'s',name:'Researcher'}],priorities:[],research:{records:[map('a','Approved')]}};
  const html=renderToStaticMarkup(React.createElement(Performance,{data,api:async()=>{},reload:async()=>{},onDirty:()=>{},onDecision:()=>{}}));
- assert.ok(html.includes('Throughput share'));assert.ok(html.includes('Partner approval rate'));assert.ok(html.includes('Share of approvals'));assert.ok(html.includes('Since search began'));
+ assert.ok(html.includes('By researcher'));assert.ok(html.includes('Find researcher'));assert.ok(!html.includes('Partial effort'));assert.ok(html.includes('Throughput share'));assert.ok(html.includes('Partner approval rate'));assert.ok(html.includes('Share of approvals'));assert.ok(html.includes('Since search began'));
  assert.ok(!html.includes('threshold'));assert.ok(!html.includes('Overall'));assert.ok(!html.includes('Effort incomplete'));
+});
+
+test('visual colors distinguish percentages, relative contributions and lower effort without inventing missing values',async()=>{
+ const {percentageTone,contributionTone,efficiencyTone}=await import('../src/performance');
+ assert.equal(percentageTone(null),'neutral');assert.equal(percentageTone(0),'red');assert.equal(percentageTone(.6),'yellow');assert.equal(percentageTone(.9),'green');
+ assert.equal(contributionTone(.4,[.4,.3,.1,0]),'green');assert.equal(contributionTone(.2,[.4,.3,.2,0]),'yellow');assert.equal(contributionTone(0,[0,0]),'neutral');
+ assert.equal(efficiencyTone(8,[8,16,24]),'green');assert.equal(efficiencyTone(16,[8,16,24]),'yellow');assert.equal(efficiencyTone(24,[8,16,24]),'red');assert.equal(efficiencyTone(8,[8,8]),'neutral');
 });

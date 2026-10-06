@@ -50,3 +50,36 @@
 .app .main .relative-search-table>thead>tr>th:nth-child(7){width:8%}
 .app .main .relative-search-table>thead>tr>th:nth-child(8){width:13%}
 .app .main .relative-search-table>thead>tr>th:nth-child(9){width:5%}
+.app .main .metric-tone-green{color:#207047!important;background-color:#e8f5eb;border-radius:4px}
+.app .main .metric-tone-yellow{color:#916600!important;background-color:#fff3cd;border-radius:4px}
+.app .main .metric-tone-red{color:#ae3342!important;background-color:#fde8eb;border-radius:4px}
+.app .main .metric-tone-neutral{color:#64748b!important}
+.app .main .performance-number{display:inline-block;padding:4px 8px;font-weight:700}
+.app .main .performance-share{padding:5px 8px;box-sizing:border-box}
+.app .main .performance-efficiency{display:flex;align-items:center;gap:3px}
+.app .main .performance-efficiency .monitor-icon-action{color:#916600}
+.app .performance-person-controls{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 0 18px;flex-wrap:wrap}
+.app .performance-person-controls label{display:flex;flex-direction:row;align-items:center;gap:8px;margin:0;font-size:12px}
+.app .performance-person-controls input{width:210px;min-height:32px;margin:0}
+.app .performance-person-controls .research-tabs{margin:0}
+.app .performance-person-controls button[aria-pressed=true]{background:#102b52;color:white}
+.app .main .relative-person-table>thead>tr>th:first-child{width:26%}
+.app .main .relative-person-table>thead>tr>th:last-child{width:7%}
+.app .main .relative-person-table>tbody>tr>td:last-child{min-width:0}
+.app .main .relative-person-table>thead>tr>th:nth-child(6){width:15%}
+
+/* Toolbar toggles are controls, not page tabs: no underline or extra baseline gap. */
+.app .main .sheet-toolbar .research-tabs{border-bottom:0;padding:0;margin:0;align-self:flex-end;align-items:center;gap:6px}
+.app .main .sheet-toolbar>button,.app .main .sheet-toolbar>.research-tabs>button{height:32px;min-height:32px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;margin-top:0;margin-bottom:0;padding:5px 10px;white-space:nowrap}
+.app .main .sheet-toolbar>label{margin-bottom:0}
+.app .main .sheet-toolbar>label>input:not([type=checkbox]):not([type=radio]),.app .main .sheet-toolbar>label>select:not([multiple]){height:32px;min-height:32px;box-sizing:border-box;margin-bottom:0}
+
+.app .main .people-access-table{width:100%;min-width:0;table-layout:fixed}
+.app .main .people-access-table :is(th,td){white-space:normal;overflow-wrap:anywhere;min-width:0;vertical-align:top}
+.app .main .people-access-table td button{max-width:100%;white-space:normal}
+.app .main .people-access-table th:nth-child(1){width:18%}
+.app .main .people-access-table th:nth-child(2){width:23%}
+.app .main .people-access-table th:nth-child(3){width:23%}
+.app .main .people-access-table th:nth-child(4){width:14%}
+.app .main .people-access-table th:nth-child(5){width:9%}
+.app .main .people-access-table th:nth-child(6){width:13%}

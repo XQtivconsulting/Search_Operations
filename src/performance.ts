@@ -86,3 +86,16 @@ export function researcherComparisons(data:R,f:PerformanceFilter){
   return {id,...g,total,rows};
  }).sort((a,b)=>b.total.mapped-a.total.mapped||a.role.localeCompare(b.role));
 }
+
+/** Visual bands only; never change counts, rates, or create a performance target. */
+export function percentageTone(value:number|null){return value===null?'neutral':value>=.75?'green':value>=.4?'yellow':'red';}
+export function contributionTone(value:number|null,peers:(number|null)[]){
+ const max=Math.max(0,...peers.filter((n):n is number=>n!==null));
+ return value===null||max===0?'neutral':percentageTone(value/max);
+}
+export function efficiencyTone(value:number|null,peers:(number|null)[]){
+ const valid=peers.filter((n):n is number=>n!==null&&n>0);
+ if(value===null||valid.length<2)return 'neutral';
+ const lo=Math.min(...valid),hi=Math.max(...valid);
+ return hi===lo?'neutral':percentageTone((hi-value)/(hi-lo));
+}

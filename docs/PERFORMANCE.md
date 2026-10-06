@@ -16,6 +16,14 @@ Verification: calculation tests cover relative shares, search/team isolation, ze
 
 Actual live verification: release 5a03d7dfd8770de7ff31e10f5eaae492c5b23e2c, workflow 37395210286 / job 112049438562 passed every deployment gate. Verified per-search/team shares and sample counts, a mapped-count popup with exactly the advertised 13 rows, last-week versus full-history scope, and no threshold controls. Pinned navigation did not overlap content. Visual review caught a legacy last-column width; the follow-up gives both new tables explicit compact column proportions. All 301 tests, typecheck and build passed again for that follow-up. No business records were changed.
 
+## Researcher view and visual colors — 6 October 2026
+
+Researcher performance now defaults to By researcher, grouping each person’s results across searches without averaging contribution percentages across different searches. By search retains the team comparison. Find researcher filters both layouts and CSV while keeping full-team denominators and color comparisons unchanged. Unassigned attribution stays separate.
+
+Green/yellow/red visual bands use 75% and 40% boundaries. Approval rates use their absolute percentages; contribution colors compare each share against the highest share in the same search/team. These bands do not change calculations or set performance targets. Hours per approval use a lower-is-better comparison across complete-effort searches; incomplete effort stays neutral. Unknown rates stay neutral. Approval sample counts move into the accessible label, hover title and candidate popup heading. Missing allocation detail uses a compact warning icon with an immediate tooltip; the hours estimate remains visible.
+
+Toolbar tab groups now omit page-tab borders, padding and margins when used inside a filter toolbar. Direct action buttons, toggles and form controls share a 32px height and bottom alignment. Actual validation and live checks are recorded separately.
+
 ## Historical implementation notes
 
 
