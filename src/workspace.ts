@@ -161,7 +161,7 @@ export class Workspace extends DurableObject {
       b={...b,sources};
     }
     return this.ctx.storage.transactionSync(()=>{
-      if(['candidate-summary-draft','candidate-summary-publish'].includes(b.action))return candidateSummaryMutation(this,a,b,generated);
+      if(['candidate-summary-draft','candidate-summary-save','candidate-summary-publish'].includes(b.action))return candidateSummaryMutation(this,a,b,generated);
       if(['candidate-file-save','candidate-file-list','candidate-file-read'].includes(b.action)) {
         const c=this.rows("SELECT id FROM research_records WHERE id=? AND kind='candidate'",text(b.candidate_id))[0];requireThat(c,'Candidate not found.',404);
         if(b.action==='candidate-file-list')return this.rows('SELECT * FROM candidate_files WHERE candidate_id=? ORDER BY created_at DESC',c.id);

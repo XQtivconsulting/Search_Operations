@@ -76,3 +76,7 @@ Executive-summary generation now calls Cloudflare Workers AI (Llama 3.3 70B), th
 The model writes a concise third-person profile for a senior hiring manager. Dated updates supersede older facts only when explicit; uncertain attribution and contradictions go into internal review notes. Compensation, demographic/family/health and contact information are excluded from the shareable summary. Suggested tags must match the allowed vocabulary and have a verified verbatim evidence quote. AI output remains subject to human review.
 
 The deployment gate runs a real model call using three wholly synthetic sources to verify updated-title synthesis and exclusion of interviewer/private facts. Deployment credentials need Workers AI access; no candidate data is used in this check.
+
+
+## Editing executive summaries
+Published summaries open prefilled through Edit summary. Saved drafts open through Edit draft. Save draft retains edited text and tags without changing the published profile; Approve & publish updates the profile atomically. Both operations check candidate/draft versions and candidate-editor permissions. Generate new AI draft is a separate source-input flow. Manual edits do not invoke AI.

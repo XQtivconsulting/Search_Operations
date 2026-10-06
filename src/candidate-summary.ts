@@ -35,11 +35,13 @@ export function candidateSummaryMutation(db:any,a:Actor,b:R,generated?:R){
   for(const s of sources)if(!s.file_id&&!s.activity_id){const fid=crypto.randomUUID(),bytes=new TextEncoder().encode(s.text);let binary='';for(const byte of bytes)binary+=String.fromCharCode(byte);const base64=btoa(binary);db.rows('INSERT INTO candidate_files VALUES(?,?,?,?,?,?,?)',fid,candidate.id,s.name.replace(/\.[^.]+$/,'')+'.txt','text/plain','Transcript',a.id,created_at);for(let i=0;i<base64.length;i+=131072)db.rows('INSERT INTO candidate_file_chunks VALUES(?,?,?)',fid,i,base64.slice(i,i+131072));s.file_id=fid;db.audit(a,'candidate-file-save',fid,null,{candidate_id:candidate.id,name:s.name,category:'Transcript'});}
   const payload={candidate_id:candidate.id,candidate_version:candidate.version,status:'Draft',...draft,sources:sources.map(({name,file_id,activity_id})=>({name,file_id,activity_id})),created_by:a.id,created_at};write(id,'candidate-summary-draft',payload,null);return {id,draft:{...payload,id,version:1}};
  }
- requireThat(b.action==='candidate-summary-publish','Unknown summary action.');
- const draft=all.find((r:R)=>r.id===b.draft_id&&r.kind==='candidate-summary-draft'&&r.candidate_id===candidate.id);
- requireThat(draft&&draft.status==='Draft'&&draft.version===Number(b.draft_version),'Draft changed or was already published. Reload.',409);
+ requireThat(['candidate-summary-save','candidate-summary-publish'].includes(b.action),'Unknown summary action.');
+ const existing=b.draft_id?all.find((r:R)=>r.id===b.draft_id&&r.kind==='candidate-summary-draft'&&r.candidate_id===candidate.id):null;
+ const draft=b.draft_id?existing:{id:crypto.randomUUID(),candidate_id:candidate.id,status:'Draft',version:0,summary:candidate.executive_summary||'',sources:candidate.executive_summary_sources||[],suggestions:[],excerpts:[],method:'manual-edit',created_at:new Date().toISOString(),created_by:a.id};
+ requireThat(draft&&draft.status==='Draft'&&(!b.draft_id||draft.version===Number(b.draft_version)),'Draft changed or was already published. Reload.',409);
  requireThat(typeof b.summary==='string'&&b.summary.trim().length>0&&b.summary.length<=6000,'Enter an executive summary up to 6,000 characters.');
  const tag_values=cleanTagValues(b.tag_values,all,b.verified_geographies||[]),published_at=new Date().toISOString();
+ if(b.action==='candidate-summary-save'){const payload={...draft,summary:b.summary.trim(),tag_values,updated_at:published_at,updated_by:a.id};write(draft.id,'candidate-summary-draft',payload,existing);return {id:draft.id,draft:{...payload,version:draft.version+1}};}
  const next={...candidate,executive_summary:b.summary.trim(),executive_summary_by:a.id,executive_summary_at:published_at,executive_summary_sources:draft.sources,tag_values};
- write(candidate.id,'candidate',next,candidate);write(draft.id,'candidate-summary-draft',{...draft,status:'Published',published_by:a.id,published_at,published_summary:b.summary.trim(),published_tags:tag_values},draft);return {id:candidate.id};
+ write(candidate.id,'candidate',next,candidate);write(draft.id,'candidate-summary-draft',{...draft,status:'Published',published_by:a.id,published_at,published_summary:b.summary.trim(),published_tags:tag_values},existing);return {id:candidate.id};
 }

@@ -422,3 +422,23 @@ test('executive summary remains a draft until an authorized, versioned publicati
  await assert.rejects(w.research(a,{...body,candidate_version:2},[]),/already published/);
  assert.equal(db.prepare("SELECT COUNT(*) n FROM audit WHERE action='candidate-summary-publish'").get()!.n,2);db.close();
 });
+
+
+test('saved summary edits preserve the published profile and reopen with edits',async()=>{
+ const {db,w}=fixture(),a:Actor={...actor,roles:['admin','researcher'],staffId:'s'};
+ const c=await w.research(a,{action:'candidate-save',first_name:'Synthetic',last_name:'Editor',url:'linkedin.com/in/synthetic-editor'},[]);
+ const get=(id:string)=>{const r=db.prepare('SELECT * FROM research_records WHERE id=?').get(id)!;return {...JSON.parse(String(r.data)),version:r.version};};
+ const base={candidate_id:c.id,candidate_version:1,summary:'Published original.',tag_values:{industry:['Healthcare']}};
+ await w.research(a,{...base,action:'candidate-summary-publish'},[]);
+ const saved=await w.research(a,{...base,candidate_version:2,action:'candidate-summary-save',summary:'Edited and saved.'},[]);
+ assert.equal(get(c.id).executive_summary,'Published original.');
+ assert.equal(get(saved.id).summary,'Edited and saved.');
+ assert.deepEqual(get(saved.id).tag_values.industry,['Healthcare']);
+ const edit={...base,candidate_version:2,action:'candidate-summary-save',draft_id:saved.id,draft_version:1,summary:'Second edit.'};
+ await w.research(a,edit,[]);
+ await assert.rejects(w.research(a,edit,[]),/Draft changed/);
+ await assert.rejects(w.research({...actor,role:'founder'},edit,[]),/permission/);
+ await w.research(a,{...edit,action:'candidate-summary-publish',draft_version:2},[]);
+ assert.equal(get(c.id).executive_summary,'Second edit.');
+ assert.equal(get(saved.id).status,'Published');db.close();
+});
