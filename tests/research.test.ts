@@ -176,13 +176,13 @@ test('accepted account may share a display name with legacy staff or another acc
 });
 
 test('inline mappings create explicit companies and role coverage atomically, reuse master candidates, and keep authorship',async()=>{
- const f=fixture();const b={action:'mapping-inline',role_id:'r',team_id:'t',first_name:'Inline',last_name:'Person',url:'https://linkedin.com/in/inline-person',company:'Inline Co'};
+ const f=fixture();const b={action:'mapping-inline',role_id:'r',team_id:'t',first_name:'Inline',last_name:'Person',url:'https://linkedin.com/in/inline-person',company:'Inline Co',title:'VP of Sales'};
  await assert.rejects(f.run(mapper,b),/explicitly add/);assert.equal((await f.state()).research.records.length,0);
  const result=await f.run(mapper,{...b,create_company:true});let state=await f.state();const company=state.research.records.find(r=>r.kind==='company')!,candidate=state.research.records.find(r=>r.kind==='candidate')!,target=state.research.records.find(r=>r.kind==='target')!,mapping=await f.rec(result.ids[0]);
- assert.equal(candidate.company_id,company.id);assert.equal(target.owner_id,'mapper');assert.equal(mapping.target_id,target.id);assert.equal(mapping.mapper_id,'mapper');assert.equal(mapping.staff_id,'s');assert.equal(mapping.team_id,'t');assert.equal(mapping.status,'Draft');assert.equal(target.status,'Not started');
+ assert.equal(candidate.company_id,company.id);assert.equal(candidate.title,'VP of Sales');assert.equal(mapping.title,'VP of Sales');assert.equal(target.owner_id,'mapper');assert.equal(mapping.target_id,target.id);assert.equal(mapping.mapper_id,'mapper');assert.equal(mapping.staff_id,'s');assert.equal(mapping.team_id,'t');assert.equal(mapping.status,'Draft');assert.equal(target.status,'Not started');
  await assert.rejects(f.run(mapper,{...b,candidate_version:candidate.version}),/already mapped/);
- await f.run(peer,{...b,role_id:'r2',candidate_version:candidate.version,company:'Wrong incoming company',first_name:'Wrong incoming name'});
- state=await f.state();assert.equal(state.research.records.filter(r=>r.kind==='company').length,1);assert.equal(state.research.records.filter(r=>r.kind==='candidate').length,1);assert.equal((await f.rec(candidate.id)).first_name,'Inline');assert.equal(state.research.records.find(r=>r.kind==='mapping'&&r.role_id==='r2')?.mapper_id,'peer');
+ await f.run(peer,{...b,role_id:'r2',candidate_version:candidate.version,company:'Wrong incoming company',first_name:'Wrong incoming name',title:'Wrong incoming title'});
+ state=await f.state();assert.equal(state.research.records.filter(r=>r.kind==='company').length,1);assert.equal(state.research.records.filter(r=>r.kind==='candidate').length,1);assert.equal((await f.rec(candidate.id)).first_name,'Inline');assert.equal((await f.rec(candidate.id)).title,'VP of Sales');assert.equal(state.research.records.find(r=>r.kind==='mapping'&&r.role_id==='r2')?.title,'VP of Sales');assert.equal(state.research.records.find(r=>r.kind==='mapping'&&r.role_id==='r2')?.mapper_id,'peer');
  await f.run(mapper,{...target,action:'company-progress',status:'Completed',notes:'Research complete'});assert.equal((await f.rec(mapping.id)).status,'Draft');f.db.close();
 });
 test('inline mapping validation rolls back new company and target; stale candidate details are rejected',async()=>{
@@ -195,7 +195,7 @@ test('role-first My Work and mapping entry expose roles first and no mapping pop
  const React=await import('react'),{renderToStaticMarkup}=await import('react-dom/server'),{MyWork}=await import('../src/MyWork'),{InlineMapping}=await import('../src/InlineMapping');
  const f=fixture(),data={...await f.state(),actor:mapper,people:members},common={data,api:async()=>({}),reload:async()=>{},onDirty:()=>{},onCandidate:()=>{}};
  const html=renderToStaticMarkup(React.createElement(MyWork,{...common,onOpen:()=>{}}));assert.ok(html.includes('My planned work'));assert.ok(!html.includes('My company assignments'));
- const row=renderToStaticMarkup(React.createElement(InlineMapping,{...common,role:'r',team:'t'}));assert.ok(row.includes('LinkedIn profile URL'));assert.ok(row.includes('Current company'));assert.ok(!row.includes('role="dialog"'));assert.ok(!row.includes('Email'));assert.ok(!row.includes('Phone'));f.db.close();
+ const row=renderToStaticMarkup(React.createElement(InlineMapping,{...common,role:'r',team:'t'}));assert.ok(row.includes('LinkedIn profile URL'));assert.ok(row.includes('Current company'));assert.ok(row.includes('Current title'));assert.ok(!row.includes('role="dialog"'));assert.ok(!row.includes('Email'));assert.ok(!row.includes('Phone'));f.db.close();
 });
 
 test('bulk company allocation is atomic, role scoped and uses active team researchers',async()=>{
