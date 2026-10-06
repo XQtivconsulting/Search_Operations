@@ -551,3 +551,4 @@
 @media(max-width:800px){.app .performance-metric-cards{grid-template-columns:1fr}}
 
 .app .performance-overall-rate{text-align:right}.app .performance-overall-rate strong{font-size:28px;color:#183b63}.app .performance-overall-rate small{display:block;font-size:11px;color:#62758b;margin-top:3px}
+.app .plan-grid .priority-line{align-items:center}
