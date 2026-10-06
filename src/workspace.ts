@@ -1,3 +1,6 @@
+import {carryoverAssignments} from './plan-carryover';
+import {initializeSearchNumbers,nextSearchNumber,reserveSearchNumbers,searchNumber} from './search-number';
+import {taskCanEdit} from './search-task-types';
 import {sameLinkedin} from './candidate-identity';
 import {backfillDraftTargets} from './draft-targets';
 import {canImportCandidates} from './candidate-tags';
@@ -36,6 +39,7 @@ export class Workspace extends DurableObject {
   constructor(ctx: DurableObjectState, env: any) {
     super(ctx, env);
     ctx.storage.sql.exec(workspaceSchema);
+    initializeSearchNumbers(this);
     ctx.storage.sql.exec(resetSchema);
     this.rows('CREATE TABLE IF NOT EXISTS account_researchers(staff_id TEXT PRIMARY KEY,user_id TEXT NOT NULL)');
     this.rows('CREATE TABLE IF NOT EXISTS backup_runs(id TEXT PRIMARY KEY,created_at TEXT NOT NULL,status TEXT NOT NULL,details TEXT NOT NULL)');
@@ -147,7 +151,7 @@ export class Workspace extends DurableObject {
         const search=this.rows('SELECT * FROM searches WHERE id=?',text(b.role_id))[0];requireThat(search,'Search not found.',404);
         if(b.action==='brief-file-list')return this.rows('SELECT * FROM brief_files WHERE role_id=? ORDER BY created_at DESC',b.role_id);
         if(b.action==='brief-file-read'){const f=this.rows('SELECT * FROM brief_files WHERE id=? AND role_id=?',b.file_id,b.role_id)[0];requireThat(f,'File not found.',404);return {...f,base64:this.rows('SELECT data FROM brief_file_chunks WHERE file_id=? ORDER BY part',f.id).map(r=>r.data).join('')};}
-        requireThat(canPlan(a)||hasRole(a,'partner')&&search.partner_id===a.id||researchRecords(this).some(t=>t.kind==='task'&&t.role_id===b.role_id&&t.owner_id===a.id&&t.task_type==='Role brief'&&t.status!=='Cancelled'),'Search management permission required.',403);
+        requireThat(canPlan(a)||hasRole(a,'partner')&&search.partner_id===a.id||researchRecords(this).some(t=>t.kind==='task'&&t.role_id===b.role_id&&t.owner_id===a.id&&taskCanEdit(t.task_type,'brief')&&t.status!=='Cancelled'),'Search management permission required.',403);
         const name=text(b.name,200),base64=String(b.base64||'');requireThat(/\.(pdf|docx|doc)$/i.test(name)&&base64.length>0&&base64.length<=7e6&&/^[A-Za-z0-9+/]*={0,2}$/.test(base64),'Upload PDF or Word up to 5 MB.');
         const id=uuid(),mime=/\.pdf$/i.test(name)?'application/pdf':/\.docx$/i.test(name)?'application/vnd.openxmlformats-officedocument.wordprocessingml.document':'application/msword';
         this.rows('INSERT INTO brief_files VALUES(?,?,?,?,?)',id,b.role_id,name,mime,now());for(let i=0;i<base64.length;i+=131072)this.rows('INSERT INTO brief_file_chunks VALUES(?,?,?)',id,i,base64.slice(i,i+131072));this.audit(a,'brief-file-save',id,null,{name,role_id:b.role_id});return {id};
@@ -318,7 +322,7 @@ export class Workspace extends DurableObject {
   async crmCandidateApply(a:Actor,id:string,stages:Record<string,string>){return this.ctx.storage.transactionSync(()=>applyConversionItem(this,a,id,stages));}
   async crmState(a: Actor) {
     requireThat(hasRole(a,'admin'), 'Administrator permission required.',403);
-    return {jobs:this.rows('SELECT j.*,p.partner_id AS saved_partner_id,p.partner AS saved_partner,COALESCE(p.version,0) AS partner_version FROM crm_jobs j LEFT JOIN crm_partners p ON p.external_id=j.external_id ORDER BY j.title'), runs:this.rows('SELECT * FROM integration_runs ORDER BY created_at DESC LIMIT 20')};
+    return {next_search_number:nextSearchNumber(this),jobs:this.rows('SELECT j.*,p.partner_id AS saved_partner_id,p.partner AS saved_partner,COALESCE(p.version,0) AS partner_version FROM crm_jobs j LEFT JOIN crm_partners p ON p.external_id=j.external_id ORDER BY j.title'), runs:this.rows('SELECT * FROM integration_runs ORDER BY created_at DESC LIMIT 20')};
   }
   async stageCRM(a: Actor, jobs: CRMJob[]) {
     requireThat(hasRole(a,'admin'), 'Administrator permission required.',403);
@@ -346,7 +350,10 @@ export class Workspace extends DurableObject {
     requireThat(Array.isArray(jobs) && jobs.length > 0 && jobs.length <= 200,'Select 1–200 jobs.');
     requireThat(new Set(jobs.map(j=>j.external_id)).size === jobs.length,'Duplicate job selection.');
     return this.ctx.storage.transactionSync(() => {
-      for(const item of jobs) {
+      const numbers=jobs.filter(j=>j.search_number!==undefined&&j.search_number!==''&&j.search_number!==null).map(j=>searchNumber(j.search_number));
+      requireThat(new Set(numbers).size===numbers.length,'Duplicate Search IDs in this import.');
+      reserveSearchNumbers(this,numbers);
+      for(const item of [...jobs].sort((a,b)=>String(a.external_id).localeCompare(String(b.external_id),undefined,{numeric:true}))) {
         const source = this.rows('SELECT * FROM crm_jobs WHERE external_id=?',text(item.external_id))[0];
         requireThat(source,'Fetch jobs again before applying.',409);
         requireThat(source.fetched_at === item.fetched_at,'The preview changed. Reload before applying.',409);
@@ -354,15 +361,17 @@ export class Workspace extends DurableObject {
         requireThat(matches.length <= 1,'Multiple searches share this CRM ID. Reconcile before applying.',409);
         const old = matches[0];
         requireThat(old ? old.id === item.search_id && old.version === item.version : !item.search_id,'The local search changed. Reload the preview.',409);
+        const assignedNumber=item.search_number===undefined||item.search_number===''||item.search_number===null?(old?.search_number??nextSearchNumber(this)):searchNumber(item.search_number);
+        requireThat(!this.rows('SELECT id FROM searches WHERE search_number=? AND id<>?',assignedNumber,old?.id||'').length,'Search ID '+assignedNumber+' is already assigned.',409);
         const id = old?.id || uuid(), client = source.company_name || old?.client || text(item.client);
         requireThat(client,'Enter a client name for each new search.');
         const changePartner=Object.prototype.hasOwnProperty.call(item,'partner_id');
         const saved=this.rows('SELECT * FROM crm_partners WHERE external_id=?',source.external_id)[0];
         if(!old&&saved) requireThat(Number(item.partner_version)===saved.version,'The saved partner changed. Reload before adding the role.',409);
         const partner_id=changePartner?text(item.partner_id):(old?.partner_id || saved?.partner_id || ''),partner=changePartner?text(item.partner):(old?.partner || saved?.partner || '');
-        if(old) this.rows('UPDATE searches SET title=?,status=?,client=?,partner_id=?,partner=?,version=version+1 WHERE id=?',source.title,source.status,client,partner_id,partner,id);
-        else this.rows('INSERT INTO searches(id,external_id,client,title,status,partner_id,partner) VALUES(?,?,?,?,?,?,?)',id,source.external_id,client,source.title,source.status,partner_id,partner);
-        this.audit(a,'crm-apply',id,old || null,{external_id:source.external_id,title:source.title,status:source.status,client,partner_id,partner});
+        if(old) this.rows('UPDATE searches SET title=?,status=?,client=?,partner_id=?,partner=?,search_number=?,version=version+1 WHERE id=?',source.title,source.status,client,partner_id,partner,assignedNumber,id);
+        else this.rows('INSERT INTO searches(id,external_id,client,title,status,partner_id,partner,search_number) VALUES(?,?,?,?,?,?,?,?)',id,source.external_id,client,source.title,source.status,partner_id,partner,assignedNumber);
+        this.audit(a,'crm-apply',id,old || null,{external_id:source.external_id,title:source.title,status:source.status,client,partner_id,partner,search_number:assignedNumber});
       }
       this.rows('INSERT INTO integration_runs VALUES(?,?,?,?,?)',uuid(),a.id,'applied',jobs.length,now());
       return {count:jobs.length};
@@ -401,7 +410,7 @@ export class Workspace extends DurableObject {
     });
   }
   sourcingDecision(role:string,date:string){return this.rows('SELECT * FROM weekly_priorities WHERE search_id=? AND week<=? ORDER BY week DESC LIMIT 1',role,weekStart(date))[0];}
-  requireSourcing(role:string,date:string){requireThat(isWorkingDecision(this.sourcingDecision(role,date)),'Choose Start, Continue or Recalibrate in Search Decisions before allocating work. Pause and Stop do not allow new assignments.',409);}
+  requireSourcing(role:string,date:string){requireThat(isWorkingDecision(this.sourcingDecision(role,date)),'Choose Start, Continue or Recalibrate in Sourcing Decisions before allocating work. Pause and Stop do not allow new assignments.',409);}
   async mutate(a: Actor, kind: string, b: any,members?:Member[]) {
     if(members)await this.syncPeople(members);
     return this.ctx.storage.transactionSync(() => this.applyMutation(a, kind, b));
@@ -423,6 +432,20 @@ export class Workspace extends DurableObject {
     });
   }
   private applyMutation(a: Actor, kind: string, b: any): { id: string } {
+      if(kind==='week-copy'){
+        requireThat(canPlan(a),'Planning permission required.',403);
+        requireThat(Array.isArray(b.items)&&b.items.length>0&&b.items.length<=500,'Choose 1–500 allocations to copy.');
+        const ids=new Set(b.items.map((i:any)=>i.source_id));requireThat(ids.size===b.items.length,'Duplicate allocation selection.');
+        const data={searches:this.rows('SELECT * FROM searches'),priorities:this.rows('SELECT * FROM weekly_priorities'),assignments:this.rows('SELECT * FROM assignments'),entries:this.rows('SELECT * FROM entries'),team_members:this.rows('SELECT * FROM team_members').filter(m=>this.assignableStaff(m.staff_id)),teams:this.rows('SELECT t.*,COALESCE(r.version,0) roster_version FROM teams t LEFT JOIN team_rosters r ON r.team_id=t.id'),timeOff:this.rows('SELECT * FROM time_off')};
+        const expected=carryoverAssignments(data,day(b.week)).filter(i=>ids.has(i.source_id));
+        requireThat(JSON.stringify(expected)===JSON.stringify(b.items),'The source plan, team, PTO or destination changed. Reload the copy preview.',409);
+        for(const item of expected){
+          const id=uuid();this.rows('INSERT INTO assignments(id,search_id,team_id,work_date,target,notes) VALUES(?,?,?,?,?,?)',id,item.search_id,item.team_id,item.work_date,item.target,item.notes);
+          for(const sid of item.staff_ids)this.rows('INSERT INTO entries(id,assignment_id,staff_id) VALUES(?,?,?)',uuid(),id,sid);
+          this.audit(a,'plan-copy',id,null,item);
+        }
+        return {id:b.week};
+      }
       if(kind==='pto'){
         const staff=text(b.staff_id),date=day(b.work_date);
         requireThat(hasRole(a,'admin')||!!a.staffId&&a.staffId===staff,'You can update only your own PTO.',403);

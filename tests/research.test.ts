@@ -565,3 +565,41 @@ test('fit criteria can be drafted before keyword guidance and retained when guid
  await f.run(admin,{...draft,action:'strategy-save',content:'Operations AND leadership',criteria:draft.criteria});
  const updated=await f.rec(saved.id);assert.equal(updated.draft,'Operations AND leadership');assert.deepEqual(updated.criteria,draft.criteria);
 });
+
+test('CRM import assigns editable sequential IDs atomically and refresh preserves them',async()=>{
+ const f=fixture();await f.w.stageCRM(admin,[{external_id:'100',title:'Historical',status:'Closed',company_slug:'',company_name:'Synthetic'},{external_id:'200',title:'New',status:'Open',company_slug:'',company_name:'Synthetic'}]);
+ let preview=await f.w.crmState(admin);const job=(id:string)=>preview.jobs.find((j:any)=>j.external_id===id)!;
+ await f.w.applyCRM(admin,[{external_id:'200',fetched_at:job('200').fetched_at},{external_id:'100',fetched_at:job('100').fetched_at,search_number:80}]);
+ let searches=(await f.state()).searches;assert.equal(searches.find(s=>s.external_id==='100')?.search_number,80);assert.equal(searches.find(s=>s.external_id==='200')?.search_number,81);
+ const historical=searches.find(s=>s.external_id==='100')!;
+ await f.w.stageCRM(admin,[{external_id:'100',title:'Renamed',status:'Abandoned',company_slug:'',company_name:'Synthetic'}]);
+ searches=(await f.state()).searches;assert.equal(searches.find(s=>s.id===historical.id)?.search_number,80);
+ preview=await f.w.crmState(admin);const current=searches.find(s=>s.id===historical.id)!;
+ await assert.rejects(f.w.applyCRM(admin,[{external_id:'100',fetched_at:job('100').fetched_at,search_id:current.id,version:current.version,search_number:81}]),/already assigned/);
+ assert.equal((await f.state()).searches.find(s=>s.id===current.id)?.search_number,80);f.db.close();
+});
+test('copy previous week is version checked, permission checked and does not overwrite the destination',async()=>{
+ const f=fixture(),{weekStart,addDays}=await import('../src/planning'),{carryoverAssignments}=await import('../src/plan-carryover');
+ const previous=weekStart('2099-01-12'),week=addDays(previous,7);
+ f.db.prepare("INSERT INTO weekly_priorities(search_id,week,disposition,notes) VALUES('r',?,'Continue','')").run(previous);
+ f.db.prepare("INSERT INTO assignments(id,search_id,team_id,work_date,target) VALUES('source','r','t',?,5)").run(previous);
+ f.db.exec("INSERT INTO entries(id,assignment_id,staff_id) VALUES('source-entry','source','s')");
+ const items=carryoverAssignments(await f.state(),week);
+ assert.equal(items.length,1);
+ await assert.rejects(f.w.mutate(mapper,'week-copy',{week,items}),/permission/);
+ await f.w.mutate(admin,'week-copy',{week,items});
+ assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM assignments').get()?.n,2);
+ await assert.rejects(f.w.mutate(admin,'week-copy',{week,items}),/changed/);
+ assert.equal(f.db.prepare("SELECT target FROM assignments WHERE id='source'").get()?.target,5);f.db.close();
+});
+test('new competency and guidance tasks keep section-level editing permissions',async()=>{
+ const f=fixture();
+ await f.run(admin,{action:'task-save',role_id:'r',team_id:'t',owner_id:'mapper',work_date:'2026-10-06',task_type:'Competency map'});
+ const doc=await f.run(mapper,{action:'strategy-save',role_id:'r',content:'',criteria:[{id:'scope',label:'Scope',requirement:'Multiple sites',weight:100}]});
+ const old=await f.rec(doc.id);
+ await assert.rejects(f.run(mapper,{...old,action:'strategy-save',content:'Unauthorized guidance',criteria:old.criteria}),/fit criteria only/);
+ await f.run(admin,{action:'task-save',role_id:'r',team_id:'t',owner_id:'peer',work_date:'2026-10-06',task_type:'Keyword guidance'});
+ await f.run(peer,{...old,action:'strategy-save',content:'Operations AND leadership',criteria:old.criteria});
+ const updated=await f.rec(doc.id);
+ await assert.rejects(f.run(peer,{...updated,action:'strategy-save',content:updated.draft,criteria:[]}),/keyword guidance only/);f.db.close();
+});

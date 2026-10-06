@@ -1,3 +1,4 @@
+import {searchTaskTypes,taskCanEdit} from './search-task-types';
 import {linkedin,linkedinKey,sameLinkedin} from './candidate-identity';
 import {canTeamReview} from './team-review';
 import {handoffEngagement} from './engagement-domain';
@@ -33,7 +34,7 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
  const search=role?db.rows('SELECT * FROM searches WHERE id=?',role)[0]:null;
  if(role)requireThat(search,'Role not found.',404);
  const manager=canPlan(a)||hasRole(a,'partner')&&search?.partner_id===a.id;
- const assignedSetup=['brief-save','strategy-save'].includes(b.action)&&researchRecords(db).some(t=>t.kind==='task'&&t.role_id===role&&t.owner_id===a.id&&t.status!=='Cancelled'&&((b.action==='brief-save'&&t.task_type==='Role brief')||(b.action==='strategy-save'&&t.task_type==='Search strategy')));
+ const assignedSetup=['brief-save','strategy-save'].includes(b.action)&&researchRecords(db).some(t=>t.kind==='task'&&t.role_id===role&&t.owner_id===a.id&&t.status!=='Cancelled'&&((b.action==='brief-save'&&taskCanEdit(t.task_type,'brief'))||(b.action==='strategy-save'&&(taskCanEdit(t.task_type,'criteria')||taskCanEdit(t.task_type,'guidance')))));
  const manage=()=>requireThat(manager||assignedSetup,'Role management permission required.',403);
  let next:any,id=old?.id||crypto.randomUUID(),kind=old?.kind||'',key='';
  const find=(k:string,rk:string)=>{if(k==='candidate'&&rk){const matches=db.rows("SELECT id,data FROM research_records WHERE kind='candidate'").map(c=>({...JSON.parse(c.data),id:c.id})).filter(c=>sameLinkedin(c.url,rk));requireThat(matches.length<2,'Multiple existing candidates share this LinkedIn account. Ask your data administrator to resolve them.',409);if(matches.length)return matches[0];}return db.rows('SELECT id FROM research_records WHERE kind=? AND record_key=?',k,rk)[0];};
@@ -64,7 +65,7 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
  } else if(b.action==='task-save') {
   requireThat(canPlan(a),'Planning permission required.',403);requireThat(search,'Choose a search.');requireThat(!old||old.kind==='task','Choose a task.');
   const person=researcher(b.owner_id),team=text(b.team_id);requireThat(db.rows('SELECT 1 FROM team_members WHERE team_id=? AND staff_id=?',team,person.staff_id||person.staffId).length,'Assign a member of this team.');
-  requireThat(['Role brief','Search strategy','Target companies','Sourcing','Other'].includes(b.task_type),'Choose a task type.');
+  requireThat([...searchTaskTypes,'Role brief','Search strategy','Target companies','Sourcing'].includes(b.task_type),'Choose a task type.');
   requireThat(['Planned','In progress','Completed','Cancelled'].includes(b.status||'Planned'),'Choose a task status.');
   kind='task';key=old?.id||id;next={...old,task_type:b.task_type,title:text(b.title,200)||b.task_type,team_id:team,owner_id:b.owner_id,staff_id:person.staff_id||person.staffId,work_date:day(b.work_date),status:b.status||'Planned',notes:text(b.notes,5000)};
  } else if(b.action==='task-status') {
@@ -108,6 +109,11 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
  } else if(['brief-save','strategy-save','brief-approve','strategy-approve','brief-publish','brief-unpublish'].includes(b.action)) {
   manage();requireThat(search,'Choose a role.');kind=b.action.startsWith('brief')?'brief':'strategy';key=role;
   requireThat(!old||old.kind===kind,'Wrong record type.');requireThat(old?.id===find(kind,key)?.id,'A document already exists. Reload.',409);
+  if(b.action==='strategy-save'&&!manager){
+   const assigned=researchRecords(db).filter(t=>t.kind==='task'&&t.role_id===role&&t.owner_id===a.id&&t.status!=='Cancelled');
+   requireThat(assigned.some(t=>taskCanEdit(t.task_type,'guidance'))||text(b.content,40000)===(old?.draft||''),'You may edit fit criteria only.',403);
+   requireThat(assigned.some(t=>taskCanEdit(t.task_type,'criteria'))||JSON.stringify(b.criteria||[])===JSON.stringify(old?.criteria||[]),'You may edit keyword guidance only.',403);
+  }
   next={...old};delete next.version;
   if(b.action.endsWith('-save')) {const page=kind==='brief'&&b.page?cleanRolePage(b.page):null;const content=page?[page.title,...page.sections.map(s=>s.heading+'\n\n'+s.body)].filter(Boolean).join('\n\n'):text(b.content,40000);requireThat(content||(kind==='strategy'&&b.criteria?.length),'Enter document content or fit criteria.');next.draft=content;if(kind==='strategy')next.criteria=cleanCriteria(b.criteria||old?.criteria||[]);if(page)next.draft_page=page;else if(kind==='brief')delete next.draft_page;next.status='Draft';}
   if(b.action.endsWith('-approve')) {requireThat(old?.draft,'Save a draft first.');next.active=old.draft;if(kind==='strategy')next.active_criteria=old.criteria||[];if(kind==='brief')next.active_page=old.draft_page||null;next.revision=(old.revision||0)+1;next.approved_by=a.id;next.approved_at=iso();next.status='Approved';

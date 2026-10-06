@@ -1,3 +1,4 @@
+import {taskCanEdit} from './search-task-types';
 import React,{useEffect,useState} from 'react';
 import {PencilSimple} from '@phosphor-icons/react';
 import {StrategyCriteriaEditor} from './StrategyEvidence';
@@ -7,7 +8,7 @@ type R=Record<string,any>;
 export function StrategySetup({data,role,manager,api,reload,onDirty,onNavigate,onClone,section='criteria'}:{section?:'criteria'|'guidance';data:R;role:string;manager:boolean;api:(p:string,b?:unknown)=>Promise<any>;reload:()=>Promise<void>;onDirty:(v:boolean)=>void;onNavigate:(tab:string)=>void;onClone:()=>void}){
  const guidance=section==='guidance',title=guidance?'Keyword guidance':'Fit criteria';
  const records:R[]=data.research?.records||[],doc=records.find(r=>r.kind==='strategy'&&r.role_id===role);
- const canEdit=manager||records.some(t=>t.kind==='task'&&t.role_id===role&&t.owner_id===data.actor.id&&t.status!=='Cancelled'&&t.task_type==='Search strategy');
+ const canEdit=manager||records.some(t=>t.kind==='task'&&t.role_id===role&&t.owner_id===data.actor.id&&t.status!=='Cancelled'&&taskCanEdit(t.task_type,guidance?'guidance':'criteria'));
  const [content,setContent]=useState(doc?.draft||''),[criteria,setCriteria]=useState<R[]>(doc?.criteria||[]),[editing,setEditing]=useState(!doc),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const [cutover,setCutover]=useState(new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'}).format(new Date()));
  const dirty=content!==(doc?.draft||'')||JSON.stringify(criteria)!==JSON.stringify(doc?.criteria||[]);

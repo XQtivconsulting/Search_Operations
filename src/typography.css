@@ -576,3 +576,15 @@
 .app .strategy-workspace .strategy-footer{display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-top:1px solid #e0e6ed;padding-top:14px}
 .app .strategy-workspace .strategy-footer button{width:auto;margin:0}
 @media(max-width:600px){.app .strategy-workspace .strategy-heading{flex-wrap:wrap}.app .strategy-workspace .strategy-approval{flex-wrap:wrap;justify-content:flex-start}.app .strategy-workspace .strategy-criteria-table th:first-child{width:36%}}
+
+/* Search identity remains compact beside planning evidence and calendar days. */
+.app .main .decision-grid{min-width:1160px}
+.app .main .decision-grid th:first-child{width:76px}
+.app .main .decision-grid:not(.decision-history) th:nth-child(2),.app .main .decision-grid.decision-history th:nth-child(2){width:100px}
+.app .main .decision-grid th:nth-child(3){width:200px}
+.app .main .decision-grid:not(.decision-history) th:nth-child(4){width:112px}
+.app .main .decision-grid:not(.decision-history) th:nth-child(7),.app .main .decision-grid:not(.decision-history) th:nth-child(8){width:90px}
+.app .main .decision-grid:not(.decision-history) th:nth-child(9){width:152px}
+.app .main .decision-grid:not(.decision-history) th:nth-child(10){width:150px}
+.app .weekly-planner .plan-grid tbody th{min-width:190px}
+.app .crm-panel input[aria-label^="Search ID for"]{width:90px}
