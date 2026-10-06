@@ -615,3 +615,8 @@
 .app .main .allocation-compact .plan-assign-icon{width:22px;height:22px;min-height:22px}
 .app .main .allocation-compact .plan-other-tasks{margin:2px 0;border:0;background:transparent}
 .app .main .allocation-compact .plan-other-tasks summary{padding:3px 0}
+
+.app .target-companies-panel>.section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.app .target-company-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-left:auto}
+.app .target-company-actions button{width:auto;white-space:nowrap}
+@media(max-width:640px){.app .target-company-actions{margin-left:0;justify-content:flex-start;width:100%}}
