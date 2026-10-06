@@ -251,19 +251,19 @@ test('carried Pause/Stop block new work and moves; decision changes preserve exi
  db.prepare('UPDATE entries SET mapped=0 WHERE assignment_id=?').run(existing.id);
  await w.mutate(actor,'decision',{search_id:'r',week:'2026-09-28',disposition:'Pause',version:0});
  assert.equal(db.prepare('SELECT id FROM assignments WHERE id=?').get(existing.id)?.id,existing.id);
- p=await plan(w);p.days[1].enabled=true;await assert.rejects(w.mutate(actor,'week-plan',p),/Search Decisions/);
+ p=await plan(w);p.days[1].enabled=true;await assert.rejects(w.mutate(actor,'week-plan',p),/Sourcing Decisions/);
  assert.equal(db.prepare("SELECT count(*) n FROM assignments WHERE work_date='2026-09-29'").get()?.n,0);
- await assert.rejects(w.mutate(actor,'assignment',{search_id:'r',team_id:'t',work_date:'2026-10-06',target:2,staff_ids:['s']}),/Search Decisions/);
+ await assert.rejects(w.mutate(actor,'assignment',{search_id:'r',team_id:'t',work_date:'2026-10-06',target:2,staff_ids:['s']}),/Sourcing Decisions/);
  await w.mutate(actor,'decision',{search_id:'r',week:'2026-10-05',disposition:'Recalibrate',version:0});
  await w.mutate(actor,'assignment',{search_id:'r',team_id:'t',work_date:'2026-10-06',target:2,staff_ids:['s']});
  await w.mutate(actor,'decision',{search_id:'r',week:'2026-10-05',disposition:'Stop',version:1});
  db.close();
  const f=transferFixture();await f.w.mutate(actor,'decision',{search_id:'r',week:'2026-09-21',disposition:'Stop',version:1});
- await assert.rejects(f.w.mutate(actor,'plan-transfer',transferBody),/Search Decisions/);
+ await assert.rejects(f.w.mutate(actor,'plan-transfer',transferBody),/Sourcing Decisions/);
  await f.w.mutate(actor,'plan-transfer',{...transferBody,operation:'unassign'});assert.equal(f.db.prepare('SELECT count(*) n FROM assignments').get()?.n,0);f.db.close();
 });
 test('undecided roles cannot be allocated and stale carried decisions cannot be overwritten',async()=>{
- const {db,w}=fixture();await assert.rejects(w.mutate(actor,'assignment',{search_id:'r',team_id:'t',work_date:'2026-10-01',target:3,staff_ids:[]}),/Search Decisions/);
+ const {db,w}=fixture();await assert.rejects(w.mutate(actor,'assignment',{search_id:'r',team_id:'t',work_date:'2026-10-01',target:3,staff_ids:[]}),/Sourcing Decisions/);
  await w.mutate(actor,'decision',{search_id:'r',week:'2026-09-21',disposition:'Start',version:0});
  await w.mutate(actor,'decision',{search_id:'r',week:'2026-09-21',disposition:'Pause',version:1});
  await assert.rejects(w.mutate(actor,'decision',{search_id:'r',week:'2026-09-28',disposition:'Continue',version:0,base_week:'2026-09-21',base_version:1}),/carried decision changed/);

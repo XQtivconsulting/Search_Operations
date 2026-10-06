@@ -55,3 +55,12 @@ test('generated workbooks can be read by the application XLSX parser',async()=>{
  const sheets=await readXlsx(Buffer.from(workbook([{name:'Candidates',rows:[{name:'Synthetic & Example',phone:'+15550000000',notes:'=1+1'}]}])));
  const rows=sheets[0].data;assert.deepEqual(rows[0],['Source row','Text part','name','phone','notes']);assert.equal(rows[1][2],'Synthetic & Example');assert.equal(rows[1][3],'+15550000000');assert.equal(rows[1][4],'=1+1');
 });
+
+test('restore preserves unnumbered historical searches and the sequence high-water mark',()=>{
+ const source=seeded(),target=fixture();source.rows("UPDATE searches SET search_number=NULL WHERE id='s'");source.rows("UPDATE settings SET value='77' WHERE key='search_number_high_water'");
+ restoreBusinessSnapshot(target,snapshotBusiness(source,'alpha',[]),'alpha');
+ assert.equal(target.rows("SELECT search_number FROM searches WHERE id='s'")[0].search_number,null);
+ target.rows("INSERT INTO searches(id,client,title) VALUES('next','Synthetic','Next')");
+ assert.equal(target.rows("SELECT search_number FROM searches WHERE id='next'")[0].search_number,78);
+ source.db.close();target.db.close();
+});
