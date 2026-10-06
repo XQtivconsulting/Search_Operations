@@ -603,3 +603,28 @@ test('new competency and guidance tasks keep section-level editing permissions',
  const updated=await f.rec(doc.id);
  await assert.rejects(f.run(peer,{...updated,action:'strategy-save',content:updated.draft,criteria:[]}),/keyword guidance only/);f.db.close();
 });
+
+test('workspace state uses a fixed query count as assignments grow and preserves protection',async()=>{
+ const f=fixture(),original=f.w.rows.bind(f.w);let queries=0;
+ f.w.rows=(q:string,...p:any[])=>{queries++;return original(q,...p);};
+ try{
+  await f.state();const initialQueries=queries;
+  const insert=f.db.prepare("INSERT INTO assignments(id,search_id,team_id,work_date) VALUES(?,'r','t','2026-10-05')");
+  for(let i=0;i<2000;i++)insert.run('scale-'+i);
+  f.db.exec("INSERT INTO entries(id,assignment_id,staff_id,mapped) VALUES('scale-entry','scale-0','s',0)");
+  queries=0;const state=await f.state();
+  assert.equal(queries,initialQueries);
+  assert.equal(state.assignments.length,2000);
+  assert.equal(state.assignments.find(a=>a.id==='scale-0')?.has_work,true);
+  assert.equal(state.assignments.find(a=>a.id==='scale-1')?.has_work,false);
+  for(const a of state.assignments.slice(0,10))assert.equal(a.has_work,f.w.assignmentHasWork(a));
+ }finally{f.db.close();}
+});
+test('derived entries keep first matching allocation and unplanned mapping totals',async()=>{
+ const {derivedEntries}=await import('../src/research');
+ const assignments=[{id:'first',search_id:'r',team_id:'t',work_date:'2026-10-05'},{id:'second',search_id:'r',team_id:'t',work_date:'2026-10-05'}];
+ const mapping={kind:'mapping',role_id:'r',team_id:'t',work_date:'2026-10-05',staff_id:'s',submitted_at:'2026-10-05',peer_decision:'Approve',status:'Approved'};
+ const entries=derivedEntries([mapping,{...mapping,status:'Peer review'},{...mapping,role_id:'unplanned'},{...mapping,submitted_at:null}],assignments);
+ assert.equal(entries.length,2);assert.equal(entries[0].assignment_id,'first');assert.equal(entries[0].mapped,2);assert.equal(entries[0].peer,2);assert.equal(entries[0].partner,1);assert.ok(entries[1].assignment_id.startsWith('unplanned:'));
+});
+

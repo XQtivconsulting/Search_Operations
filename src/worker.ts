@@ -219,10 +219,11 @@ export default {
             else res = json({error:'Not found.'},404);
           }
           else if (url.pathname === "/api/state" && req.method === "GET") {
-            const partners=(await identity.members(a.tenant)).filter((m:any)=>m.status==='active' && canPartnerReview(m)).map((m:any)=>({id:m.id,name:m.name}));
-            const people=(await identity.members(a.tenant)).filter((m:any)=>m.status==='active').map((m:any)=>({id:m.id,name:m.name,role:m.role,roles:m.roles,staff_id:m.staff_id,status:m.status}));
+            const members=await identity.members(a.tenant);
+            const partners=members.filter((m:any)=>m.status==='active' && canPartnerReview(m)).map((m:any)=>({id:m.id,name:m.name}));
+            const people=members.filter((m:any)=>m.status==='active').map((m:any)=>({id:m.id,name:m.name,role:m.role,roles:m.roles,staff_id:m.staff_id,status:m.status}));
             if(env.BACKUPS)await workspace.ensureBackupSchedule(a.tenant);
-            const state=await workspace.state(a,await identity.members(a.tenant));
+            const state=await workspace.state(a,members);
             res = json({...state,partners,people,staff:state.staff?.filter((s:any)=>people.some((p:any)=>p.staff_id===s.id)).map((s:any)=>({...s,name:people.find((p:any)=>p.staff_id===s.id)?.name||s.name,archived:people.some((p:any)=>p.staff_id===s.id&&hasRole(p,'researcher'))?0:1}))});
           }
           else if (url.pathname === '/api/geography-lookup'&&req.method==='POST') {
@@ -384,3 +385,4 @@ export default {
     return new Response(res.body, { status: res.status, headers });
   },
 };
+

@@ -4,20 +4,20 @@ import {ViewStateProvider} from './ViewState';
 const navigationLabel=(name:string)=>({'Daily Work':'Engagement Queue','Pipeline':'Engagement dashboard','Organization':'Admin','Delivery Monitor':'Sourcing Monitor','Performance':'Sourcing Performance','Search assignments':'Engagement Assignments'} as Record<string,string>)[name]||name;
 import './engagement-layout.css';
 import {useNavigationHistory} from './useNavigationHistory';
-import {Backups} from './Backups';
-import {EngagementDaily} from './EngagementDaily';
-import {InterviewTracker} from './InterviewTracker';
-import {EngagementAdmin} from './EngagementAdmin';
-import {Engagement} from './Engagement';
+const Backups=lazy(()=>import('./Backups').then(m=>({default:m.Backups})));
+const EngagementDaily=lazy(()=>import('./EngagementDaily').then(m=>({default:m.EngagementDaily})));
+const InterviewTracker=lazy(()=>import('./InterviewTracker').then(m=>({default:m.InterviewTracker})));
+const EngagementAdmin=lazy(()=>import('./EngagementAdmin').then(m=>({default:m.EngagementAdmin})));
+const Engagement=lazy(()=>import('./Engagement').then(m=>({default:m.Engagement})));
 import {searchDisplayId} from './SearchPicker';
-import {Performance} from './Performance';
+const Performance=lazy(()=>import('./Performance').then(m=>({default:m.Performance})));
 import './role-page.css';
 import {CandidateRolePage} from './RolePageView';
-import {PeoplePanel} from './PeoplePanel';
+const PeoplePanel=lazy(()=>import('./PeoplePanel').then(m=>({default:m.PeoplePanel})));
 import {Candidates,CandidateProfile} from './Candidates';
-import {MyWork} from './MyWork';
+const MyWork=lazy(()=>import('./MyWork').then(m=>({default:m.MyWork})));
 import {AccountSettings} from './AccountSettings';
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import {
   List,
@@ -38,12 +38,12 @@ import {
   WarningCircle,
 } from "@phosphor-icons/react";
 import {hasRole,roleList,roleLabel, aggregate } from "./domain";
-import {CompanyUniverse} from "./CompanyUniverse";
+const CompanyUniverse=lazy(()=>import('./CompanyUniverse').then(m=>({default:m.CompanyUniverse})));
 import {PeerSetup} from "./PeerSetup";
-import {DeliveryMonitor} from "./DeliveryMonitor";
-import {WeeklyPlanner} from './WeeklyPlanner';
-import {TeamsPanel} from './TeamsPanel';
-import { CRMPanel } from "./CRMPanel";
+const DeliveryMonitor=lazy(()=>import('./DeliveryMonitor').then(m=>({default:m.DeliveryMonitor})));
+const WeeklyPlanner=lazy(()=>import('./WeeklyPlanner').then(m=>({default:m.WeeklyPlanner})));
+const TeamsPanel=lazy(()=>import('./TeamsPanel').then(m=>({default:m.TeamsPanel})));
+const CRMPanel=lazy(()=>import('./CRMPanel').then(m=>({default:m.CRMPanel})));
 import {ResearchPanel,PublicBrief} from "./ResearchPanel";
 import { Setup } from './Setup';
 import "./style.css";
@@ -414,7 +414,7 @@ function App() {
           </button>
         </div>
       </aside>
-      <main className={"main"+(["Search repository","Companies","Candidates","Delivery Monitor","Performance","Engagement","Pipeline","Daily Work","Search assignments","Interview tracker","Engagement Config","Backups & exports"].includes(page)?" compact-workspace":"")}><ViewStateProvider key={page+repoRestore} state={viewStates[page]||{}} change={patch=>setViewStates(previous=>({...previous,[page]:{...previous[page],...patch}}))}>
+      <main className={"main"+(["Search repository","Companies","Candidates","Delivery Monitor","Performance","Engagement","Pipeline","Daily Work","Search assignments","Interview tracker","Engagement Config","Backups & exports"].includes(page)?" compact-workspace":"")}><Suspense fallback={<p role="status" className="muted">Loading screen…</p>}><ViewStateProvider key={page+repoRestore} state={viewStates[page]||{}} change={patch=>setViewStates(previous=>({...previous,[page]:{...previous[page],...patch}}))}>
         {!(page === "Candidates" && candidateId) && <header>
           <div>
             <h1>{page === "Search repository" && sBy[selected] ? sBy[selected].title : page==='Pipeline'?(data.searches.find((s:Row)=>s.id===viewStates.Pipeline?.['Engagement.role'])?.title||'Engagement dashboard'):navigationLabel(page)}</h1>
@@ -577,7 +577,7 @@ function App() {
         <footer>
           <button onClick={() => load()}>Refresh data</button>
         </footer>
-      </ViewStateProvider></main>
+      </ViewStateProvider></Suspense></main>
       {modal && (
         <div
           className="modal-backdrop"
@@ -821,3 +821,4 @@ function Empty({ title, body }: any) {
   );
 }
 createRoot(document.getElementById("root")!).render(location.pathname === '/role-invite' ? <CandidateRolePage/> : location.pathname === '/brief' ? <PublicBrief/> : location.pathname === '/setup' ? <Setup /> : <App />);
+

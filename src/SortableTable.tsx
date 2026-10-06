@@ -24,7 +24,8 @@ export function SortableTable({children,page,pageSize,onPageChange,stateKey='tab
  const plain=cols.length>0&&!cols.some(c=>c.props.colSpan>1||c.props.rowSpan>1)&&!headers.some(r=>elements(r.props.children).some(c=>c.props.colSpan>1||c.props.rowSpan>1));
  let rows=body?elements(body.props.children):[];
  const sortable=plain&&!rows.some(r=>elements(r.props.children).some(c=>c.props.colSpan>1||c.props.rowSpan>1));
- if(sort&&!externallySorted&&sortable)rows=rows.map((row,index)=>({row,index})).sort((a,b)=>compareTableValues(value(elements(a.row.props.children)[sort.column]||<td/>),value(elements(b.row.props.children)[sort.column]||<td/>),sort.descending)||a.index-b.index).map(r=>r.row);
+ if(sort&&!externallySorted&&sortable)rows=rows.map((row,index)=>({row,index,sortValue:value(elements(row.props.children)[sort.column]||<td/>)})).sort((a,b)=>compareTableValues(a.sortValue,b.sortValue,sort.descending)||a.index-b.index).map(r=>r.row);
  if(pageSize)rows=rows.slice((page||0)*pageSize,((page||0)+1)*pageSize);
  return <table {...props}>{sections.map(section=>section===body?cloneElement(section,{},rows):section===head&&sortable&&!externallySorted?cloneElement(section,{},headers.map((r,i)=>i?r:cloneElement(r,{},cols.map((c,column)=>{const label=cellValue(c);if(!label||/^(actions?|select|selection)$/i.test(String(label))||elements(c.props.children).some(e=>['input','select'].includes(String(e.type))))return c;return cloneElement(c,{'aria-sort':sort?.column===column?(sort.descending?'descending':'ascending'):'none',scope:'col'},<button type="button" className="table-sort-heading" onClick={()=>{setSort({column,descending:sort?.column===column?!sort.descending:false});onPageChange?.(0);}}>{c.props.children} <span aria-hidden="true">{sort?.column===column?(sort.descending?'↓':'↑'):'↕'}</span></button>);})))):section)}</table>;
 }
+

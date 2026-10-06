@@ -1,3 +1,4 @@
+import {assignmentWorkIds} from './performance-index';
 import {carryoverAssignments} from './plan-carryover';
 import {initializeSearchNumbers,nextSearchNumber,reserveSearchNumbers,searchNumber} from './search-number';
 import {taskCanEdit} from './search-task-types';
@@ -50,6 +51,9 @@ export class Workspace extends DurableObject {
     ctx.storage.sql.exec(effortSchema);
     this.rows('CREATE TABLE IF NOT EXISTS time_off(staff_id TEXT NOT NULL REFERENCES staff(id),work_date TEXT NOT NULL,pto INTEGER NOT NULL DEFAULT 0,version INTEGER NOT NULL DEFAULT 1,PRIMARY KEY(staff_id,work_date))');
     ctx.storage.sql.exec(researchSchema);
+    this.rows('CREATE INDEX IF NOT EXISTS reviews_entry ON reviews(entry_id)');
+    this.rows('CREATE INDEX IF NOT EXISTS research_events_record_date ON research_events(record_id,created_at)');
+    this.rows('CREATE INDEX IF NOT EXISTS assignments_search_team_date ON assignments(search_id,team_id,work_date)');
     ctx.storage.sql.exec(candidateSchema);
     this.rows(conversionSchema);
     if(!this.rows('PRAGMA table_info(crm_jobs)').some(c=>c.name==='job_slug'))this.rows("ALTER TABLE crm_jobs ADD COLUMN job_slug TEXT NOT NULL DEFAULT ''");
@@ -298,7 +302,8 @@ export class Workspace extends DurableObject {
     if(members)result.staff=result.staff.map(s=>({...s,name:members.find(m=>(m.staff_id||m.staffId)===s.id)?.name||s.name}));
     const crmStatuses=new Map(this.rows('SELECT external_id,status FROM crm_jobs').map(j=>[j.external_id,j.status]));
     result.searches=result.searches.map(s=>({...s,status:crmStatuses.has(s.external_id)?crmStatuses.get(s.external_id):s.status}));
-    result.assignments=result.assignments.map(a=>({...a,has_work:this.assignmentHasWork(a)}));
+    const protectedAssignments=assignmentWorkIds(result.assignments,result.entries,research.records,result.effort,this.rows('SELECT DISTINCT e.assignment_id FROM reviews r JOIN entries e ON e.id=r.entry_id'));
+    result.assignments=result.assignments.map(a=>({...a,has_work:protectedAssignments.has(a.id)}));
     const automated=new Set(research.records.filter(r=>r.kind==='strategy'&&r.active).map(r=>r.role_id));
     result.entries=result.entries.map(e=>({...e,automated:automated.has(e.search_id)}));
     result.entries.push(...derivedEntries(research.records,result.assignments));

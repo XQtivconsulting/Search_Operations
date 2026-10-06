@@ -1,3 +1,4 @@
+import {allocationKey} from './performance-index';
 import {searchTaskTypes,taskCanEdit} from './search-task-types';
 import {linkedin,linkedinKey,sameLinkedin} from './candidate-identity';
 import {canTeamReview} from './team-review';
@@ -222,10 +223,12 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
  db.rows('INSERT INTO research_events VALUES(?,?,?,?,?,?)',crypto.randomUUID(),id,a.id,b.action,JSON.stringify(event),iso());db.audit(a,b.action,id,old,next);return {id};
 }
 export function derivedEntries(records:any[],assignments:any[]) {
- const groups=new Map<string,any>();
+ const groups=new Map<string,any>(),byDay=new Map<string,any>();
+ for(const a of assignments){const key=allocationKey(a.search_id,a.team_id,a.work_date);if(!byDay.has(key))byDay.set(key,a);}
  for(const m of records.filter(r=>r.kind==='mapping'&&r.submitted_at)){
   const key=[m.role_id,m.team_id,m.staff_id,m.work_date].join(':');
-  const entry=groups.get(key)||{id:'derived:'+key,assignment_id:assignments.find(a=>a.search_id===m.role_id&&a.team_id===m.team_id&&a.work_date===m.work_date)?.id||'unplanned:'+key,search_id:m.role_id,team_id:m.team_id,staff_id:m.staff_id,work_date:m.work_date,mapped:0,peer:0,partner:0,source:'candidates',version:0,notes:'Calculated from candidate mappings',peer_at:'derived',partner_at:'derived'};
+  const entry=groups.get(key)||{id:'derived:'+key,assignment_id:byDay.get(allocationKey(m.role_id,m.team_id,m.work_date))?.id||'unplanned:'+key,search_id:m.role_id,team_id:m.team_id,staff_id:m.staff_id,work_date:m.work_date,mapped:0,peer:0,partner:0,source:'candidates',version:0,notes:'Calculated from candidate mappings',peer_at:'derived',partner_at:'derived'};
   entry.mapped++;if(m.peer_decision==='Approve')entry.peer++;if(m.status==='Approved')entry.partner++;groups.set(key,entry);
  }return [...groups.values()];
 }
+
