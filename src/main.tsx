@@ -385,7 +385,7 @@ function App() {
                 setNotice("");
               }}
             >
-              <Icon size={21} />
+              <Icon size={21} weight="fill" />
               <span className="nav-item-label">{navigationLabel(label)}</span>
               {label === "Reviews" && queue.length > 0 && (
                 <span className="nav-count">{queue.length}</span>
