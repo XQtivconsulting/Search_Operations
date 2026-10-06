@@ -4,7 +4,7 @@ const account=process.env.CLOUDFLARE_ACCOUNT_ID,token=process.env.CLOUDFLARE_API
 if(!account||!token)throw Error('Cloudflare deployment credentials are unavailable.');
 const ai={run:async(model,input)=>{
  const response=await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(account)}/ai/run/${model}`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify(input),signal:AbortSignal.timeout(90000)});
- const body=await response.json();if(!response.ok||!body.success)throw Error(`Workers AI verification failed (${response.status}). Verify Workers AI access on the deployment token.`);return body.result;
+ const body=await response.json();if(!response.ok||!body.success)throw Error(`Workers AI verification failed (${response.status}). Verify Workers AI access on the deployment token.`);console.log('Synthetic response format: '+typeof body.result?.response);if(typeof body.result?.response==='string')console.log('Synthetic model response: '+body.result.response.slice(0,12000));return body.result;
 }};
 const result=await generateCandidateAI(ai,[
  {name:'Synthetic resume, 2024',text:'Alex Example was Sales Director at Fictional Helix in 2024. Alex owned a $5 million healthcare services portfolio and led four salespeople.'},
