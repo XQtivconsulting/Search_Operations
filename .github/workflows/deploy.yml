@@ -21,6 +21,11 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - name: Verify candidate AI synthesis with synthetic inputs
+        run: node --import tsx scripts/verify-candidate-ai.mjs
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.SEARCH_ERP_CLOUDFLARE_API_TOKEN || secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       - name: Connect private backup storage
         id: backup-storage
         run: node scripts/provision-backup-storage.mjs

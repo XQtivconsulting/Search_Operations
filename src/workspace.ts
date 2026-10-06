@@ -1,4 +1,5 @@
-import {candidateSummaryMutation} from './candidate-summary';
+import {generateCandidateAI} from './candidate-ai';
+import {canSummarize,candidateSummaryMutation} from './candidate-summary';
 import {planSearchImport,searchSignature} from './search-import';
 import {isCRMManaged,searchStatuses} from './search-management';
 import {assignmentWorkIds} from './performance-index';
@@ -145,8 +146,22 @@ export class Workspace extends DurableObject {
     for(const r of this.rows('SELECT * FROM reset_backup_rows WHERE backup_id=? ORDER BY table_name,row_no',id))(backup.tables[r.table_name]??=[]).push(JSON.parse(r.data));
     return backup;
   }
-  async research(a: Actor,b:any,members:Member[]):Promise<any> {await this.syncPeople(members);return this.ctx.storage.transactionSync(()=>{
-      if(['candidate-summary-draft','candidate-summary-publish'].includes(b.action))return candidateSummaryMutation(this,a,b);
+  async research(a: Actor,b:any,members:Member[]):Promise<any> {await this.syncPeople(members);
+    let generated:any;
+    if(b.action==='candidate-summary-draft'){
+      requireThat(canSummarize(a),'Candidate editing permission required.',403);
+      const records=researchRecords(this),candidate=records.find(r=>r.id===b.candidate_id&&r.kind==='candidate');requireThat(candidate,'Candidate not found.',404);requireThat(candidate.version===Number(b.candidate_version),'Candidate changed. Reload.',409);
+      requireThat(Array.isArray(b.sources),'Provide source documents.');
+      const sources=b.sources.map((s:any)=>({name:text(s.name,200),text:s.text,file_id:s.file_id}));
+      for(const source of sources)if(source.file_id){const f=this.rows('SELECT * FROM candidate_files WHERE id=? AND candidate_id=?',source.file_id,candidate.id)[0];requireThat(f,'Source file does not belong to this candidate.',403);source.name=f.name;source.recorded_at=f.created_at;}
+      const notes=records.filter(r=>r.kind==='candidate-activity'&&r.candidate_id===candidate.id&&['Note','Transcript','Interview','Email','Call'].includes(r.type)&&String(r.notes||'').trim());
+      sources.push(...notes.map(r=>({name:r.type+' · '+(r.occurred_on||r.created_at||''),text:r.notes,activity_id:r.id,recorded_at:r.occurred_on||r.created_at})));
+      requireThat(sources.length>0&&sources.length<=100&&sources.every((s:any)=>typeof s.text==='string'&&s.text.trim())&&sources.reduce((n:number,s:any)=>n+s.text.length,0)<=800000,'Use up to 100 sources and 800,000 characters. Nothing has been omitted.');
+      generated=await generateCandidateAI((this.env as any).AI,sources,records,candidate.name);
+      b={...b,sources};
+    }
+    return this.ctx.storage.transactionSync(()=>{
+      if(['candidate-summary-draft','candidate-summary-publish'].includes(b.action))return candidateSummaryMutation(this,a,b,generated);
       if(['candidate-file-save','candidate-file-list','candidate-file-read'].includes(b.action)) {
         const c=this.rows("SELECT id FROM research_records WHERE id=? AND kind='candidate'",text(b.candidate_id))[0];requireThat(c,'Candidate not found.',404);
         if(b.action==='candidate-file-list')return this.rows('SELECT * FROM candidate_files WHERE candidate_id=? ORDER BY created_at DESC',c.id);

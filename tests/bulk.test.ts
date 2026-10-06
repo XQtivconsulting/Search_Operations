@@ -11,14 +11,14 @@ registerHooks({resolve(specifier, context, next) {
 }});
 const { Workspace } = await import('../src/workspace');
 const actor: Actor = {id:'admin',name:'Test',email:'codex-tests@yiaknolei.resend.app',tenant:'test',role:'admin',staffId:null};
-function fixture() {
+function fixture(env:any={}) {
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys=ON');
   const ctx = {storage: {sql: {exec(query:string,...params:any[]) {
     if(!params.length && query.includes('CREATE TABLE')) {db.exec(query); return {toArray:()=>[]};}
     return {toArray:()=>db.prepare(query).all(...params)};
   }}, transactionSync(fn:()=>any) {db.exec('BEGIN');try {const result=fn();db.exec('COMMIT');return result;}catch(e){db.exec('ROLLBACK');throw e;}}}};
-  const w = new Workspace(ctx as any, {});
+  const w = new Workspace(ctx as any, env);
   db.exec("INSERT INTO teams VALUES('t','Blue'); INSERT INTO staff VALUES('s','Researcher'); INSERT INTO searches(id,client,title) VALUES('r','Synthetic','Test role'); INSERT INTO assignments(id,search_id,team_id,work_date) VALUES('a','r','t','2026-09-27'); INSERT INTO entries(id,assignment_id,staff_id) VALUES('e','a','s'); INSERT INTO staff VALUES('s2','Other'); INSERT INTO entries(id,assignment_id,staff_id) VALUES('e2','a','s2');");
   return {db,w,ctx};
 }
@@ -408,7 +408,7 @@ test('combined import rejects stale previews and rolls back inserts if researche
 });
 
 test('executive summary remains a draft until an authorized, versioned publication',async()=>{
- const {db,w}=fixture(),a:Actor={...actor,roles:['admin','researcher'],staffId:'s'};
+ const {db,w}=fixture({AI:{run:async()=>({response:JSON.stringify({summary:'Synthetic Summary leads enterprise sales and account management for healthcare clients, with responsibility for a global team of twenty specialists.',suggestions:[],review_notes:[]})})}}),a:Actor={...actor,roles:['admin','researcher'],staffId:'s'};
  const c=await w.research(a,{action:'candidate-save',first_name:'Synthetic',last_name:'Summary',url:'linkedin.com/in/synthetic-summary'},[]);
  const source={name:'Transcript',text:'I lead enterprise sales and account management for healthcare clients. I have built and managed a global team of twenty specialists.'};
  const draft=await w.research(a,{action:'candidate-summary-draft',candidate_id:c.id,candidate_version:1,sources:[source]},[]);

@@ -68,3 +68,11 @@ Candidate Overview shows the published Executive summary above Searches. Editors
 Draft creation uses local source excerpts and explicit standardized tag matches, not a generative AI service. Each suggestion carries evidence. Geography, compensation and demographic attributes are not inferred. Drafts do not update the public profile fields. An authorized candidate editor reviews/edits the summary and explicitly selects tags before Approve & publish. Existing tags are retained by default. Publication updates summary and tags atomically, records the reviewer and source documents, and rejects stale candidate/draft versions or repeat publication. Scanned PDF and audio require text extraction/transcription first.
 
 Verification: 328 local tests passed, including shared workbook parsing, import rollback, summary draft isolation, permission checks, stale versions and evidence-backed suggestions. The People & teams/import deployment (753fa721) succeeded and was checked read-only in the live browser. No production records were created for tests.
+
+## AI synthesis (replaces excerpt generation)
+
+Executive-summary generation now calls Cloudflare Workers AI (Llama 3.3 70B), through the AI binding. There is no excerpt fallback. All resume/transcript/candidate-information documents are selected by default, and saved conversation notes are included server-side. Sources are retained and reprocessed when new input arrives. Up to 100 sources / 800,000 characters are processed in bounded chunks and recursively consolidated; nothing beyond a limit is silently truncated. Published summaries remain unchanged until approval.
+
+The model writes a concise third-person profile for a senior hiring manager. Dated updates supersede older facts only when explicit; uncertain attribution and contradictions go into internal review notes. Compensation, demographic/family/health and contact information are excluded from the shareable summary. Suggested tags must match the allowed vocabulary and have a verified verbatim evidence quote. AI output remains subject to human review.
+
+The deployment gate runs a real model call using three wholly synthetic sources to verify updated-title synthesis and exclusion of interviewer/private facts. Deployment credentials need Workers AI access; no candidate data is used in this check.
