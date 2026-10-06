@@ -558,3 +558,10 @@ test('any active member can maintain an isolated versioned pitch without changin
  assert.equal(f.db.prepare('SELECT count(*) n FROM role_publications').get()?.n,0);
  assert.equal((await f.rec(first.id)).content,'Revised talking points');f.db.close();
 });
+test('fit criteria can be drafted before keyword guidance and retained when guidance is added',async()=>{
+ const f=fixture();
+ const saved=await f.run(admin,{action:'strategy-save',role_id:'r',content:'',criteria:[{id:'scope',label:'Scope',requirement:'Multiple sites',weight:100}]});
+ const draft=await f.rec(saved.id);assert.equal(draft.draft,'');assert.equal(draft.criteria[0].label,'Scope');
+ await f.run(admin,{...draft,action:'strategy-save',content:'Operations AND leadership',criteria:draft.criteria});
+ const updated=await f.rec(saved.id);assert.equal(updated.draft,'Operations AND leadership');assert.deepEqual(updated.criteria,draft.criteria);
+});
