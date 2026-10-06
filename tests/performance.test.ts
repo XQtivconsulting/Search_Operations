@@ -1,12 +1,12 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {performanceAssessment,performanceDistribution,performanceThreshold,performanceCandidates,performanceMetrics,searchAge,performancePeriod,performanceAllocationGaps} from '../src/performance';
+import {researcherComparisons,performanceCandidates,performanceMetrics,searchAge,performancePeriod,performanceAllocationGaps} from '../src/performance';
 const base={assignments:[],entries:[],effort:[],research:{records:[]}};
-const map=(id:string,status:string,staff_id='s',role_id='r')=>({id,kind:'mapping',status,staff_id,role_id,team_id:'t',work_date:'2026-09-27',submitted_at:'2026-09-27T12:00:00Z'});
+const map=(id:string,status:string,staff_id='s',role_id='r')=>({id,kind:'mapping',status,partner_decision:status==='Rejected'?'Reject':status==='Approved'?'Approve':null,staff_id,role_id,team_id:'t',work_date:'2026-09-27',submitted_at:'2026-09-27T12:00:00Z'});
 const effort=(days:number,search_id='r',staff_id='s')=>({search_id,staff_id,team_id:'t',work_date:'2026-09-27',days});
 const filter={from:'',to:'',roles:null,team:''};
-test('quality excludes pending and returned work, includes final peer rejections',()=>{
+test('quality counts current partner decisions and keeps pending and drafts separate',()=>{
  const d={...base,research:{records:[map('a','Approved'),map('b','Rejected'),map('c','Peer review'),map('d','Partner review'),map('e','Hold'),map('f','Needs information'),{...map('g','Draft'),submitted_at:null}]},effort:[effort(1)]};
- const m=performanceMetrics(d,filter);assert.equal(m.mapped,6);assert.equal(m.reviewed,2);assert.equal(m.quality,.5);assert.equal(m.pending,2);assert.equal(m.returned,2);assert.equal(m.throughput,6);assert.equal(m.yield,1);assert.equal(m.approvalRatio,1/6);
+ const m=performanceMetrics(d,filter);assert.equal(m.mapped,7);assert.equal(m.reviewed,2);assert.equal(m.quality,.5);assert.equal(m.pending,2);assert.equal(m.returned,2);assert.equal(m.throughput,7);assert.equal(m.yield,1);assert.equal(m.approvalRatio,1/7);
 });
 test('effort includes zero output and rates stay blank for incomplete effort',()=>{
  const d={...base,effort:[effort(.5),effort(.5,'r2')],research:{records:[map('a','Approved')]}};
@@ -33,7 +33,7 @@ test('performance renders definitions, separate tabs and no invented historical 
  const React=await import('react'),{renderToStaticMarkup}=await import('react-dom/server'),{Performance}=await import('../src/Performance');
  const data={...base,actor:{role:'partner'},searches:[{id:'r',client:'Client',title:'Role'}],teams:[],staff:[{id:'s',name:'Researcher'}],priorities:[],research:{records:[map('a','Approved')]}};
  const html=renderToStaticMarkup(React.createElement(Performance,{data,api:async()=>{},reload:async()=>{},onDirty:()=>{},onDecision:()=>{}}));
- assert.ok(html.includes('Search effort &amp; yield'));assert.ok(html.includes('Allocation gaps'));assert.ok(html.includes('final decisions'));assert.ok(html.includes('Last 30 days'));assert.ok(!html.includes('person-days (plan-based)'));assert.ok(!html.includes('work entries without allocated effort'));
+ assert.ok(html.includes('Search effort &amp; yield'));assert.ok(html.includes('Partner approval rate'));assert.ok(html.includes('partner-decided'));assert.ok(html.includes('Last 30 days'));assert.ok(!html.includes('person-days (plan-based)'));assert.ok(!html.includes('work entries without allocated effort'));
 });
 
 test('reporting presets always resolve to explicit bounded dates',()=>{
@@ -57,28 +57,42 @@ test('current action queues retain old pending work but respect search, team and
  const data={research:{records:[map('old','Peer review'),{...map('new','Partner review'),work_date:'2026-10-05'},map('other','Peer review','other','other'),map('return','Needs information'),map('hold','Hold'),{...map('draft','Peer review'),submitted_at:null}]}};
  const f={from:'2026-10-01',to:'2026-10-05',roles:['r'],team:'t',staff:'s'};
  assert.deepEqual(performanceCandidates(data,f,['Peer review','Partner review']).map(r=>r.id),['new']);
- assert.deepEqual(performanceCandidates(data,f,['Peer review','Partner review'],true).map(r=>r.id),['old','new']);
+ assert.deepEqual(performanceCandidates(data,f,['Peer review','Partner review'],true).map(r=>r.id),['old','new','draft']);
  assert.deepEqual(performanceCandidates(data,f,['Needs information'],true).map(r=>r.id),['return']);
  assert.equal(performanceCandidates(data,{...f,team:'other'},null,true).length,0);
  assert.equal(performanceCandidates(data,{...f,roles:[]},null,true).length,0);
 });
 
 
-test('throughput and quality comparisons use explicit thresholds without treating missing results as failure',()=>{
- assert.equal(performanceThreshold(''),null);assert.equal(performanceThreshold('abc'),null);assert.equal(performanceThreshold('-1'),null);
- assert.equal(performanceThreshold('101',true),null);assert.equal(performanceThreshold('80',true),.8);assert.equal(performanceThreshold('2.5'),2.5);
- assert.equal(performanceAssessment(null,3),'unavailable');assert.equal(performanceAssessment(0,null),'unset');
- assert.equal(performanceAssessment(3,3),'met');assert.equal(performanceAssessment(2.9,3),'below');assert.equal(performanceAssessment(0,3),'below');
- const rows=[{throughput:3,quality:.8},{throughput:2,quality:null},{throughput:null,quality:.5}];
- assert.deepEqual(performanceDistribution(rows,'throughput',3),{met:1,below:1,unavailable:1,unset:0});
- assert.deepEqual(performanceDistribution(rows,'quality',.8),{met:1,below:1,unavailable:1,unset:0});
- assert.deepEqual(performanceDistribution(rows,'quality',null),{met:0,below:0,unavailable:1,unset:2});
+test('researchers compare only within the same search and team, including zero-output members',()=>{
+ const records=[...Array.from({length:6},(_,i)=>map('a'+i,'Approved')),...Array.from({length:4},(_,i)=>map('b'+i,'Partner review','s2')),map('other','Approved','s','other'),{...map('otherteam','Approved','s'),team_id:'t2'}];
+ const d={...base,staff:[{id:'s',name:'One'},{id:'s2',name:'Two'},{id:'s3',name:'Three'}],team_members:[{team_id:'t',staff_id:'s'},{team_id:'t',staff_id:'s2'},{team_id:'t',staff_id:'s3'}],research:{records}};
+ const group=researcherComparisons(d,filter).find(g=>g.role==='r'&&g.team==='t')!;
+ assert.equal(group.total.mapped,10);assert.deepEqual(group.rows.map(r=>r.share),[.6,.4,0]);
+ assert.equal(group.rows.reduce((n,r)=>n+(r.share||0),0),1);
+ assert.equal(group.rows[0].quality,1);assert.equal(group.rows[0].approvalShare,1);assert.equal(group.rows[1].quality,null);
+ assert.equal(researcherComparisons(d,{...filter,roles:['other']})[0].total.mapped,1);
+ assert.equal(researcherComparisons(d,{...filter,from:'2026-09-28'}).length,0);
+ // Filtering one person must not change the team's denominator.
+ assert.equal(researcherComparisons(d,{...filter,staff:'s2'}).find(g=>g.role==='r'&&g.team==='t')!.rows[0].share,.4);
 });
-test('dashboard leads with researcher throughput and quality and excludes search-plan and action queue cards',async()=>{
+test('quality excludes peer rejections and reopened decisions; drafts count toward contribution',()=>{
+ const d={...base,research:{records:[map('approved','Approved'),map('partnerRejected','Rejected'),{...map('peerRejected','Rejected'),partner_decision:null,peer_decision:'Reject'},{...map('reopened','Needs information'),partner_decision:'Approve'},{...map('draft','Draft'),submitted_at:null,work_date:null,created_at:'2026-09-27T12:00:00Z'}]}};
+ const m=performanceMetrics(d,{...filter,from:'2026-09-27',to:'2026-09-27'});
+ assert.equal(m.mapped,5);assert.equal(m.draft,1);assert.equal(m.reviewed,2);assert.equal(m.quality,.5);
+ assert.equal(performanceCandidates(d,{...filter,from:'2026-09-27',to:'2026-09-27'}).length,5);
+});
+test('estimated hours per approval uses eight hours per person-day and no fabricated effort',()=>{
+ const d={...base,research:{records:[map('a','Approved'),map('b','Approved')]},effort:[effort(3)]};
+ assert.equal(performanceMetrics(d,filter).hoursPerApproved,12);
+ assert.equal(performanceMetrics({...d,effort:[]},filter).hoursPerApproved,null);
+ assert.equal(performanceMetrics({...d,research:{records:[]}},filter).hoursPerApproved,null);
+ assert.equal(performanceMetrics({...d,effort:[effort(0)]},filter).hoursPerApproved,null);
+});
+test('dashboard shows per-search contributions without thresholds or aggregate researcher scores',async()=>{
  const React=await import('react'),{renderToStaticMarkup}=await import('react-dom/server'),{Performance}=await import('../src/Performance');
  const data={...base,actor:{role:'partner'},searches:[{id:'r',client:'Client',title:'Role'}],teams:[],staff:[{id:'s',name:'Researcher'}],priorities:[],research:{records:[map('a','Approved')]}};
  const html=renderToStaticMarkup(React.createElement(Performance,{data,api:async()=>{},reload:async()=>{},onDirty:()=>{},onDecision:()=>{}}));
- assert.ok(html.includes('Researcher throughput'));assert.ok(html.includes('Researcher quality'));
- assert.ok(!html.includes('Actions now'));assert.ok(!html.includes('Searches behind plan'));assert.ok(!html.includes('Team / partner reviews'));
- assert.ok(html.includes('Set throughput threshold'));assert.ok(html.includes('Set quality threshold'));assert.ok(html.includes('Effort incomplete'));
+ assert.ok(html.includes('Throughput share'));assert.ok(html.includes('Partner approval rate'));assert.ok(html.includes('Share of approvals'));assert.ok(html.includes('Since search began'));
+ assert.ok(!html.includes('threshold'));assert.ok(!html.includes('Overall'));assert.ok(!html.includes('Effort incomplete'));
 });

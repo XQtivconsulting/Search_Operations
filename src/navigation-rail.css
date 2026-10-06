@@ -20,3 +20,13 @@
 /* Dialogs cover the whole viewport, including expanded/pinned navigation.
    Keep this above both desktop (20) and compact-screen (40) sidebar layers. */
 .app.navigation-shell .modal-backdrop{z-index:200}
+
+/* Relative contribution dashboard: aligned compact tables, no threshold scores. */
+.app .performance-comparison-group{margin:14px 0 22px}
+.app .performance-comparison-group .performance-block-heading{margin:0 0 8px}
+.app .performance-share{min-width:90px;max-width:140px;display:grid;gap:5px}
+.app .performance-share-track{height:5px;background:#edf1f5;border-radius:3px;overflow:hidden}
+.app .performance-share-track>span{height:100%;display:block;border-radius:3px}
+.app .performance-search-summary{display:flex;flex-wrap:wrap;gap:20px;padding:12px 0}
+.app .performance-search-summary>span{display:grid;gap:4px;color:#64748b;font-size:12px}
+.app .performance-search-summary strong{font-size:21px;color:#172b45}

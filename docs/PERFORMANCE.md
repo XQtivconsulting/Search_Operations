@@ -1,5 +1,22 @@
 # Performance
 
+## Current model — 6 October 2026
+
+This section supersedes the historical designs below. There are no throughput or quality thresholds, pass/fail classifications, or aggregate researcher scores.
+
+Researcher performance groups comparisons by search and team, with counts and relative bars. Throughput share is a researcher's mapped profiles divided by that search/team's mapped profiles. Drafts count toward mappings, using creation date when no work date exists. Submitted mappings retain their work date. Zero-output team members remain visible; historical contributors remain attributed to their recorded team. Selecting a researcher never changes the team denominator.
+
+Quality shows two distinct measures: contribution to the team's partner approvals (researcher approvals / search-team approvals), and the researcher's partner approval rate (approved / partner-decided). Only current partner approvals/rejections enter that decision denominator; peer rejections, pending, returned, and reopened reviews do not. Sample counts are visible, and counts/rates open matching candidate lists. This uses the mapping owner's researcher attribution, not the partner or peer reviewer identity.
+
+Search effort & yield shows mapped profiles, partner approvals, partner approval rate, awaiting review, person-days, estimated hours, and estimated hours per approved profile. One person-day is eight hours; hours per approval = selected-period person-days × 8 / approvals for the selected mapping cohort. No approvals, zero effort or missing allocations leave the estimate unavailable. Allocation gaps open exact dates/people with a planning action. Planned allocations are estimates, not logged elapsed time; existing PTO and historical corrections still apply.
+
+Both views use explicit date bounds, including Since search began (all recorded history). Outcomes are current outcomes of the selected mapping cohort, not review events occurring in the period. Tables sort full results and export the current filters. Search detail retains researcher contributions and company coverage. Threshold preferences previously saved in view state are ignored.
+
+Verification: calculation tests cover relative shares, search/team isolation, zero-output members, draft dates, partner versus peer decisions, reopened reviews, period boundaries, and eight-hour conversion with unavailable denominators. Actual local verification: typecheck, all 301 tests, and the production build passed. Deployment/live verification is recorded separately.
+
+## Historical implementation notes
+
+
 ## Views
 
 Researcher performance compares researchers or teams, with role/client multi-selection and date/team filters. Expand a row for per-search results. The optional matrix shows a single metric across searches and people/teams; CSV exports the currently selected comparison rows. Quality always includes its final-decision sample size, and pending review counts stay separate.
