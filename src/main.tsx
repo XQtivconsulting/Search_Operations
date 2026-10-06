@@ -414,7 +414,6 @@ function App() {
         </div>
       </aside>
       <main className={"main"+(["Search repository","Companies","Candidates","Delivery Monitor","Performance","Engagement","Pipeline","Daily Work","Search assignments","Interview tracker","Engagement Config","Backups & exports"].includes(page)?" compact-workspace":"")}><ViewStateProvider key={page+repoRestore} state={viewStates[page]||{}} change={patch=>setViewStates(previous=>({...previous,[page]:{...previous[page],...patch}}))}>
-        <div className="app-navigation" aria-label="Page navigation"><button disabled={!navigation.back||navigation.traveling} onClick={()=>navigation.go('back')} title={navigation.back?'Back to '+visitLabel(navigation.back):'No previous page'}>← {navigation.back?'Back to '+visitLabel(navigation.back):'Back'}</button><button disabled={!navigation.forward||navigation.traveling} onClick={()=>navigation.go('forward')} title={navigation.forward?'Forward to '+visitLabel(navigation.forward):'No next page'}>{navigation.forward?'Forward to '+visitLabel(navigation.forward):'Forward'} →</button></div>
         {!(page === "Candidates" && candidateId) && <header>
           <div>
             <h1>{page === "Search repository" && sBy[selected] ? sBy[selected].title : page==='Pipeline'?(data.searches.find((s:Row)=>s.id===viewStates.Pipeline?.['Engagement.role'])?.title||'Engagement dashboard'):navigationLabel(page)}</h1>
