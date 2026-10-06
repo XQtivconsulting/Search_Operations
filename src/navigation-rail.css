@@ -98,7 +98,7 @@
 
 /* Stable action slots keep the same operation aligned in every row. */
 .app .fixed-row-actions{display:grid;grid-template-columns:repeat(3,28px);gap:6px;width:max-content;align-items:center}
-.app .fixed-row-actions.mapping-row-actions{grid-template-columns:repeat(5,28px)}
+.app .fixed-row-actions.mapping-row-actions{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:32px;min-width:0}
 .app .fixed-row-actions>span{display:flex;width:28px;min-height:28px;align-items:center}
 .app .mapping-person{display:flex;align-items:flex-start;gap:6px}
 .app .mapping-person>.monitor-linkedin-slot{display:inline-flex;width:20px;min-width:20px;margin-top:1px}
@@ -109,10 +109,16 @@
 
 /* Section colors stay consistent across expanded and collapsed navigation. */
 .app.navigation-shell>.app-sidebar #nav-Work svg{color:#001b50}
-.app.navigation-shell>.app-sidebar #nav-Talent-assets svg{color:#087f8c}
+.app.navigation-shell>.app-sidebar #nav-Talent-assets svg{color:#b54708}
 .app.navigation-shell>.app-sidebar #nav-Sourcing svg{color:#326cba}
 .app.navigation-shell>.app-sidebar #nav-Engagement svg{color:#8056a8}
 .app.navigation-shell>.app-sidebar #nav-Organization svg{color:#806312}
 
 /* Keep destination icons at the same size; flex layouts must never shrink them. */
 .app.navigation-shell>.app-sidebar #application-navigation .nav-module>div>button>svg{width:21px;height:21px;min-width:21px;min-height:21px;flex:0 0 21px}
+
+.app .fixed-row-actions.mapping-row-actions>span{width:32px;min-height:32px}
+.app .main .fixed-row-actions .monitor-icon-action{width:32px;height:32px;min-width:32px;padding:5px;color:#24476b}
+.app .main .fixed-row-actions .monitor-icon-action svg{width:22px;height:22px;flex:0 0 22px}
+.app .fixed-row-actions.target-row-actions{grid-template-columns:repeat(3,32px)}
+.app .fixed-row-actions.target-row-actions>span{width:32px;min-height:32px}
