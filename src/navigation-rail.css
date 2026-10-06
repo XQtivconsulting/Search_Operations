@@ -92,3 +92,6 @@
 
 .icon-action-wrap{display:inline-flex;align-items:center;vertical-align:middle;flex:none}
 .app .main .partner-controls .monitor-icon-action{width:28px;height:28px;min-width:28px;padding:4px}
+
+/* Match sidebar icons to the navy in the XQtiv logo, expanded or collapsed. */
+.app.navigation-shell>.app-sidebar svg{color:#001b50}
