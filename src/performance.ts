@@ -1,3 +1,4 @@
+import {isReportingPeriod,reportingRange} from './reporting-period';
 import {effectiveEffort} from './planned-effort';
 import {addDays,weekStart} from './planning';
 type R=Record<string,any>;
@@ -24,6 +25,7 @@ export function searchAge(role:R,records:R[],today:string){
 export function recentWeeks(today:string){const current=weekStart(today);return {current:{from:current,to:today},previous:{from:addDays(current,-7),to:addDays(current,-1)}};}
 
 export function performancePeriod(preset:string,today:string,first:string,from='',to=''){
+ if(isReportingPeriod(preset))return reportingRange(preset,today,from,to);
  const weeks=recentWeeks(today);
  const end=to&&to<today?to:today;
  if(preset==='week')return weeks.current;

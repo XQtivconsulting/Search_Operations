@@ -33,7 +33,7 @@ test('performance renders definitions, separate tabs and no invented historical 
  const React=await import('react'),{renderToStaticMarkup}=await import('react-dom/server'),{Performance}=await import('../src/Performance');
  const data={...base,actor:{role:'partner'},searches:[{id:'r',client:'Client',title:'Role'}],teams:[],staff:[{id:'s',name:'Researcher'}],priorities:[],research:{records:[map('a','Approved')]}};
  const html=renderToStaticMarkup(React.createElement(Performance,{data,api:async()=>{},reload:async()=>{},onDirty:()=>{},onDecision:()=>{}}));
- assert.ok(html.includes('Search effort &amp; yield'));assert.ok(html.includes('Partner approval rate'));assert.ok(html.includes('partner-decided'));assert.ok(html.includes('Last 30 days'));assert.ok(!html.includes('person-days (plan-based)'));assert.ok(!html.includes('work entries without allocated effort'));
+ assert.ok(html.includes('Search effort &amp; yield'));assert.ok(html.includes('Partner approval rate'));assert.ok(html.includes('partner-decided'));assert.ok(html.includes('Last month'));assert.ok(!html.includes('person-days (plan-based)'));assert.ok(!html.includes('work entries without allocated effort'));
 });
 
 test('reporting presets always resolve to explicit bounded dates',()=>{
@@ -95,7 +95,7 @@ test('dashboard shows per-search contributions without thresholds or aggregate r
  const React=await import('react'),{renderToStaticMarkup}=await import('react-dom/server'),{Performance}=await import('../src/Performance');
  const data={...base,actor:{role:'partner'},searches:[{id:'r',client:'Client',title:'Role'}],teams:[],staff:[{id:'s',name:'Researcher'}],priorities:[],research:{records:[map('a','Approved')]}};
  const html=renderToStaticMarkup(React.createElement(Performance,{data,api:async()=>{},reload:async()=>{},onDirty:()=>{},onDecision:()=>{}}));
- assert.ok(html.includes('By researcher'));assert.ok(html.includes('Find researcher'));assert.ok(!html.includes('Partial effort'));assert.ok(html.includes('Throughput share'));assert.ok(html.includes('Partner approval rate'));assert.ok(html.includes('Share of approvals'));assert.ok(html.includes('Since search began'));
+ assert.ok(html.includes('By researcher'));assert.ok(html.includes('Find researcher'));assert.ok(!html.includes('Partial effort'));assert.ok(html.includes('Throughput share'));assert.ok(html.includes('Partner approval rate'));assert.ok(html.includes('Share of approvals'));assert.ok(html.includes('This quarter'));
  assert.ok(!html.includes('threshold'));assert.ok(!html.includes('Overall'));assert.ok(!html.includes('Effort incomplete'));
 });
 

@@ -10,7 +10,7 @@ Quality shows two distinct measures: contribution to the team's partner approval
 
 Search effort & yield shows mapped profiles, partner approvals, partner approval rate, awaiting review, person-days, estimated hours, and estimated hours per approved profile. One person-day is eight hours; hours per approval = selected-period person-days × 8 / approvals for the selected mapping cohort. No approvals or zero recorded effort leave the estimate unavailable. Missing allocations do not block the calculation: available person-days supply the estimate, marked Partial effort when incomplete. Allocation gaps open exact dates/people with a planning action. Planned allocations are estimates, not logged elapsed time; existing PTO and historical corrections still apply.
 
-Both views use explicit date bounds, including Since search began (all recorded history). Outcomes are current outcomes of the selected mapping cohort, not review events occurring in the period. Tables sort full results and export the current filters. Search detail retains researcher contributions and company coverage. Threshold preferences previously saved in view state are ignored.
+Both views use explicit date bounds; full history can be selected through Custom dates. Outcomes are current outcomes of the selected mapping cohort, not review events occurring in the period. Tables sort full results and export the current filters. Search detail retains researcher contributions and company coverage. Threshold preferences previously saved in view state are ignored.
 
 Verification: calculation tests cover relative shares, search/team isolation, zero-output members, draft dates, partner versus peer decisions, reopened reviews, period boundaries, and eight-hour conversion with unavailable denominators. Actual local verification: typecheck, all 301 tests, and the production build passed. Deployment/live verification is recorded separately.
 
@@ -23,6 +23,12 @@ Researcher performance now defaults to By researcher, grouping each person’s r
 Green/yellow/red visual bands use 75% and 40% boundaries. Approval rates use their absolute percentages; contribution colors compare each share against the highest share in the same search/team. These bands do not change calculations or set performance targets. Hours per approval use a lower-is-better comparison across complete-effort searches; incomplete effort stays neutral. Unknown rates stay neutral. Approval sample counts move into the accessible label, hover title and candidate popup heading. Missing allocation detail uses a compact warning icon with an immediate tooltip; the hours estimate remains visible.
 
 Toolbar tab groups now omit page-tab borders, padding and margins when used inside a filter toolbar. Direct action buttons, toggles and form controls share a 32px height and bottom alignment. Actual validation and live checks are recorded separately.
+
+## Fiscal reporting periods — 6 October 2026
+
+Sourcing Monitor and both Performance tabs share Today, This week, This month, Last month, This quarter, Last quarter, Custom, and This year. Weeks start Monday. The fiscal year begins April 1; quarters are Apr–Jun (Q1), Jul–Sep (Q2), Oct–Dec (Q3), Jan–Mar (Q4). Current periods stop at today in US Eastern; completed prior periods include their full last date. Custom supports inclusive From/Through bounds and no future end. This year means fiscal year to date, not calendar year. The legacy Last 30 days/Last week/Since search began choices are retired from Performance; old unsupported selections resolve to This month. Legacy single-date monitor selections reopen as Custom. Review queues remain current outstanding work and are not hidden by a reporting window.
+
+Actual live verification of 733e7322b5f4b04556aca05096d78d2d345b2a42: workflow 37397479808 / job 112056791690 succeeded. Checked all 15 main navigation destinations for document overflow with navigation pinned; none overflowed. Engagement ownership/action buttons share top=112px and height=32px with no bottom border. People & access table and scroll container are both 1014px; roles wrap at 233px. Researcher-first view and name filter work, with colored contribution and approval cells. Fiscal-period follow-up validated locally with typecheck, 305 tests and build; live period checks follow deployment.
 
 ## Historical implementation notes
 

@@ -83,3 +83,12 @@
 .app .main .people-access-table th:nth-child(4){width:14%}
 .app .main .people-access-table th:nth-child(5){width:9%}
 .app .main .people-access-table th:nth-child(6){width:13%}
+
+.app .main .performance-person-controls .research-tabs{border:0;padding:0;margin:0}
+
+.app .main .people-access-table th:nth-child(3){width:30%}
+.app .main .people-access-table th:nth-child(6){width:6%}
+.app .main .people-access-table td:last-child{text-align:center}
+
+.icon-action-wrap{display:inline-flex;align-items:center;vertical-align:middle;flex:none}
+.app .main .partner-controls .monitor-icon-action{width:28px;height:28px;min-width:28px;padding:4px}
