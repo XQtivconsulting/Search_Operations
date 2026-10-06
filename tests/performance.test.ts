@@ -85,6 +85,8 @@ test('quality excludes peer rejections and reopened decisions; drafts count towa
 test('estimated hours per approval uses eight hours per person-day and no fabricated effort',()=>{
  const d={...base,research:{records:[map('a','Approved'),map('b','Approved')]},effort:[effort(3)]};
  assert.equal(performanceMetrics(d,filter).hoursPerApproved,12);
+ const partial={...d,research:{records:[...d.research.records,map('unallocated','Approved','s2')]}};
+ const result=performanceMetrics(partial,filter);assert.equal(result.missing,1);assert.equal(result.hoursPerApproved,8);
  assert.equal(performanceMetrics({...d,effort:[]},filter).hoursPerApproved,null);
  assert.equal(performanceMetrics({...d,research:{records:[]}},filter).hoursPerApproved,null);
  assert.equal(performanceMetrics({...d,effort:[effort(0)]},filter).hoursPerApproved,null);
