@@ -106,3 +106,13 @@
 .app .mapping-person .person-linkedin svg{width:13px;height:13px}
 .app .mapping-person>div{min-width:0}
 .app .mapping-person .text-button{font-weight:600;text-align:left}
+
+/* Section colors stay consistent across expanded and collapsed navigation. */
+.app.navigation-shell>.app-sidebar #nav-Work svg{color:#001b50}
+.app.navigation-shell>.app-sidebar #nav-Talent-assets svg{color:#087f8c}
+.app.navigation-shell>.app-sidebar #nav-Sourcing svg{color:#326cba}
+.app.navigation-shell>.app-sidebar #nav-Engagement svg{color:#8056a8}
+.app.navigation-shell>.app-sidebar #nav-Organization svg{color:#806312}
+
+/* Keep destination icons at the same size; flex layouts must never shrink them. */
+.app.navigation-shell>.app-sidebar #application-navigation .nav-module>div>button>svg{width:21px;height:21px;min-width:21px;min-height:21px;flex:0 0 21px}

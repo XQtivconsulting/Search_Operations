@@ -1,7 +1,7 @@
 import {NavigationTooltip} from './NavigationTooltip';
 import './engagement-workspace.css';
 import {ViewStateProvider} from './ViewState';
-const navigationLabel=(name:string)=>({'Daily Work':'Work Queue','Pipeline':'Engagement dashboard','Organization':'Admin','Delivery Monitor':'Sourcing Monitor','Performance':'Sourcing Performance','Search assignments':'Engagement Assignments'} as Record<string,string>)[name]||name;
+const navigationLabel=(name:string)=>({'Daily Work':'Engagement Queue','Pipeline':'Engagement dashboard','Organization':'Admin','Delivery Monitor':'Sourcing Monitor','Performance':'Sourcing Performance','Search assignments':'Engagement Assignments'} as Record<string,string>)[name]||name;
 import './engagement-layout.css';
 import {useNavigationHistory} from './useNavigationHistory';
 import {Backups} from './Backups';
@@ -21,6 +21,7 @@ import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   List,
+  IdentificationCard, Buildings, Gauge, SquaresFour, ListChecks, Chats, Database, ShieldCheck, Plugs, SlidersHorizontal,
   PushPin,
   CaretDoubleLeft,
   Briefcase,
@@ -290,18 +291,18 @@ function App() {
   const queue=(data.research?.records||[]).filter((m:Row)=>m.kind==='mapping'&&['Peer review','Partner review'].includes(m.status));
   const nav: [string, React.ElementType,string][] = [
     ['My Work',ClipboardText,'Work'],
-    ['Candidates',Users,'Talent assets'],
-    ['Companies',Briefcase,'Talent assets'],
-    ['Search repository',Briefcase,'Sourcing'],
+    ['Candidates',IdentificationCard,'Talent assets'],
+    ['Companies',Buildings,'Talent assets'],
+    ['Search repository',MagnifyingGlass,'Sourcing'],
     ['Weekly plan',CalendarBlank,'Sourcing'],
-    ['Delivery Monitor',ClipboardText,'Sourcing'],
+    ['Delivery Monitor',Gauge,'Sourcing'],
     ['Performance',ChartBar,'Sourcing'],
-    ['Pipeline',Users,'Engagement'],
-    ['Daily Work',CalendarBlank,'Engagement'],
-    ['Interview tracker',CalendarBlank,'Engagement'],
+    ['Pipeline',SquaresFour,'Engagement'],
+    ['Daily Work',ListChecks,'Engagement'],
+    ['Interview tracker',Chats,'Engagement'],
     ['Teams',Users,'Organization'],
-    ...(hasRole(actor,'super_admin')?[['Backups & exports',ClipboardText,'Organization'] as [string,React.ElementType,string]]:[]),
-    ...(isAdmin?[['People & access',Users,'Organization'] as [string,React.ElementType,string],['Integrations',Briefcase,'Organization'] as [string,React.ElementType,string],['Engagement Config',ClipboardText,'Organization'] as [string,React.ElementType,string]]:[]),
+    ...(hasRole(actor,'super_admin')?[['Backups & exports',Database,'Organization'] as [string,React.ElementType,string]]:[]),
+    ...(isAdmin?[['People & access',ShieldCheck,'Organization'] as [string,React.ElementType,string],['Integrations',Plugs,'Organization'] as [string,React.ElementType,string],['Engagement Config',SlidersHorizontal,'Organization'] as [string,React.ElementType,string]]:[]),
   ];
   const open = (m: Row) => {
     setError("");
