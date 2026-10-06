@@ -1,3 +1,4 @@
+import {candidateSummaryMutation} from './candidate-summary';
 import {planSearchImport,searchSignature} from './search-import';
 import {isCRMManaged,searchStatuses} from './search-management';
 import {assignmentWorkIds} from './performance-index';
@@ -145,6 +146,7 @@ export class Workspace extends DurableObject {
     return backup;
   }
   async research(a: Actor,b:any,members:Member[]):Promise<any> {await this.syncPeople(members);return this.ctx.storage.transactionSync(()=>{
+      if(['candidate-summary-draft','candidate-summary-publish'].includes(b.action))return candidateSummaryMutation(this,a,b);
       if(['candidate-file-save','candidate-file-list','candidate-file-read'].includes(b.action)) {
         const c=this.rows("SELECT id FROM research_records WHERE id=? AND kind='candidate'",text(b.candidate_id))[0];requireThat(c,'Candidate not found.',404);
         if(b.action==='candidate-file-list')return this.rows('SELECT * FROM candidate_files WHERE candidate_id=? ORDER BY created_at DESC',c.id);

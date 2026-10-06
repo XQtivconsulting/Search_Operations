@@ -263,7 +263,7 @@ export default {
           else if (url.pathname === '/api/research' && req.method === 'POST') {
             // Never trust a caller-supplied list of verified locations.
             delete body.verified_geographies;
-            if(body.action==='candidate-tags')body.verified_geographies=await verifyGeographies(body.geography_choices,rawCookie,a.tenant);
+            if(['candidate-tags','candidate-summary-publish'].includes(body.action))body.verified_geographies=await verifyGeographies(body.geography_choices,rawCookie,a.tenant);
             delete body.geography_choices;
             res=json(await workspace.research(a,body,await identity.members(a.tenant)));
           }

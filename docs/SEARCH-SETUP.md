@@ -60,3 +60,11 @@ Integrations has All searches, Import searches and Import candidates by search t
 Both Excel entry points download `public/templates/xqtiv-search-candidate-import.xlsx`. Searches and Candidates sheets share XQtiv Search ID. Candidate-only uploads remain supported in Candidates. A combined import previews all rows and commits transactionally; existing profiles and mappings are reused, existing searches are preserved. Imported mappings are drafts attributed to the importing researcher. Historical reviews, dates and engagement stages are not fabricated. Existing admin, data-quality and researcher permissions apply.
 
 People & teams combines People & access, Sourcing teams and Engagement teams. Only admins can access account management; team planning permissions are unchanged. Both team directories are searchable and sortable, with sourcing leads edited alongside the roster.
+
+## Candidate executive summaries
+
+Candidate Overview shows the published Executive summary above Searches. Editors can paste a transcript, upload TXT/DOCX/text-based PDF, or select stored resumes/transcripts. The newest resume is selected initially. Pasted transcripts are retained as candidate documents; full source text is not duplicated in the workspace-state draft. Combined source text is limited to 200,000 characters.
+
+Draft creation uses local source excerpts and explicit standardized tag matches, not a generative AI service. Each suggestion carries evidence. Geography, compensation and demographic attributes are not inferred. Drafts do not update the public profile fields. An authorized candidate editor reviews/edits the summary and explicitly selects tags before Approve & publish. Existing tags are retained by default. Publication updates summary and tags atomically, records the reviewer and source documents, and rejects stale candidate/draft versions or repeat publication. Scanned PDF and audio require text extraction/transcription first.
+
+Verification: 328 local tests passed, including shared workbook parsing, import rollback, summary draft isolation, permission checks, stale versions and evidence-backed suggestions. The People & teams/import deployment (753fa721) succeeded and was checked read-only in the live browser. No production records were created for tests.

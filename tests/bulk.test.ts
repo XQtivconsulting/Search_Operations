@@ -406,3 +406,19 @@ test('combined import rejects stale previews and rolls back inserts if researche
  assert.equal(db.prepare("SELECT COUNT(*) n FROM research_records WHERE kind='candidate'").get()!.n,0);
  assert.equal(db.prepare("SELECT COUNT(*) n FROM audit WHERE action='search-import'").get()!.n,0);db.close();
 });
+
+test('executive summary remains a draft until an authorized, versioned publication',async()=>{
+ const {db,w}=fixture(),a:Actor={...actor,roles:['admin','researcher'],staffId:'s'};
+ const c=await w.research(a,{action:'candidate-save',first_name:'Synthetic',last_name:'Summary',url:'linkedin.com/in/synthetic-summary'},[]);
+ const source={name:'Transcript',text:'I lead enterprise sales and account management for healthcare clients. I have built and managed a global team of twenty specialists.'};
+ const draft=await w.research(a,{action:'candidate-summary-draft',candidate_id:c.id,candidate_version:1,sources:[source]},[]);
+ const get=(id:string)=>{const r=db.prepare('SELECT * FROM research_records WHERE id=?').get(id)!;return {...JSON.parse(String(r.data)),version:r.version};};
+ assert.equal(get(c.id).executive_summary,undefined);assert.equal(get(draft.id).status,'Draft');
+ assert.equal(db.prepare('SELECT COUNT(*) n FROM candidate_files WHERE candidate_id=?').get(c.id)!.n,1);
+ const body={action:'candidate-summary-publish',candidate_id:c.id,candidate_version:1,draft_id:draft.id,draft_version:1,summary:'Reviewed executive summary.',tag_values:{industry:['Healthcare']}};
+ await assert.rejects(w.research({...actor,role:'founder'},body,[]),/permission/);
+ await assert.rejects(w.research(a,{...body,candidate_version:2},[]),/Candidate changed/);
+ await w.research(a,body,[]);assert.equal(get(c.id).executive_summary,'Reviewed executive summary.');assert.deepEqual(get(c.id).tag_values.industry,['Healthcare']);assert.equal(get(draft.id).status,'Published');
+ await assert.rejects(w.research(a,{...body,candidate_version:2},[]),/already published/);
+ assert.equal(db.prepare("SELECT COUNT(*) n FROM audit WHERE action='candidate-summary-publish'").get()!.n,2);db.close();
+});
