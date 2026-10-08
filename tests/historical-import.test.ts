@@ -119,3 +119,12 @@ test('canonical imported locations populate candidate geography without overwrit
  const f=fixture(),rows=[{...mappingRow,choice:'reuse:c',location:'Dallas TX'}],action='historical-mapping-import',location_matches={'Dallas TX':{options:['Dallas, Texas, United States']}};
  const p:any=await f.run({action,rows,location_matches,preview:true});await f.run({action,rows,location_matches,signature:p.signature});const c=f.records().find(r=>r.kind==='candidate')!;assert.equal(c.location,'Dallas, Texas, United States');assert.deepEqual(c.tag_values.geography,['Dallas, Texas, United States']);assert.equal(f.records().find(r=>r.kind==='mapping')!.source_location,'Dallas TX');f.db.close();
 });
+test('HTTP researcher creation works without an invitation and account-linked edits remain protected',async()=>{
+ const f=fixture(),{default:worker}=await import('../src/worker');
+ const env:any={IDENTITY:{getByName:()=>({authenticate:async()=>admin,members:async()=>members})},WORKSPACE:{getByName:()=>f.w}};
+ const request=(body:any)=>worker.fetch(new Request('https://app.example.com/api/mutate',{method:'POST',headers:{Origin:'https://app.example.com'},body:JSON.stringify(body)}),env);
+ const created=await request({kind:'staff',name:'HTTP Historical Researcher'});assert.equal(created.status,200);const {id}=await created.json() as any;assert.ok(f.db.prepare('SELECT id FROM staff WHERE id=?').get(id));
+ const edited=await request({kind:'staff-edit',id,version:0,name:'HTTP Historical Researcher Updated',email:''});assert.equal(edited.status,200);
+ const linked=await request({kind:'staff-edit',id:'s',version:0,name:'Changed account',email:''});assert.equal(linked.status,409);
+ f.db.close();
+});

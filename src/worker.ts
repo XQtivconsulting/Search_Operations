@@ -316,7 +316,10 @@ export default {
           else if(url.pathname==='/api/people/reset'&&req.method==='POST'){const result=await identity.resetTestPeople(a,body);if(!body.preview)await workspace.syncPeople(await identity.members(a.tenant));res=json(result);}
           else if(url.pathname==='/api/invitations/cancel'&&req.method==='POST')res=json(await identity.cancelInvitation(a,text(body.id,100)));
           else if (url.pathname === "/api/mutate" && req.method === "POST") {
-            requireThat(!['staff','staff-edit','staff-archive'].includes(body.kind),'Manage accepted accounts and roles in People & access. Standalone researcher records are retired.',410);
+            if(['staff-edit','staff-archive'].includes(body.kind)){
+              const members=await identity.members(a.tenant);
+              requireThat(!members.some((m:any)=>m.staff_id===body.id),'Manage this account-linked researcher through People and teams.',409);
+            }
             requireThat(!['entry','review','reopen'].includes(body.kind),'Manual count entry is retired. Add candidate mappings and use their review workflow.',410);
             if(['search','search-owner','crm-owner'].includes(body.kind)) {
               const partner=body.partner_id ? (await identity.members(a.tenant)).find((m:any)=>m.id===body.partner_id && m.status==='active' && canPartnerReview(m)) : null;

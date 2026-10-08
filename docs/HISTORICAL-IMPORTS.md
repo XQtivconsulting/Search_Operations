@@ -6,6 +6,8 @@ Integrations contains **Import mappings** and **Import interviews**, with blank 
 
 Access Management → People and teams → **Add researcher without login** creates a staff record with a required name and optional contact email. No identity account is created. The separate Invite action uses that same staff ID later, preserving work attribution. Creating/editing directory records requires `users.profile`; archiving requires `users.access`. Duplicate researcher names are rejected.
 
+The HTTP mutation route permits these directory-only records. An older blanket retirement restriction was removed; account-linked researcher edits still use the person/account workflow. Regression coverage exercises creation and editing through the Worker HTTP endpoint, not just Workspace methods.
+
 ## Mapping import
 
 One row per candidate/Search ID, up to 500 rows. Required fields: Search ID, Researcher Name, Mapping Date, First Name and LinkedIn URL. The original Mapped By, Name, Date and LI Link headers are also accepted. Candidate Name and Full Name columns are accepted instead of separate name columns. A full name in First Name with an empty Last Name is also split. The first word becomes First Name and the remaining words become Last Name; Last, First notation is supported. Explicit first and last names are preserved. The preview displays both parsed fields. Single-word names retain a blank last name. Full calendar dates are required; yearless dates are rejected. The template uses `yyyy-mmm-dd`.
