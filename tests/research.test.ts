@@ -659,3 +659,24 @@ test('an engagement resource can add a candidate without a sourcing team but can
   assert.equal((await f.rec(mapping.id)).status,'Draft');
  }finally{f.db.close();}
 });
+
+test('unavailable legacy engagement assignees can be removed and saved without restoring hidden IDs',async()=>{
+ const {engagementAssignees}=await import('../src/engagement-domain');
+ const f=await engagementFixture(),former={id:'former-resource',name:'Synthetic Former',role:'engagement',status:'active'};
+ let currentMembers=[...members,engMember,former];const run=(body:any)=>f.w.research(admin,body,currentMembers);
+ try{
+  const assigned=await run({action:'engagement-search-assign',role_id:'r',member_ids:['engager','former-resource']});
+  const before=await f.eng();
+  // Old funnel data can retain a person whose access was subsequently removed.
+  f.db.prepare('UPDATE research_records SET data=? WHERE id=?').run(JSON.stringify({group_member_ids:{Outreach:['former-resource'],Screening:['engager']}}),assigned.id);
+  currentMembers=currentMembers.map(m=>m.id==='former-resource'?{...m,status:'revoked'}:m);
+  const old=await f.rec(assigned.id);
+  await assert.rejects(run({...old,action:'engagement-search-assign',group_member_ids:undefined,member_ids:['engager','former-resource']}),/active Engagement/);
+  assert.equal((await f.rec(assigned.id)).version,old.version);
+  await run({...old,action:'engagement-search-assign',group_member_ids:undefined,member_ids:['engager']});
+  const saved=await f.rec(assigned.id);assert.equal(saved.group_member_ids,undefined);assert.deepEqual(engagementAssignees([saved],'r'),['engager']);assert.equal(saved.version,old.version+1);
+  assert.deepEqual(await f.eng(),before);
+  await assert.rejects(run({...old,action:'engagement-search-assign',group_member_ids:undefined,member_ids:[]}),/changed/);
+  await run({...saved,action:'engagement-search-assign',member_ids:[]});assert.deepEqual(engagementAssignees([await f.rec(assigned.id)],'r'),[]);
+ }finally{f.db.close();}
+});

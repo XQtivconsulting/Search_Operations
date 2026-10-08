@@ -1,3 +1,4 @@
+import {canReceiveEngagementAssignment} from './engagement-assignment';
 import {hasPermission} from './access-policy';
 import {authorizeResearch} from './operation-permissions';
 import {cleanTagValues,normTag} from './candidate-tags';
@@ -48,7 +49,7 @@ export function engagementMutation(db:DB,a:Actor,b:R,members:Member[]){
  const active=members.filter(m=>m.status==='active'),old=b.id?read(db,text(b.id)):null;
  if(b.id)requireThat(old,'Record not found.',404);
  if(old)requireThat(old.version===Number(b.version),'This record changed. Reload before saving.',409);
- const eligible=(id:string)=>active.some(m=>m.id===id&&(hasPermission(m,'engagement.work')||hasPermission(m,'engagement.interviews')));
+ const eligible=(id:string)=>active.some(m=>m.id===id&&canReceiveEngagementAssignment(m));
  if(b.action==='engagement-team-save')requireThat(false,'Engagement teams are retired. Assign people directly to a search.',410);
 
  const role=text(old?.role_id||b.role_id),search=role?db.rows('SELECT * FROM searches WHERE id=?',role)[0]:null;
