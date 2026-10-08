@@ -680,3 +680,11 @@ test('unavailable legacy engagement assignees can be removed and saved without r
   await run({...saved,action:'engagement-search-assign',member_ids:[]});assert.deepEqual(engagementAssignees([await f.rec(assigned.id)],'r'),[]);
  }finally{f.db.close();}
 });
+test('monitor mapping inspection renders only the selected mapping and preserves review permissions',async()=>{
+ const f=await engagementFixture(),React=await import('react'),{renderToStaticMarkup}=await import('react-dom/server'),{ResearchPanel}=await import('../src/ResearchPanel');
+ const state=await f.state();
+ const render=(role:string)=>renderToStaticMarkup(React.createElement(ResearchPanel,{data:{...state,people:members},api:async()=>({}),reload:async()=>{},onDirty:()=>{},view:'Search repository',initialRole:role,initialMapping:f.mid,modalOnly:true,onModalClose:()=>{}}));
+ const html=render('r');assert.match(html,/aria-label="Mapping details"/);assert.doesNotMatch(html,/repository-status-heading|mapping-toolbar|repository-landing/);
+ assert.doesNotMatch(render('different-search'),/aria-label="Mapping details"/);
+ f.db.close();
+});

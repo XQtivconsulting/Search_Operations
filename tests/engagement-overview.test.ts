@@ -62,7 +62,7 @@ test('List and Kanban retain the same cross-search priority filter and read-only
 test('search summary and filtered views share counts, including empty and no-owner views',()=>{
  const html=render('Searches','overdue');assert.match(html,/Overdue for First Search: 1/);assert.doesNotMatch(html,/Overdue for Second Search/);
  const empty=render('List','overdue','',{'Engagement.scope':'mine'});assert.match(empty,/Overdue: 0/);assert.match(empty,/No candidates match/);
- const find=render('List','all','',{'Engagement.candidateQuery':'102'});assert.match(find,/Example due/);assert.doesNotMatch(find,/Example new/);
+ const find=render('List','all','',{'Engagement.candidateQuery':'Example due'});assert.match(find,/Example due/);assert.doesNotMatch(find,/Example new/);
 });
 test('large lists are paged and Kanban stages load incrementally while counts stay complete',()=>{
  const many:R[]=Array.from({length:180},(_,i)=>({kind:'mapping',id:'map'+i,candidate_id:'person'+i,role_id:'s1',status:'Approved'}));
@@ -78,4 +78,16 @@ test('legacy queue history resolves to Engagement and preserves status/scope, wh
  const visit=(role:string,layout:string)=>({page:'Pipeline',candidateId:'',viewStates:{Pipeline:{'Engagement.role':role,'Engagement.unifiedLayout':layout,'Engagement.queueBucket':'overdue'}}});
  let h=recordVisit(emptyHistory(),visit('','Searches'));h=recordVisit(h,visit('','Kanban'));assert.equal(h.past.length,0);
  h=recordVisit(h,visit('s1','List'));const back=travelHistory(h,'back');assert.equal(back.present?.viewStates.Pipeline['Engagement.unifiedLayout'],'Kanban');assert.equal(back.present?.viewStates.Pipeline['Engagement.queueBucket'],'overdue');
+});
+test('candidate table keeps headers, columns and row cells aligned in both scopes',()=>{
+ for(const role of ['','s1']){
+  const html=render('List','all',role),table=html.match(/<table[^>]*engagement-candidate-table[\s\S]*?<\/table>/)![0];
+  const expected=role?6:8;
+  assert.equal((table.match(/<col(?=[\s/>])/g)||[]).length,expected);
+  assert.equal((table.match(/<thead>[\s\S]*?<\/thead>/)![0].match(/<th[ >]/g)||[]).length,expected);
+  for(const row of table.match(/<tbody>[\s\S]*?<\/tbody>/)![0].match(/<tr[\s\S]*?<\/tr>/g)||[])assert.equal((row.match(/<td[ >]/g)||[]).length,expected);
+  assert.match(html,/Find candidate/);assert.doesNotMatch(html,/Find candidate or search|engagement-results-context|candidate-identity-actions/);
+  assert.match(html,/engagement-stage-filter/);
+ }
+ assert.match(render('List','all','',{'Engagement.candidateQuery':'102'}),/No candidates match/);
 });

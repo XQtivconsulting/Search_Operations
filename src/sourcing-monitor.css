@@ -29,7 +29,7 @@
 .app .cumulative-monitor .sheet-table thead th{position:sticky;top:0;background:#edf3f9;z-index:2}
 .app .cumulative-monitor .monitor-search-link{font-weight:700;background:none;border:0;box-shadow:none;text-align:left;color:#194d89;white-space:normal;padding:0}
 .app .cumulative-monitor .sheet-table small{display:block;font-size:10px;color:#68788c;font-weight:400;margin-top:3px}
-.monitor-rate{display:inline-block;padding:4px 7px;border-radius:5px;font-weight:650;white-space:nowrap}
+.monitor-rate{display:inline-block;padding:4px 7px;border-radius:5px;font-weight:650;white-space:normal;max-width:100%;box-sizing:border-box;overflow-wrap:anywhere}
 .monitor-rate.green,.monitor-note.green{background:#e4f4ec;color:#176346}.monitor-rate.red,.monitor-note.red{background:#fce9e9;color:#a12932}.monitor-rate.amber,.monitor-note.amber{background:#fff3d9;color:#885e0e}.monitor-rate.neutral,.monitor-note.neutral{background:#f0f3f7;color:#627185}
 .app .cumulative-monitor .monitor-note{display:block;font-size:11px;border:0;border-radius:4px;box-shadow:none;padding:4px 6px;margin:2px 0;white-space:normal;text-align:left;line-height:1.35}
 .app .cumulative-monitor .monitor-detail-table{width:100%;min-width:850px}.app .cumulative-monitor .monitor-detail-table :is(td,th):not(:first-child){text-align:center}
@@ -38,3 +38,7 @@
 .monitor-kpis{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}.monitor-kpis>div{flex:1;min-width:100px;border:1px solid #dce4ed;border-radius:6px;padding:10px 14px}.monitor-kpis small{display:block;color:#68788c}.monitor-kpis strong{font-size:20px}
 .monitor-charts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0}.monitor-chart{border:1px solid #dce4ed;border-radius:7px;padding:12px;min-width:0}.app .monitor-chart h3{font-size:13px;margin:0 0 7px}.monitor-chart svg{width:100%;display:block}.monitor-chart svg text{font-size:11px;fill:#627185}.monitor-chart-legend{display:flex;gap:10px;flex-wrap:wrap;font-size:10px;color:#627185}.monitor-chart-legend i{display:inline-block;width:9px;height:9px;margin-right:4px;border-radius:50%}.monitor-chart rect[role=button]{cursor:pointer}.monitor-chart rect:focus{stroke:#2865c7;stroke-width:2;outline:none}
 @media(max-width:1100px){.monitor-charts{grid-template-columns:1fr}.monitor-chart svg{max-height:230px}}
+
+.app .cumulative-monitor .sheet-table :is(th,td){overflow-wrap:anywhere;min-width:0}
+.app .cumulative-monitor .monitor-note{max-width:100%;box-sizing:border-box;overflow-wrap:anywhere}
+.app .cumulative-monitor .monitor-rate small{white-space:normal;overflow-wrap:normal}
