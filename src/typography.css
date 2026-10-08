@@ -592,7 +592,7 @@
 /* Compact allocation cards: stable action positions, details on demand. */
 .app .main .plan-grid.allocation-compact{min-width:1120px}
 .app .main .allocation-by-search thead th:first-child{width:62px;position:static}
-.app .main .allocation-by-search thead th:nth-child(2){width:78px}
+.app .main .allocation-by-search thead th:nth-child(2){width:110px}
 .app .main .allocation-by-search thead th:nth-child(3){width:270px}
 .app .main .allocation-by-search tbody th{width:270px;min-width:270px}
 .app .main .allocation-by-team thead th:first-child{width:260px}
@@ -635,7 +635,7 @@
 .app .search-picker-menu [role=option] small{display:block;color:#607086}
 .app .search-picker-menu [role=option]>strong{white-space:nowrap;word-break:normal;overflow-wrap:normal}
 
-.search-status{display:grid;gap:3px;min-width:110px}.search-status small{display:block;color:#607086}.search-status-note{white-space:normal;max-width:260px;overflow-wrap:anywhere}.search-status details>div{padding:6px 0;border-bottom:1px solid #e0e5ed}.search-status details p{margin:3px 0;white-space:normal}
+.search-status{display:grid;grid-template-columns:minmax(0,1fr);gap:3px;min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere}.search-status small{display:block;min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere;color:#607086}.search-status-note{white-space:normal;max-width:260px;overflow-wrap:anywhere}.search-status details>div{padding:6px 0;border-bottom:1px solid #e0e5ed}.search-status details p{margin:3px 0;white-space:normal}
 
 /* Preserve compact ID columns after adding public search numbers to listings. */
 .app .repository-list-table td:first-child,.app .daily-searches td:first-child{min-width:74px;max-width:90px;width:90px}
@@ -645,3 +645,8 @@
 .app .profile-search-table th:first-child{width:10%}.app .profile-search-table th:nth-child(2){width:33%}.app .profile-search-table th:nth-child(3){width:15%}.app .profile-search-table th:nth-child(4){width:18%}.app .profile-search-table th:nth-child(5){width:24%}
 .app .main .delivery-monitor .delivery-grid thead th:first-child{width:74px}.app .main .delivery-monitor .delivery-grid thead th:nth-child(2){width:18%}.app .main .delivery-monitor .delivery-grid thead th:nth-child(3){width:7%}
 .repository-status-heading{justify-content:flex-start;gap:18px}.repository-status-heading .search-status{display:flex;align-items:center;flex-wrap:wrap;gap:8px}.repository-status-heading .search-status details{flex-basis:100%}
+
+/* Keep weekly-plan content within its own column, including status history. */
+.app .main .allocation-compact :is(th,td){overflow-wrap:anywhere;white-space:normal}
+.app .main .allocation-compact .search-status :is(span,small,details,summary,p){min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.app .main .allocation-compact .priority-line{flex-wrap:wrap}
