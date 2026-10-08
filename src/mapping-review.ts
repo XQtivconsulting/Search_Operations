@@ -7,7 +7,7 @@ export function mappingReviewAction(actor:R,mapping:R,search:R|undefined,roster:
  if(!label)return {label,allowed:false,reason:''};
  if(mapping.status==='Peer review'){
   const allowed=canTeamReview(actor,mapping,search,roster,assignments);
-  return {label,allowed,reason:allowed?'':'A sourcing team member, the search partner or a super admin can review.'};
+  return {label,allowed,reason:allowed?'':'You do not have review access for this search.'};
  }
  if(search?.partner_id!==actor.id)return {label,allowed:false,reason:'Only the assigned search partner can complete this review.'};
  const allowed=canPartnerReview(actor);
