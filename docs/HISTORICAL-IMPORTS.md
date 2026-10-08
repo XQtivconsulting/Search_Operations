@@ -35,3 +35,7 @@ Typecheck, 394 automated tests and the production build passed before deployment
 ### Researcher list correction
 
 The HTTP state response previously removed all staff without an active account, even after a successful researcher-only save. It now preserves directory records and keeps account-derived names/status for linked records. The regression case verifies save, reload, edit, reload and rendering the real no-login researcher table. See TEST-AUDIT-2026-10-08.md for the full test relevance review.
+
+### Cloudflare mapping import correction
+
+The location lookup used a null-prototype dictionary. Cloudflare Durable Object RPC rejects that object type before calling Workspace.research, so mapping previews returned a generic server error even for valid input. Return a plain own-property copy at the RPC boundary. A workerd/Miniflare regression runs the actual Worker research endpoint against a real SQLite Durable Object, resolves Dallas TX, previews and applies a synthetic mapping, checks split names and researcher attribution, then confirms a repeated preview recognizes the existing mapping. The earlier runtime probe reproduced DataCloneError before this fix. No customer workbook was used or imported for this check.
