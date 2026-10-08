@@ -53,14 +53,28 @@ export function planHistoricalMappings(rows:R[],searches:R[],records:R[],members
   const data={...profile,company_id:companyMatches[0]?.id||'',location_verified:!!location&&!out.needs_location,source_location:str(raw.location),mapped_by,mapped_on,notes:str(raw.notes),team_decision:tm,team_reviewer:tr,team_reviewer_id:teamReviewer,team_review_date:td,partner_decision:pm,partner_reviewer:pr,partner_reviewer_id:partnerReviewer,partner_review_date:pd,status,staff_id:staffId,mapper_id:mapper?.id||''};
   const identity=candidate?.id||url,key=search.id+':'+identity,existing=records.find(r=>r.kind==='mapping'&&r.role_id===search.id&&r.candidate_id===candidate?.id),fingerprint=JSON.stringify(data);
   if(seen.has(key)&&seen.get(key)!==fingerprint)throw Error('Conflicting rows for the same candidate and search. Keep one final historical record.');
-  const enrich=existing?.source==='SharePoint'&&existing.status==='Imported'&&!existing.submitted_at&&!existing.partner_decision&&!existing.peer_decision;
-  if(enrich)out.warnings.push('Adds sourcing history to the existing interview search link.');
+  const enrich=existing&&['SharePoint','RecruitCRM'].includes(existing?.source)&&existing.status==='Imported'&&!existing.staff_id&&!existing.mapper_id&&!existing.mapper_name&&!existing.work_date&&!existing.submitted_at&&!existing.partner_decision&&!existing.peer_decision;
+  if(enrich)out.warnings.push('Adds sourcing history to the existing imported search link.');
+  const attribution_patch:R={};
+  if(existing&&!enrich){
+   const conflicts:string[]=[];
+   const savedName=existing.mapper_name||members.find(p=>p.id===existing.mapper_id||(p.staff_id||p.staffId)===existing.staff_id&&existing.staff_id)?.name||staff.find(p=>p.id===existing.staff_id)?.name||'';
+   const sameIdentity=existing.staff_id&&staffId===existing.staff_id||existing.mapper_id&&data.mapper_id===existing.mapper_id;
+   if(existing.staff_id&&staffId&&existing.staff_id!==staffId)conflicts.push('researcher');
+   else if(existing.mapper_id&&data.mapper_id&&existing.mapper_id!==data.mapper_id)conflicts.push('researcher');
+   else if(!sameIdentity&&savedName&&norm(savedName)!==norm(mapped_by))conflicts.push('researcher name');
+   const priorDate=existing.work_date||existing.submitted_at?.slice(0,10);
+   if(priorDate&&priorDate!==mapped_on)conflicts.push('mapping date');
+   out.saved_attribution={researcher:savedName||existing.staff_id||existing.mapper_id||'',date:priorDate||''};
+   if(conflicts.length)throw Error('Existing '+conflicts.join(' and ')+' differs from file. Saved: '+(out.saved_attribution.researcher||'unknown researcher')+' / '+(priorDate||'unknown date')+'. File: '+mapped_by+' / '+mapped_on+'. Correct the file or skip this row; saved history will not be overwritten.');
+   for(const [k,v] of Object.entries({staff_id:staffId,mapper_id:data.mapper_id,mapper_name:mapped_by,work_date:mapped_on,submitted_at:mapped_on+'T12:00:00.000Z'}))if(!existing[k]&&v)attribution_patch[k]=v;
+  }
   const duplicate=seen.has(key);seen.set(key,fingerprint);
   const prior=filePeople.get(url);if(prior&&['name','email','company','title','location'].some(k=>prior[k]&&profile[k as keyof typeof profile]&&norm(prior[k])!==norm(profile[k as keyof typeof profile])))throw Error('Conflicting candidate details across rows in this file.');filePeople.set(url,{...prior,...Object.fromEntries(Object.entries(profile).filter(([,v])=>v))});
   const fill=candidate?Object.keys(profile).filter(k=>!candidate[k]&&profile[k as keyof typeof profile]):[];
   const differing=candidate?Object.keys(profile).filter(k=>candidate[k]&&profile[k as keyof typeof profile]&&norm(candidate[k])!==norm(profile[k as keyof typeof profile])&&k!=='url'):[];
   if(differing.length)out.warnings.push('Existing values kept: '+differing.join(', '));
-  return {...out,name:profile.name,url,role_id:search.id,search_title:search.title,existing_id:candidate?.id||'',fill,data,candidate_result:candidate?'Reuse existing candidate':prior?'Reuse candidate from file':'Create candidate',existing_mapping_id:enrich?existing.id:'',result:existing&&!enrich?'Existing mapping — keep unchanged':duplicate?'Duplicate row — skip':'Create mapping',needs_choice:existing&&!enrich||duplicate?false:out.needs_choice};
+  return {...out,name:profile.name,url,role_id:search.id,search_title:search.title,existing_id:candidate?.id||'',fill,data,candidate_result:candidate?'Reuse existing candidate':prior?'Reuse candidate from file':'Create candidate',attribution_patch,existing_mapping_id:existing?.id||'',result:duplicate?'Duplicate row — skip':existing&&!enrich?(Object.keys(attribution_patch).length?'Update attribution':'Existing mapping — keep unchanged'):'Create mapping',needs_choice:existing&&!enrich||duplicate?false:out.needs_choice};
  }catch(e:any){return {...out,result:'Error',error:e.message};}});
 }
 export function importHistoricalMappings(db:any,a:any,b:R,members:R[]){
@@ -68,23 +82,24 @@ export function importHistoricalMappings(db:any,a:any,b:R,members:R[]){
  const records=db.rows('SELECT * FROM research_records').map((r:R)=>({...JSON.parse(r.data),id:r.id,kind:r.kind,role_id:r.role_id,version:r.version})),searches=db.rows('SELECT * FROM searches'),staff=db.rows('SELECT * FROM staff');
  const manual=db.rows('SELECT e.*,a.search_id,a.work_date FROM entries e JOIN assignments a ON a.id=e.assignment_id WHERE COALESCE(e.mapped,0)>0 OR COALESCE(e.peer,0)>0 OR COALESCE(e.partner,0)>0');
  const plan=planHistoricalMappings(b.rows,searches,records,members,staff,b.location_matches||{});
- for(const p of plan)if(p.result==='Create mapping'&&manual.some((e:R)=>e.search_id===p.role_id&&e.work_date===p.data.mapped_on&&(!p.data.staff_id||e.staff_id===p.data.staff_id))){p.result='Error';p.error='Recorded aggregate output overlaps this mapping date and researcher. Reconcile those counts before importing individual history.';}
+ for(const p of plan)if((p.result==='Create mapping'||p.result==='Update attribution')&&manual.some((e:R)=>e.search_id===p.role_id&&e.work_date===p.data.mapped_on&&(!p.data.staff_id||e.staff_id===p.data.staff_id))){p.result='Error';p.error='Recorded aggregate output overlaps this mapping date and researcher. Reconcile those counts before importing individual history.';}
  const signature=createHash('sha256').update(JSON.stringify({plan,versions:records.map((r:R)=>[r.id,r.version]).sort(),searches,members,staff,manual})).digest('hex');
  if(b.preview)return {plan,signature};
  requireThat(signature===b.signature,'Data changed. Preview the file again.',409);
  requireThat(!plan.some((p:R)=>p.error||p.needs_choice),'Resolve every error and candidate match before importing.');
- const now=new Date().toISOString(),run=crypto.randomUUID(),result={created:0,reused:0,mapped:0,skipped:0,companies_created:0};
+ const now=new Date().toISOString(),run=crypto.randomUUID(),result={created:0,reused:0,mapped:0,updated:0,unchanged:0,skipped:0,companies_created:0};
  const save=(kind:string,role:string,key:string,data:R,old?:R)=>{const id=old?.id||crypto.randomUUID();db.rows('INSERT INTO research_records(id,kind,role_id,record_key,data,version) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data,version=excluded.version',id,kind,role,key,JSON.stringify(data),(old?.version||0)+1);db.rows('INSERT INTO research_events VALUES(?,?,?,?,?,?)',crypto.randomUUID(),id,a.id,'historical-mapping-import',JSON.stringify({before:old||null,after:data,import_run:run}),now);db.audit(a,'historical-mapping-import',id,old||null,data);return {...data,id,kind,role_id:role,version:(old?.version||0)+1};};
  const companies=records.filter((r:R)=>r.kind==='company');
  const ensureCompany=(name:string)=>{if(!name)return '';let company=companies.find((c:R)=>companyNames(c).includes(normalizedCompany(name)));if(!company){company=save('company','',name.toLowerCase().replace(/\s+/g,' '),cleanCompany({name}));companies.push(company);result.companies_created++;}return company.id;};
  const byId=new Map<string,R>(records.filter((r:R)=>r.kind==='candidate').map((r:R)=>[r.id,r]));
  const cache=new Map(records.filter((r:R)=>r.kind==='candidate').map((r:R)=>[linkedinKey(r.url),r]));
- for(const p of plan){if(p.result!=='Create mapping'){result.skipped++;continue;}const d=p.data,companyId=ensureCompany(d.company);let c:R|undefined=p.existing_id?byId.get(p.existing_id):cache.get(d.url) as R|undefined;
+ for(const p of plan){if(p.result==='Update attribution'){const old=records.find((r:R)=>r.id===p.existing_mapping_id);save('mapping',p.role_id,p.role_id+':'+old.candidate_id,{...old,...p.attribution_patch,attribution_import_run:run,attribution_imported_at:now,attribution_imported_by:a.id},old);result.updated++;continue;}if(p.result!=='Create mapping'){if(p.result.startsWith('Existing mapping'))result.unchanged++;else result.skipped++;continue;}const d=p.data,companyId=ensureCompany(d.company);let c:R|undefined=p.existing_id?byId.get(p.existing_id):cache.get(d.url) as R|undefined;
   const profile=Object.fromEntries(['first_name','last_name','name','url','email','company','title','location'].map(k=>[k,d[k]]));
   if(c){const fill=Object.fromEntries(Object.entries(profile).filter(([k,v])=>!c![k]&&v));if(companyId&&!c.company_id&&(!c.company||companyNames(companies.find((co:R)=>co.id===companyId)).includes(normalizedCompany(c.company))))fill.company_id=companyId;if(d.location_verified&&d.location&&(!c.location||c.location===d.location)&&!c.tag_values?.geography?.length)fill.tag_values={...c.tag_values,geography:[d.location]};if(Object.keys(fill).length)c=save('candidate','',linkedinKey(c.url)||d.url,{...c,...fill},c);result.reused++;}else{c=save('candidate','',d.url,{...profile,company_id:companyId,...(d.location_verified&&d.location?{tag_values:{geography:[d.location]}}:{}),created_at:now,source:'Historical mapping import'});result.created++;}cache.set(d.url,c);byId.set(c.id,c);
   const at=(date:string)=>date+'T12:00:00.000Z';
   const mapping={candidate_id:c.id,name:d.name,url:d.url,title:d.title,company:d.company,company_id:companyId,location:d.location,rationale:d.notes,status:d.status,mapper_id:d.mapper_id,mapper_name:d.mapped_by,staff_id:d.staff_id,team_id:'',work_date:d.mapped_on,created_at:at(d.mapped_on),submitted_at:at(d.mapped_on),stage_at:at(d.partner_review_date||d.team_review_date||d.mapped_on),peer_decision:d.team_decision,peer_reviewed_by:d.team_reviewer_id,peer_reviewed_name:d.team_reviewer,peer_reviewed_at:d.team_review_date?at(d.team_review_date):null,partner_decision:d.partner_decision,partner_reviewed_by:d.partner_reviewer_id,partner_reviewed_name:d.partner_reviewer,partner_reviewed_at:d.partner_review_date?at(d.partner_review_date):null,criteria_snapshot:[],evidence:{},source:'Historical Excel',source_location:d.source_location,import_run:run,imported_at:now,imported_by:a.id,team_review_skipped:!d.team_decision,cycle:1};
-  const m=save('mapping',p.role_id,p.role_id+':'+c.id,mapping,records.find((r:R)=>r.id===p.existing_mapping_id));result.mapped++;
+  const priorMapping=records.find((r:R)=>r.id===p.existing_mapping_id);
+  const m=save('mapping',p.role_id,p.role_id+':'+c.id,{...priorMapping,...mapping},priorMapping);result.mapped++;
   for(const [stage,decision,who,actor,date] of [['Team',d.team_decision,d.team_reviewer,d.team_reviewer_id,d.team_review_date],['Partner',d.partner_decision,d.partner_reviewer,d.partner_reviewer_id,d.partner_review_date]])if(decision)db.rows('INSERT INTO research_events VALUES(?,?,?,?,?,?)',crypto.randomUUID(),m.id,a.id,'historical-review',JSON.stringify({stage,decision,reviewer_name:who,reviewer_id:actor,reviewed_on:date,imported_by:a.id,import_run:run}),date?at(date):now);
  }
  return {...result,import_run:run};

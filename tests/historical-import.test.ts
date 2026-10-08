@@ -165,3 +165,20 @@ test('imported free-text location can be corrected through candidate profile wit
  const f=fixture(),action='historical-mapping-import',rows=[{...mappingRow,choice:'reuse:c',location:'Unknown area'}];const p:any=await f.run({action,rows,preview:true});await f.run({action,rows,signature:p.signature});
  const c=f.records().find(r=>r.kind==='candidate')!;await f.run({...c,action:'candidate-save',first_name:'Example',last_name:'Person',location:'Dallas, Texas, United States'});assert.equal(f.records().find(r=>r.id===c.id)!.location,'Dallas, Texas, United States');assert.equal(f.records().find(r=>r.kind==='mapping')!.source_location,'Unknown area');f.db.close();
 });
+
+test('RecruitCRM search links receive historical sourcing without duplicate mappings or lost engagement',async()=>{
+ const f=fixture(),action='historical-mapping-import';f.put('mapping','m','r:c',{candidate_id:'c',source:'RecruitCRM',status:'Imported',mapper_id:'',staff_id:'',created_at:'2024-01-01'},'r');f.put('engagement','e','m',{mapping_id:'m',stage_id:'interviews',interviews:[{id:'round',feedback:'Preserve'}]},'r');
+ const rows=[{...mappingRow,choice:'reuse:c'}],p:any=await f.run({action,rows,preview:true});assert.equal(p.plan[0].existing_mapping_id,'m');await f.run({action,rows,signature:p.signature});const m=f.records().find(r=>r.id==='m')!;assert.equal(m.staff_id,'s');assert.equal(m.work_date,mappingRow.mapped_on);assert.equal(m.partner_decision,'Approve');assert.equal(f.records().filter(r=>r.kind==='mapping').length,1);assert.equal(f.records().find(r=>r.id==='e')!.interviews[0].feedback,'Preserve');f.db.close();
+});
+test('existing mappings fill missing attribution only, preserve reviews and become unchanged on repeat',async()=>{
+ const f=fixture(),action='historical-mapping-import';const original={candidate_id:'c',status:'Rejected',partner_decision:'Reject',partner_reviewed_name:'Saved reviewer',partner_reviewed_at:'2025-08-09',criteria_snapshot:[{id:'saved'}],source:'App'};f.put('mapping','m','r:c',original,'r');
+ const rows=[mappingRow],p:any=await f.run({action,rows,preview:true});assert.equal(p.plan[0].result,'Update attribution');const result:any=await f.run({action,rows,signature:p.signature});assert.equal(result.updated,1);assert.equal(result.mapped,0);const m=f.records().find(r=>r.id==='m')!;for(const [key,value] of Object.entries(original))assert.deepEqual(m[key],value);assert.equal(m.staff_id,'s');assert.equal(m.mapper_name,'Researcher');assert.equal(m.work_date,'2025-08-01');assert.ok(f.db.prepare("SELECT * FROM research_events WHERE record_id='m'").all().length);const repeat:any=await f.run({action,rows,preview:true});assert.match(repeat.plan[0].result,/Existing mapping/);f.db.close();
+});
+test('conflicting saved researcher or mapping date blocks attribution changes',()=>{
+ for(const fields of [{staff_id:'different'},{mapper_name:'Someone else'},{work_date:'2024-01-01'}]){const p=planHistoricalMappings([mappingRow],searches,[candidate,{id:'m',kind:'mapping',role_id:'r',candidate_id:'c',...fields}],members,[])[0];assert.match(p.error,/differs from file/);}
+});
+
+test('ready selection imports valid history while leaving an invalid row unwritten',async()=>{
+ const {readyMappingRows}=await import('../src/mapping-preview');const f=fixture(),action='historical-mapping-import',rows=[{...mappingRow,choice:'reuse:c',row:2},{...mappingRow,row:3,first_name:'',last_name:'',url:'https://linkedin.com/in/invalid-example'}];
+ const p:any=await f.run({action,rows,preview:true});assert.ok(p.plan[1].error);const selected=readyMappingRows(rows,p.plan);const fresh:any=await f.run({action,rows:selected,preview:true});const result:any=await f.run({action,rows:selected,signature:fresh.signature});assert.equal(result.mapped,1);assert.equal(result.skipped,1);assert.equal(f.records().filter(r=>r.kind==='mapping').length,1);assert.equal(rows[1].first_name,'');assert.equal('choice' in rows[1],false);f.db.close();
+});
