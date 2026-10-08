@@ -1,3 +1,4 @@
+import {mappingLocationMatches} from './mapping-locations';
 import {hasPermission} from './access-policy';
 import {companyLogo} from './company-logo';
 import {lookupGeography,signGeography,verifyGeographies} from './geography-lookup';
@@ -266,6 +267,16 @@ export default {
           else if (url.pathname === '/api/research' && req.method === 'POST') {
             // Never trust a caller-supplied list of verified locations.
             delete body.verified_geographies;
+            delete body.location_matches;
+            if(body.action==='historical-mapping-import'){
+              requireThat(hasPermission(a,'integrations.manage'),'Manage integrations permission required.',403);
+              body.location_matches=await mappingLocationMatches(body.rows,async key=>{
+                requireThat(/^(index|[a-f0-9]+-[a-f0-9]+)$/.test(key),'Invalid location catalog key.');
+                const response=await env.ASSETS.fetch(new Request(new URL('/geography/'+key+'.json',url.origin)));
+                requireThat(response.ok&&response.headers.get('Content-Type')?.includes('application/json'),'Location catalog unavailable.',503);
+                return response.json();
+              });
+            }
             if(['candidate-tags','candidate-summary-publish'].includes(body.action))body.verified_geographies=await verifyGeographies(body.geography_choices,rawCookie,a.tenant);
             delete body.geography_choices;
             res=json(await workspace.research(a,body,await identity.members(a.tenant)));

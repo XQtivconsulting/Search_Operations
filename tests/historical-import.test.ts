@@ -5,7 +5,8 @@ import {registerHooks} from 'node:module';
 import {planInterviewImport} from '../src/interview-import';
 import {importKey,parseCSV,interviewRows,interviewDate} from '../src/interview-import-file';
 import {planHistoricalMappings} from '../src/mapping-import';
-import {importDate,historicalMappingRows} from '../src/mapping-import-file';
+import {mappingLocationMatches} from '../src/mapping-locations';
+import {importDate,historicalMappingRows,mappingCandidateName} from '../src/mapping-import-file';
 registerHooks({resolve(s,c,n){if(s==='cloudflare:workers')return {url:'data:text/javascript,export class DurableObject {constructor(ctx,env){this.ctx=ctx;this.env=env}}',shortCircuit:true};return n(s,c);}});
 const {Workspace}=await import('../src/workspace');
 const admin:any={id:'admin',role:'admin',tenant:'test',name:'Admin'};
@@ -14,6 +15,14 @@ const searches=[{id:'r',client:'Example',title:'Leader',search_number:1}];
 const candidate={id:'c',kind:'candidate',name:'Example Person',url:'https://www.linkedin.com/in/example-person',company:'Existing Co',version:1};
 const source:any={row:2,CurrentRecruitCRMStage:'Client Interviews in progress','Candidate Name':'Example Person','Job Name':'Leader','Company Name':'Example','Interview Round':'R1','Interview Status':'Completed','Interview Date':'2025-09-01T07:00:00Z','Feedback Outcome':'Positive','Feedback Notes':'Good discussion','Interviewer Name':'Example interviewer','Date Recommendation Submitted':'2025-08-25T07:00:00Z','Next Step':'Follow up','Next Step Date':'2025-09-03T07:00:00Z'};
 const mappingRow={search_number:1,mapped_by:'Researcher',mapped_on:'2025-08-01',first_name:'Example',last_name:'Person',url:candidate.url,partner_review:'Yes',partner_reviewer:'Former Partner',partner_review_date:'2025-08-05'};
+test('combined candidate names split without dropping compound names or changing explicit fields',()=>{
+ assert.deepEqual(mappingCandidateName({name:'  Example   Person  '}),{first_name:'Example',last_name:'Person'});
+ assert.deepEqual(mappingCandidateName({first_name:'Example van Sample',last_name:''}),{first_name:'Example',last_name:'van Sample'});
+ assert.deepEqual(mappingCandidateName({name:'Person, Example Anne'}),{first_name:'Example Anne',last_name:'Person'});
+ assert.deepEqual(mappingCandidateName({first_name:'Example Anne',last_name:'Person'}),{first_name:'Example Anne',last_name:'Person'});
+ assert.deepEqual(mappingCandidateName({name:'Example'}),{first_name:'Example',last_name:''});
+ for(const header of ['Name','Full Name','Candidate Name']){const parsed=historicalMappingRows([['Search ID','Researcher Name','Mapping Date',header,'LinkedIn URL'],[1,'Researcher','2025-08-01','Example Person',candidate.url]]);const p=planHistoricalMappings(parsed,searches,[],members,[])[0];assert.equal(p.data.first_name,'Example');assert.equal(p.data.last_name,'Person');}
+});
 function fixture(){const db=new DatabaseSync(':memory:');const ctx:any={storage:{sql:{exec(q:string,...p:any[]){if(!p.length&&q.includes('CREATE TABLE')){db.exec(q);return {toArray:()=>[]};}return {toArray:()=>db.prepare(q).all(...p)};}},transactionSync(fn:any){db.exec('BEGIN');try{const v=fn();db.exec('COMMIT');return v;}catch(e){db.exec('ROLLBACK');throw e;}}}};const w=new Workspace(ctx,{});db.exec("INSERT INTO staff VALUES('s','Researcher');INSERT INTO searches(id,client,title,search_number) VALUES('r','Example','Leader',1);");const put=(kind:string,id:string,key:string,data:any,role='')=>db.prepare('INSERT INTO research_records(id,kind,role_id,record_key,data,version) VALUES(?,?,?,?,?,1)').run(id,kind,role,key,JSON.stringify(data));put('candidate','c',candidate.url,candidate);const records=()=>db.prepare('SELECT * FROM research_records').all().map((r:any)=>({...JSON.parse(r.data),id:r.id,kind:r.kind,role_id:r.role_id,version:r.version}));const run=(b:any,a=admin)=>w.research(a,b,members);return {db,w,put,records,run};}
 test('SharePoint schema preamble, commas, multiline notes, BOM and full dates parse',()=>{
  const csv='\uFEFFListSchema={metadata}\r\nCandidate Name,Job Name,Company Name,Interview Round,Interview Status,Feedback Notes\r\nExample Person,Leader,Example,R1,Completed,"First line, detail\nSecond ""quoted"" line"\r\n';
@@ -92,4 +101,21 @@ test('clearing a recommendation date in the app is a protected edit during repea
  const f=fixture(),action='historical-interview-import',rows=[source],resolutions={[importKey(source)]:{candidate_id:'c'}},p:any=await f.run({action,rows,resolutions,preview:true});await f.run({action,rows,resolutions,signature:p.signature});
  const e=f.records().find(r=>r.kind==='engagement')!;e.recommended_on='';f.db.prepare('UPDATE research_records SET data=?,version=version+1 WHERE id=?').run(JSON.stringify(e),e.id);
  const changed=[{...source,'Date Recommendation Submitted':'2025-08-26'}],preview:any=await f.run({action,rows:changed,preview:true});assert.equal(preview.plan[0].needs_choice,true);assert.equal(preview.plan[0].conflicts[0].field,'Recommendation date');await assert.rejects(f.run({action,rows:changed,signature:preview.signature}),/Resolve/);f.db.close();
+});
+test('mapping locations normalize unique city/state matches and ambiguous cities require confirmation',async()=>{
+ const labels=['Dallas, Texas, United States','Dallas, Georgia, United States'];let indexLoads=0,shardLoads=0;
+ const matches=await mappingLocationMatches([{location:'Dallas TX'},{location:'Dallas'},{location:'Dallas TX'}],async key=>{if(key==='index'){indexLoads++;return {states:[],shards:['64-61']};}shardLoads++;return [[labels[0],'dallas texas united states tx us','dallas','city'],[labels[1],'dallas georgia united states ga us','dallas','city']];});
+ assert.equal(indexLoads,1);assert.equal(shardLoads,1);assert.deepEqual(matches['Dallas TX'].options,[labels[0]]);
+ const unique=planHistoricalMappings([{...mappingRow,location:'Dallas TX'}],searches,[],members,[],matches)[0];assert.equal(unique.data.location,labels[0]);assert.equal(unique.data.source_location,'Dallas TX');assert.ok(!unique.needs_choice);
+ const ambiguous=planHistoricalMappings([{...mappingRow,location:'Dallas'}],searches,[],members,[],matches)[0];assert.equal(ambiguous.needs_location,true);assert.equal(ambiguous.needs_choice,true);
+ const selected=planHistoricalMappings([{...mappingRow,location:'Dallas',location_choice:labels[0]}],searches,[],members,[],matches)[0];assert.equal(selected.data.location,labels[0]);assert.ok(!selected.needs_choice);
+ assert.match(planHistoricalMappings([{...mappingRow,location:'Dallas',location_choice:'Invented place'}],searches,[],members,[],matches)[0].error,/Location selection changed/);
+});
+test('unknown locations block import until corrected or explicitly left blank with original retained',()=>{
+ const missing=planHistoricalMappings([{...mappingRow,location:'Unknown town'}],searches,[],members,[])[0];assert.equal(missing.needs_choice,true);
+ const blank=planHistoricalMappings([{...mappingRow,location:'Unknown town',location_choice:'blank'}],searches,[],members,[])[0];assert.equal(blank.data.location,'');assert.equal(blank.data.source_location,'Unknown town');assert.ok(!blank.needs_choice);
+});
+test('canonical imported locations populate candidate geography without overwriting other tags',async()=>{
+ const f=fixture(),rows=[{...mappingRow,choice:'reuse:c',location:'Dallas TX'}],action='historical-mapping-import',location_matches={'Dallas TX':{options:['Dallas, Texas, United States']}};
+ const p:any=await f.run({action,rows,location_matches,preview:true});await f.run({action,rows,location_matches,signature:p.signature});const c=f.records().find(r=>r.kind==='candidate')!;assert.equal(c.location,'Dallas, Texas, United States');assert.deepEqual(c.tag_values.geography,['Dallas, Texas, United States']);assert.equal(f.records().find(r=>r.kind==='mapping')!.source_location,'Dallas TX');f.db.close();
 });

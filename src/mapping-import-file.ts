@@ -7,11 +7,20 @@ export function importDate(v:unknown,required=false):string{
  if(!/^\d{4}-\d{2}-\d{2}$/.test(s)||!Number.isFinite(Date.parse(s))||new Date(s).toISOString().slice(0,10)!==s)throw Error('Use a full date: YYYY-MMM-DD or YYYY-MM-DD.');return s;
 }
 export function historicalMappingRows(grid:any[][]){
- const aliases:Record<string,string>={date:'mapped_on',name:'name',lilink:'url',linkedin:'url',linkedinprofile:'url',xqtivsearchid:'search_number',researcher:'mapped_by',mappedby:'mapped_by'};
+ const aliases:Record<string,string>={date:'mapped_on',name:'name',fullname:'name',candidatename:'name',lilink:'url',linkedin:'url',linkedinprofile:'url',xqtivsearchid:'search_number',researcher:'mapped_by',mappedby:'mapped_by'};
  for(const [key,label] of mappingImportColumns)aliases[label.toLowerCase().replace(/[^a-z]/g,'')]=key;
  const keys=(grid[0]||[]).map(v=>aliases[str(v).toLowerCase().replace(/[^a-z]/g,'')]||'');
  for(const k of ['search_number','mapped_by','mapped_on','url'])if(!keys.includes(k))throw Error('Required headers: Search ID, Researcher Name, Mapping Date, LinkedIn URL.');
  if(new Set(keys.filter(Boolean)).size!==keys.filter(Boolean).length)throw Error('Remove duplicate column headers.');
  const rows=grid.slice(1).flatMap((cells,i)=>cells.some(v=>str(v))?[Object.fromEntries([['row',i+2],...keys.flatMap((k,j)=>k?[[k,cells[j] instanceof Date?(cells[j] as Date).toISOString().slice(0,10):str(cells[j])]]:[])])]:[]);
  if(!rows.length||rows.length>500)throw Error('Upload 1–500 mappings per file.');return rows;
+}
+
+export function mappingCandidateName(raw:Record<string,any>){
+ const first=str(raw.first_name).replace(/\s+/g,' '),last=str(raw.last_name).replace(/\s+/g,' '),full=str(raw.name).replace(/\s+/g,' ');
+ if(first&&last)return {first_name:first,last_name:last};
+ if(last)return {first_name:first||full,last_name:last};
+ const combined=first||full;
+ if(combined.includes(',')){const parts=combined.split(',').map(str);if(parts.length===2&&parts.every(Boolean))return {first_name:parts[1],last_name:parts[0]};}
+ const [given='',...family]=combined.split(' ');return {first_name:given,last_name:family.join(' ')};
 }
