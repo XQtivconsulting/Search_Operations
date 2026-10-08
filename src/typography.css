@@ -650,3 +650,17 @@
 .app .main .allocation-compact :is(th,td){overflow-wrap:anywhere;white-space:normal}
 .app .main .allocation-compact .search-status :is(span,small,details,summary,p){min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere}
 .app .main .allocation-compact .priority-line{flex-wrap:wrap}
+
+/* Settings forms are compact dialogs, not full-width table popups. */
+.app .modal.weekly-popup.search-settings-modal{width:min(560px,calc(100vw - 32px));max-width:560px;box-sizing:border-box;padding:20px;text-align:left}
+.app .search-settings-modal .search-settings-form{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+.app .search-settings-modal .search-settings-form>p{margin:0}
+.app .search-settings-modal .search-settings-form>label:not(.checkbox){display:flex;flex-direction:column;align-items:stretch;gap:5px;margin:0;width:100%;min-width:0}
+.app .search-settings-modal .search-settings-form :is(input:not([type=checkbox]),select,textarea){width:100%;min-width:0;box-sizing:border-box;margin:0}
+.app .search-settings-modal .search-settings-takeover{display:flex;flex-direction:row;justify-content:flex-start;align-items:center;gap:8px;width:100%;margin:0;padding:8px 0;text-align:left}
+.app .search-settings-modal .search-settings-takeover input[type=checkbox]{display:block;flex:0 0 16px;width:16px;min-width:16px;height:16px;min-height:0;margin:0;padding:0}
+.app .search-settings-modal .search-settings-takeover span{flex:1;min-width:0;white-space:normal}
+.app .search-settings-modal .search-settings-footer{display:flex;justify-content:flex-end;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px}
+.app .search-settings-modal .search-settings-footer button{width:auto;margin:0}
+.app .search-settings-modal .search-settings-footer .error{flex-basis:100%;margin:0}
+.app .search-settings-modal .search-settings-note{font-size:12px;line-height:1.4;color:#617188}
