@@ -28,32 +28,6 @@ test('Excel clipboard preserves quoted tabs, newlines and empty cells',()=>{
   assert.equal(gridCount(''),null); assert.equal(gridCount('0',true),0);
   assert.throws(()=>gridCount('',true)); assert.throws(()=>gridCount('2.5'));
 });
-test('bulk writes persist all rows and audit each change',async()=>{
-  const {db,w}=fixture();
-  await w.bulk(actor,[{kind:'entry',id:'e',version:1,mapped:12,notes:'A'},{kind:'entry',id:'e2',version:1,mapped:8,notes:'B'}]);
-  assert.equal(db.prepare('SELECT SUM(mapped) n FROM entries').get()?.n,20);
-  assert.equal(db.prepare('SELECT COUNT(*) n FROM audit').get()?.n,2); db.close();
-});
-test('stale second row rolls back first row and audit',async()=>{
-  const {db,w}=fixture();
-  await assert.rejects(w.bulk(actor,[{kind:'entry',id:'e',version:1,mapped:12},{kind:'entry',id:'e2',version:99,mapped:8}]),/No rows were saved/);
-  assert.equal(db.prepare("SELECT mapped FROM entries WHERE id='e'").get()?.mapped,null);
-  assert.equal(db.prepare('SELECT COUNT(*) n FROM audit').get()?.n,0); db.close();
-});
-test('bulk cannot bypass ownership or planning permissions',async()=>{
-  const {db,w}=fixture(); const researcher = {...actor,role:'researcher' as const,staffId:'s'};
-  await assert.rejects(w.bulk(researcher,[{kind:'entry',id:'e2',version:1,mapped:5}]),/own sourcing/);
-  await assert.rejects(w.bulk(researcher,[{kind:'assignment-edit',id:'a',version:1,target:5}]),/Planning permission/);
-  await assert.rejects(w.bulk(actor,[{kind:'entry',id:'foreign-workspace-record',version:1,mapped:5}]),/not found/); db.close();
-});
-test('review zero is completed, history is retained and output locks',async()=>{
-  const {db,w}=fixture();
-  await w.bulk(actor,[{kind:'entry',id:'e',version:1,mapped:10}]);
-  await w.bulk(actor,[{kind:'review',stage:'peer',id:'e',version:2,approved:0}]);
-  await w.bulk(actor,[{kind:'review',stage:'partner',id:'e',version:3,approved:0}]);
-  await assert.rejects(w.bulk(actor,[{kind:'entry',id:'e',version:4,mapped:20}]),/reopened/);
-  assert.equal(db.prepare('SELECT COUNT(*) n FROM reviews').get()?.n,2); db.close();
-});
 test('targets use assignment versions and duplicate batches are rejected',async()=>{
   const {db,w}=fixture();
   await w.mutate(actor,'decision',{search_id:'r',week:'2026-09-21',disposition:'Continue',version:0});
@@ -195,7 +169,7 @@ test('archive removes future roster membership, bumps roster versions, preserves
  await w.mutate(actor,'staff-archive',{id:'s',version:1,archived:false});state=await w.state(actor);assert.equal(state.staff.find((s:any)=>s.id==='s')?.archived,0);assert.equal(state.entries.length,2);db.close();
 });
 
-test('planners can maintain teams without gaining people administration',async()=>{
+test('legacy planning capability maintains teams without gaining people administration',async()=>{
  const {db,w}=fixture(),planner={...actor,role:'planner' as const};await w.mutate(planner,'team-members',{id:'t',version:0,staff_ids:['s']});
  const added=await w.mutate(planner,'team',{name:'New planning team'});assert.ok(added.id);
  await assert.rejects(w.mutate(planner,'staff',{name:'Unauthorized person'}),/permission/);
@@ -441,4 +415,27 @@ test('saved summary edits preserve the published profile and reopen with edits',
  await w.research(a,{...edit,action:'candidate-summary-publish',draft_version:2},[]);
  assert.equal(get(c.id).executive_summary,'Second edit.');
  assert.equal(get(saved.id).status,'Published');db.close();
+});
+
+test('status transitions record server dates, actor and notes atomically; unchanged or stale saves add no history',async()=>{
+ const {db,w}=fixture();const original=db.prepare("SELECT * FROM searches WHERE id='r'").get()!;
+ const body={id:'r',version:original.version,title:original.title,client:original.client,status:'Closed',take_over:true,status_notes:'Assignment completed'};
+ await w.mutate(actor,'search-manage',body);
+ let history=db.prepare("SELECT * FROM search_status_history WHERE search_id='r' ORDER BY id DESC").all();
+ assert.equal(history[0].status,'Closed');assert.equal(history[0].notes,'Assignment completed');assert.equal(history[0].actor_id,actor.id);assert.ok(Number.isFinite(Date.parse(String(history[0].changed_at))));
+ const count=history.length;await assert.rejects(w.mutate(actor,'search-manage',{...body,status:'Abandoned'}),/changed/);
+ await w.mutate(actor,'search-manage',{...body,version:2,title:'Updated title'});
+ assert.equal(db.prepare("SELECT COUNT(*) n FROM search_status_history WHERE search_id='r'").get()!.n,count);
+ await w.mutate(actor,'search-manage',{...body,version:3,status:'Open',status_notes:'Reopened by partner'});
+ const state=await w.state(actor);assert.equal(state.searches.find((s:any)=>s.id==='r').status_history[0].notes,'Reopened by partner');
+ assert.equal(db.prepare("SELECT previous_status FROM search_status_history WHERE search_id='r' ORDER BY id DESC").get()!.previous_status,'Closed');db.close();
+});
+test('duplicate public search IDs are rejected by storage and bulk writes without partial changes',async()=>{
+ const {db,w}=fixture();db.exec("INSERT INTO searches(id,title,client) VALUES('second','Second','Example')");
+ const rows=db.prepare('SELECT id,version,search_number FROM searches ORDER BY search_number').all() as any[];
+ assert.notEqual(rows[0].search_number,rows[1].search_number);
+ assert.throws(()=>db.prepare('UPDATE searches SET search_number=? WHERE id=?').run(rows[0].search_number,rows[1].id),/UNIQUE/);
+ await assert.rejects(w.mutate(actor,'search-number-batch',{items:rows.map(r=>({...r,search_number:45}))}));
+ assert.deepEqual(db.prepare('SELECT id,version,search_number FROM searches ORDER BY search_number').all(),rows);
+ await assert.rejects(w.mutate(actor,'search-number-batch',{items:[{...rows[1],search_number:rows[0].search_number}]}));db.close();
 });

@@ -1,4 +1,4 @@
-import {permissionIds,roleTemplates,effectiveAccessRoles,effectivePermissions} from './access-policy';
+import {permissionIds,retiredRoleIds,roleTemplates,effectiveAccessRoles,effectivePermissions} from './access-policy';
 import type {RoleDefinition} from './access-policy';
 import {requireThat,text} from './domain';
 type DB={rows:(q:string,...p:any[])=>any[]};
@@ -6,10 +6,11 @@ export const rolePolicySchema=`CREATE TABLE IF NOT EXISTS access_roles(tenant TE
 CREATE TABLE IF NOT EXISTS access_role_init(tenant TEXT PRIMARY KEY);`;
 export function roleDefinitions(db:DB,tenant:string):RoleDefinition[]{
  if(!db.rows('SELECT tenant FROM access_role_init WHERE tenant=?',tenant).length){
-  for(const r of roleTemplates)db.rows('INSERT OR IGNORE INTO access_roles VALUES(?,?,?,?,?,?,?)',tenant,r.id,r.id==='researcher'?'Researcher':r.name,r.description,JSON.stringify(r.permissions),1,new Date().toISOString());
+  for(const r of roleTemplates.filter(r=>!retiredRoleIds.includes(r.id)||Object.values(roleUsage(db,tenant,r.id)).some(Boolean)))db.rows('INSERT OR IGNORE INTO access_roles VALUES(?,?,?,?,?,?,?)',tenant,r.id,r.id==='researcher'?'Researcher':r.name,r.description,JSON.stringify(r.permissions),1,new Date().toISOString());
   db.rows('INSERT INTO access_role_init VALUES(?)',tenant);
  }
- return db.rows('SELECT * FROM access_roles WHERE tenant=? ORDER BY name',tenant).map(r=>({...r,permissions:JSON.parse(r.permissions)}));
+ for(const id of retiredRoleIds){const usage=roleUsage(db,tenant,id);if(!usage.users&&!usage.invitations){const old=db.rows('SELECT * FROM access_roles WHERE tenant=? AND id=?',tenant,id)[0];if(old){db.rows('DELETE FROM access_roles WHERE tenant=? AND id=?',tenant,id);db.rows('INSERT INTO member_events VALUES(?,?,?,?,?,?,?)',crypto.randomUUID(),tenant,'system:role-retirement','role:'+id,JSON.stringify(old),JSON.stringify({deleted:true,reason:'Retired unused role'}),new Date().toISOString());}}}
+ return db.rows('SELECT * FROM access_roles WHERE tenant=? ORDER BY name',tenant).map(r=>({...r,retired:retiredRoleIds.includes(r.id),permissions:JSON.parse(r.permissions)}));
 }
 export function validateAssignedRoles(db:DB,tenant:string,ids:unknown):asserts ids is string[]{
  const definitions=roleDefinitions(db,tenant);
@@ -25,6 +26,7 @@ export function roleUsage(db:DB,tenant:string,id:string){
 export function mutateRolePolicy(db:DB,tenant:string,actor:string,b:any){
  const definitions=roleDefinitions(db,tenant),id=b.id||'role_'+crypto.randomUUID(),old=definitions.find(r=>r.id===id);
  requireThat(id!=='super_admin','Super Admin is protected.',403);
+ requireThat(!retiredRoleIds.includes(id),'This role is retired. Reassign its members in People & access.',409);
  requireThat(!b.id||old,'Role not found.',404);
  requireThat(!old||Number(b.version)===old.version,'This role changed. Reload before saving.',409);
  const usage=roleUsage(db,tenant,id);

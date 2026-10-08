@@ -58,7 +58,7 @@ export function hasPermission(a:AccessSubject={},key:string):boolean{
  if(Array.isArray(a.permissions))return a.permissions.includes(key);
  return !!permissionGroups.find(p=>p.id===key)?.legacy.some(r=>assigned.includes(r));
 }
-export type RoleDefinition={id:string;name:string;description:string;permissions:string[];version:number;updated_at?:string;users?:number;invitations?:number};
+export type RoleDefinition={id:string;name:string;description:string;permissions:string[];version:number;updated_at?:string;users?:number;invitations?:number;retired?:boolean};
 const view=['search.view','companies.view','candidates.view','planning.view','engagement.view','reports.view'];
 const shared=[...view,'search.jd','search.pitch','companies.edit','candidates.create','candidates.edit','candidates.add','candidates.fit','pto.self'];
 const research=['reviews.submit','reviews.team'];
@@ -103,3 +103,6 @@ export function effectiveAccessRoles(assigned:string[],definitions:RoleDefinitio
  return [...new Set(out)];
 }
 export const assignedRoleName=(id:string,definitions:RoleDefinition[]=[])=>id==='super_admin'?'Super Admin':definitions.find(d=>d.id===id)?.name||id;
+
+export const retiredRoleIds=['planner','founder'];
+export const activeRoleTemplates=roleTemplates.filter(r=>!retiredRoleIds.includes(r.id));

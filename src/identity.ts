@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import {rolePolicySchema,roleDefinitions,validateAssignedRoles,roleUsage,mutateRolePolicy} from './role-policy-store';
-import {effectiveAccessRoles,effectivePermissions,hasPermission} from './access-policy';
+import {effectiveAccessRoles,effectivePermissions,hasPermission,retiredRoleIds} from './access-policy';
 import { identitySchema } from "./schema";
 import { passwordHash, passwordOK } from "./password";
 import { Actor, AccessRole, requireThat, text, roles, roleList, hasRole } from "./domain";
@@ -75,6 +75,7 @@ export class Identity extends DurableObject {
       const old=this.details(row),nextRoles=[...new Set<AccessRole>(b.roles)];
       requireThat(Number(b.version)===old.version,'This account changed. Reload before saving.',409);
       validateAssignedRoles(this,a.tenant,nextRoles);
+      requireThat(nextRoles.every(r=>!retiredRoleIds.includes(r)||old.roles.includes(r)),'Retired roles cannot be newly assigned.');
       requireThat(hasRole(authority,'super_admin')||(!hasRole(old,'super_admin')&&!nextRoles.includes('super_admin')),'Only a super admin can change a super admin account.',403);
       const status=b.status||old.status;requireThat(['active','revoked'].includes(status),'Choose active or revoked access.');
       requireThat(b.id!==a.id||status==='active','You cannot revoke your own access.');
@@ -168,7 +169,7 @@ export class Identity extends DurableObject {
     assignedRoles?: AccessRole[],
   ) {
     const assigned=assignedRoles||[role];
-    validateAssignedRoles(this,tenant,assigned);validateAssignedRoles(this,tenant,[role]);
+    validateAssignedRoles(this,tenant,assigned);validateAssignedRoles(this,tenant,[role]);requireThat(assigned.every(r=>!retiredRoleIds.includes(r)),'Retired roles cannot be assigned to new invitations.');
     requireThat(
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),
       "Enter a valid email.",

@@ -41,15 +41,15 @@
 .app .main .relative-researcher-table>thead>tr>th:nth-child(6){width:19%}
 .app .main .relative-researcher-table>thead>tr>th:nth-child(7){width:10%}
 .app .main .relative-researcher-table>thead>tr>th:nth-child(8){width:8%}
-.app .main .relative-search-table>thead>tr>th:nth-child(1){width:26%}
-.app .main .relative-search-table>thead>tr>th:nth-child(2){width:7%}
-.app .main .relative-search-table>thead>tr>th:nth-child(3){width:9%}
-.app .main .relative-search-table>thead>tr>th:nth-child(4){width:17%}
-.app .main .relative-search-table>thead>tr>th:nth-child(5){width:8%}
-.app .main .relative-search-table>thead>tr>th:nth-child(6){width:7%}
-.app .main .relative-search-table>thead>tr>th:nth-child(7){width:8%}
-.app .main .relative-search-table>thead>tr>th:nth-child(8){width:13%}
-.app .main .relative-search-table>thead>tr>th:nth-child(9){width:5%}
+.app .main .relative-search-table>thead>tr>th:nth-child(2){width:26%}
+.app .main .relative-search-table>thead>tr>th:nth-child(3){width:7%}
+.app .main .relative-search-table>thead>tr>th:nth-child(4){width:9%}
+.app .main .relative-search-table>thead>tr>th:nth-child(5){width:17%}
+.app .main .relative-search-table>thead>tr>th:nth-child(6){width:8%}
+.app .main .relative-search-table>thead>tr>th:nth-child(7){width:7%}
+.app .main .relative-search-table>thead>tr>th:nth-child(8){width:8%}
+.app .main .relative-search-table>thead>tr>th:nth-child(9){width:13%}
+.app .main .relative-search-table>thead>tr>th:nth-child(10){width:5%}
 .app .main .metric-tone-green{color:#207047!important;background-color:#e8f5eb;border-radius:4px}
 .app .main .metric-tone-yellow{color:#916600!important;background-color:#fff3cd;border-radius:4px}
 .app .main .metric-tone-red{color:#ae3342!important;background-color:#fde8eb;border-radius:4px}
@@ -122,3 +122,5 @@
 .app .main .fixed-row-actions .monitor-icon-action svg{width:22px;height:22px;flex:0 0 22px}
 .app .fixed-row-actions.target-row-actions{grid-template-columns:repeat(3,32px)}
 .app .fixed-row-actions.target-row-actions>span{width:32px;min-height:32px}
+
+.app .main .relative-search-table>thead>tr>th:first-child{width:74px}

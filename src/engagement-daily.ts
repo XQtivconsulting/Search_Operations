@@ -23,3 +23,6 @@ export function dailyEngagementRows(records:R[],searches:R[],now=Date.now()):R[]
   return {...r,group:stage.group,days,threshold:stage.threshold,active,due,overdue:active&&stage.threshold>0&&days!==null&&days>stage.threshold,due_at:active&&stage.threshold>0&&Number.isFinite(start)?new Date(start+stage.threshold*86400000).toISOString():null,newToday:Number.isFinite(Date.parse(r.handoff_at||''))&&easternDay(r.handoff_at)===easternDay(now),members:engagementAssignees(records,r.role_id,stage.group),...nextActivity(stage,stages)};
  }).filter(r=>!r.search_closed||r.group==='Placed').sort((a,b)=>Number(b.overdue)-Number(a.overdue)||Number(b.due)-Number(a.due)||Number(b.newToday)-Number(a.newToday)||(b.days??-1)-(a.days??-1));
 }
+
+export const queueLabels:Record<string,string>={all:'All candidates',active:'Active candidates',overdue:'Overdue',due:'Due today',new:'New handoffs today',coming:'Awaiting sourcing partner approval',unscheduled:'Threshold off / age unknown',placed:'Placed'};
+export function matchesQueue(row:R|undefined,bucket:string){if(!row)return false;return bucket==='all'?true:bucket==='due'?row.due:bucket==='overdue'?row.overdue:bucket==='new'?row.newToday&&row.active:bucket==='placed'?row.group==='Placed':bucket==='unscheduled'?row.active&&(!row.threshold||row.days===null):row.active;}

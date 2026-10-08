@@ -74,3 +74,6 @@ candidate assignment without sourcing teams, numbering idempotence and popover
 positioning. Typecheck, full regression tests and production build are required
 before deployment. CI also verifies candidate AI synthesis and backup setup.
 No authenticated production-browser walkthrough is claimed.
+
+## Comparison view and retired templates
+The administration screen now shows permissions as grouped rows and active roles as columns, with effective allowed/not-allowed values and an Edit action per role. Planner and Founder are no longer offered as templates or assignable new roles. If either is assigned already, its access is preserved as a retired role until an administrator reassigns the member or resolves its pending invitation; this avoids silently replacing it with a more powerful role. Super Admin remains protected.

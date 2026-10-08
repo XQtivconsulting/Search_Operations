@@ -1,3 +1,4 @@
+import {initializeSearchStatus,searchStatusHistory} from './search-status';
 import {hasPermission} from './access-policy';
 import {authorizeResearch,authorizeMutation} from './operation-permissions';
 import {generateCandidateAI} from './candidate-ai';
@@ -50,6 +51,7 @@ export class Workspace extends DurableObject {
     ctx.storage.transactionSync(()=>backfillSearchNumbers(this));
     if(!this.rows('PRAGMA table_info(searches)').some(c=>c.name==='origin'))this.rows("ALTER TABLE searches ADD COLUMN origin TEXT NOT NULL DEFAULT ''");
     if(!this.rows('PRAGMA table_info(searches)').some(c=>c.name==='crm_managed'))this.rows("ALTER TABLE searches ADD COLUMN crm_managed INTEGER NOT NULL DEFAULT 1");
+    initializeSearchStatus(this);
     ctx.storage.sql.exec(resetSchema);
     this.rows('CREATE TABLE IF NOT EXISTS account_researchers(staff_id TEXT PRIMARY KEY,user_id TEXT NOT NULL)');
     this.rows('CREATE TABLE IF NOT EXISTS backup_runs(id TEXT PRIMARY KEY,created_at TEXT NOT NULL,status TEXT NOT NULL,details TEXT NOT NULL)');
@@ -330,8 +332,8 @@ export class Workspace extends DurableObject {
         : [],
     };
     if(members)result.staff=result.staff.map(s=>({...s,name:members.find(m=>(m.staff_id||m.staffId)===s.id)?.name||s.name}));
-    const crmStatuses=new Map(this.rows('SELECT external_id,status FROM crm_jobs').map(j=>[j.external_id,j.status]));
-    result.searches=result.searches.map(s=>({...s,status:crmStatuses.has(s.external_id)?crmStatuses.get(s.external_id):s.status}));
+    const statusHistory=searchStatusHistory(this);
+    result.searches=result.searches.map(s=>({...s,status_history:statusHistory.get(s.id)||[]}));
     const protectedAssignments=assignmentWorkIds(result.assignments,result.entries,research.records,result.effort,this.rows('SELECT DISTINCT e.assignment_id FROM reviews r JOIN entries e ON e.id=r.entry_id'));
     result.assignments=result.assignments.map(a=>({...a,has_work:protectedAssignments.has(a.id)}));
     const automated=new Set(research.records.filter(r=>r.kind==='strategy'&&r.active).map(r=>r.role_id));
@@ -627,7 +629,8 @@ export class Workspace extends DurableObject {
         requireThat(title&&client,'Enter the search name and client.');
         requireThat((searchStatuses as readonly string[]).includes(status)||status===old.status,'Choose a valid search status.');
         this.rows('UPDATE searches SET title=?,client=?,status=?,crm_managed=0,version=version+1 WHERE id=?',title,client,status,old.id);
-        this.audit(a,kind,old.id,old,{...old,title,client,status,crm_managed:0,version:old.version+1});
+        if(status!==old.status)this.rows("UPDATE search_status_history SET notes=?,actor_id=?,source='Workspace' WHERE id=(SELECT MAX(id) FROM search_status_history WHERE search_id=?)",text(b.status_notes,5000),a.id,old.id);
+        this.audit(a,kind,old.id,old,{...old,title,client,status,status_notes:text(b.status_notes,5000),crm_managed:0,version:old.version+1});
         return {id:old.id};
       }
       if(kind === 'search-owner') {

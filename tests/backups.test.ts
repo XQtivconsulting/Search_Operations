@@ -64,3 +64,12 @@ test('restore preserves unnumbered historical searches and the sequence high-wat
  assert.equal(target.rows("SELECT search_number FROM searches WHERE id='next'")[0].search_number,78);
  source.db.close();target.db.close();
 });
+
+test('status history survives backup and restore exactly without fabricated transitions',()=>{
+ const source=seeded(),target=fixture();source.rows("UPDATE searches SET status='Closed' WHERE id='s'");
+ source.rows("UPDATE search_status_history SET notes='Synthetic closure note',actor_id='owner' WHERE status='Closed'");
+ const before=source.rows('SELECT * FROM search_status_history ORDER BY id');
+ restoreBusinessSnapshot(target,snapshotBusiness(source,'alpha',[]),'alpha');
+ assert.deepEqual(target.rows('SELECT * FROM search_status_history ORDER BY id'),before);
+ target.rows("UPDATE searches SET status='Open' WHERE id='s'");assert.equal(target.rows('SELECT COUNT(*) n FROM search_status_history')[0].n,before.length+1);source.db.close();target.db.close();
+});
