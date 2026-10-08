@@ -102,12 +102,12 @@ export function engagementMutation(db:DB,a:Actor,b:R,members:Member[]){
 
  const config=byKey(db,'engagement-pipeline','global'),stages=normalizeStages(config?.stages||defaultPipeline);
  requireThat(Number(b.pipeline_version||0)===Number(config?.version||0),'Pipeline configuration changed. Reload before moving this candidate.',409);
- const from=resolvedStage(current,stages),requested=(b.stage_id==='ready'?'assigned':b.stage_id)||stageId(b)||from.id,target=stages.find((s:R)=>s.id===requested)||(requested===from.id?from:null);
+ const from=resolvedStage(current,stages),requested=b.action==='engagement-interview-save'?from.id:(b.stage_id==='ready'?'assigned':b.stage_id)||stageId(b)||from.id,target=stages.find((s:R)=>s.id===requested)||(requested===from.id?from:null);
  requireThat(manager||eligible(a.id)&&engagementAssignees(assignment?[assignment]:[],role,from.group).includes(a.id),'This search is not assigned to you for engagement.',403);
  requireThat(target,'Choose a configured pipeline stage.');const changed=target.id!==from.id;
  requireThat(!closed||!changed||['Exited','Placed'].includes(target.group),'This search is closed. Further outreach is stopped; record an outcome instead.',409);
- requireThat(text(b.notes),'Add a note describing what happened and why you are moving the candidate.');
- const recommended=b.recommended_on===undefined?current.recommended_on||'':b.recommended_on?day(b.recommended_on):'';
+ requireThat(b.action==='engagement-interview-save'||text(b.notes),'Add a note describing what happened and why you are moving the candidate.');
+ const recommended=b.action==='engagement-interview-save'||b.recommended_on===undefined?current.recommended_on||'':b.recommended_on?day(b.recommended_on):'';
  requireThat(!(changed&&target.id==='recommended')||recommended,'Enter the actual date recommended to the client.');
  const rounds:R[]=[...(current.interviews||[])];let round:R|null=null;
  if(b.action==='engagement-interview-save'){
@@ -115,18 +115,19 @@ export function engagementMutation(db:DB,a:Actor,b:R,members:Member[]){
   requireThat(Number.isInteger(number)&&number>=1&&number<=50,'Choose an interview round from 1 to 50.');
   requireThat(interviewStatuses.includes(status)&&interviewOutcomes.includes(outcome),'Choose a valid interview status and outcome.');
   requireThat(outcome==='Pending'||status==='Completed','Record the interview as completed before recording its outcome.');
-  const date=input.date?day(input.date):'',decision_on=input.decision_on?day(input.decision_on):'';
+  const previous=rounds.find(r=>r.number===number),today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'}).format(new Date());
+  const date=input.date?day(input.date):'',decision_on=outcome==='Pending'?'':input.decision_on?day(input.decision_on):previous?.outcome===outcome&&previous?.decision_on?previous.decision_on:today,cancelled_on=status==='Cancelled'&&input.cancelled_on?day(input.cancelled_on):'';
+  requireThat(status!=='Cancelled'||cancelled_on,'Enter the cancellation date.');
   requireThat(!['Scheduled','Completed'].includes(status)||date,'Enter the interview date.');
   requireThat(outcome==='Pending'||decision_on,'Enter the outcome date.');
   requireThat(!decision_on||!date||decision_on>=date,'Outcome date cannot precede the interview.');
-  requireThat(outcome!=='Rejected'||target.group==='Exited','Move the candidate to an exited engagement stage when recording rejection.');
   requireThat(!closed||status!=='Scheduled','This search is closed. New interviews cannot be scheduled.',409);
-  round={number,status,outcome,date,decision_on,interviewer:text(input.interviewer,300),feedback:text(b.notes,10000),updated_at:new Date().toISOString(),actor_id:a.id};
+  round={number,status,outcome,date,decision_on,cancelled_on,interviewer:input.interviewer===undefined?previous?.interviewer||'':text(input.interviewer,300),feedback:text(b.notes,10000)||previous?.feedback||'',updated_at:new Date().toISOString(),actor_id:a.id};
   const i=rounds.findIndex(r=>r.number===number);if(i<0)rounds.push(round);else rounds[i]=round;rounds.sort((a,b)=>a.number-b.number);
  }
  const now=new Date().toISOString();
  const next={...current,stage:target.label,stage_id:target.id,stage_at:changed?now:current.stage_at,next_action:'',due_date:'',recommended_on:recommended,interviews:rounds};
- save(db,a,'candidate-activity',role,crypto.randomUUID(),{candidate_id:m.candidate_id,mapping_id:m.id,type:round?`Interview · R${round.number}`:changed?'Stage update':'Note',interview:round,recommended_on:recommended,notes:text(b.notes,10000),from_stage:from.label,to_stage:target.label,from_stage_id:from.id,to_stage_id:target.id,stage_entered_at:current.stage_at||current.handoff_at||null,stage_left_at:changed?now:null,days_in_previous_stage:changed?stageDays(current):null,occurred_on:day(b.occurred_on),actor_id:a.id,created_at:now},null,'engagement-feedback');
+ save(db,a,'candidate-activity',role,crypto.randomUUID(),{candidate_id:m.candidate_id,mapping_id:m.id,type:round?`Interview · R${round.number}`:changed?'Stage update':'Note',interview:round,recommended_on:recommended,notes:text(b.notes,10000),from_stage:from.label,to_stage:target.label,from_stage_id:from.id,to_stage_id:target.id,stage_entered_at:current.stage_at||current.handoff_at||null,stage_left_at:changed?now:null,days_in_previous_stage:changed?stageDays(current):null,occurred_on:round?new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'}).format(new Date()):day(b.occurred_on),actor_id:a.id,created_at:now},null,'engagement-feedback');
  return save(db,a,'engagement',role,m.id,next,existing,b.action);
 }
 

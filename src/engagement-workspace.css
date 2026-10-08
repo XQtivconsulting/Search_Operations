@@ -91,3 +91,13 @@
 .app .engagement-workspace .engagement-row-actions button:hover{background:#e7eef6}
 .app .engagement-workspace .engagement-next-action{max-width:100%;overflow-wrap:anywhere;font-size:12px}
 @media(max-width:700px){.app .engagement-workspace .engagement-unified-filters .engagement-search-select,.app .engagement-workspace .engagement-unified-filters .engagement-find{flex:1 1 100%;max-width:none}.app .engagement-workspace .engagement-view-toolbar{flex-wrap:wrap}}
+
+.app .interview-round-modal{max-width:620px}
+.app .interview-round-modal .interview-person{display:flex;align-items:center;gap:7px;margin-top:12px}
+.app .interview-round-modal .interview-search-context{display:block;font-size:12px;color:#65758b;margin:4px 0 16px;line-height:1.4}
+.app .interview-round-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.app .interview-round-fields label{min-width:0;margin:0}
+.app .interview-editor-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.app .interview-editor-actions button{width:auto}
+.app .interview-round-modal .round-feedback p{max-width:none}
+@media(max-width:550px){.app .interview-round-fields{grid-template-columns:1fr}}
