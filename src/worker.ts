@@ -228,7 +228,7 @@ export default {
             const people=members.filter((m:any)=>m.status==='active').map((m:any)=>({id:m.id,name:m.name,role:m.role,roles:m.roles,accessRoles:m.accessRoles,permissions:m.permissions,staff_id:m.staff_id,status:m.status}));
             if(env.BACKUPS)await workspace.ensureBackupSchedule(a.tenant);
             const state=await workspace.state(a,members);
-            res = json({...state,partners,people,staff:state.staff?.filter((s:any)=>people.some((p:any)=>p.staff_id===s.id)).map((s:any)=>({...s,name:people.find((p:any)=>p.staff_id===s.id)?.name||s.name,archived:people.some((p:any)=>p.staff_id===s.id&&hasRole(p,'researcher'))?0:1}))});
+            res = json({...state,partners,people,staff:state.staff?.map((s:any)=>{const account=members.find((m:any)=>m.staff_id===s.id);return {...s,name:account?.name||s.name,archived:account?(account.status==='active'&&hasRole(account,'researcher')?0:1):s.archived};})});
           }
           else if (url.pathname === '/api/geography-lookup'&&req.method==='POST') {
             requireThat(hasPermission(a,'candidates.edit'),'Candidate editing permission required.',403);

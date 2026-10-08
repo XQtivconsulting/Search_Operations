@@ -72,9 +72,7 @@ export const roleTemplates:RoleDefinition[]=[
  make('engagement_lead','Engagement Lead',[...shared,...engage,'engagement.assign','engagement.config','planning.allocate','planning.monitor','teams.assign','pto.edit'],'Lead engagement delivery and resource allocation'),
  make('partner','Partner',[...shared,...engage,...lead,'search.create','search.edit','search.partner','search.fit','candidates.delete','reviews.partner','reviews.team','reviews.manage','engagement.assign','engagement.config','pto.all','data.export','data.backup','users.view','users.profile'],'Own searches, review candidates and oversee delivery'),
  make('admin','Admin',permissionIds,'Manage workspace operations, users and permissions'),
- make('planner','Planner',[...view,'search.jd','search.pitch','companies.edit','planning.decisions','planning.allocate','planning.monitor','teams.assign','engagement.assign','pto.self'],'Compatibility template for existing planners'),
  make('data_quality','Data Quality',[...view,'candidates.create','candidates.edit','candidates.import','pto.self'],'Maintain and import candidate data'),
- make('founder','Founder',[...view,'pto.self'],'Read-only oversight'),
 ];
 export function effectivePermissions(assigned:string[],definitions:RoleDefinition[]):string[]{
  const granted=assigned.includes('super_admin')?[...permissionIds]:assigned.flatMap(id=>definitions.find(d=>d.id===id)?.permissions||[]);

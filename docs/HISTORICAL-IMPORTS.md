@@ -31,3 +31,7 @@ Repeat imports store source baselines linked to candidate/search identities. Unc
 ## Verification
 
 Typecheck, 394 automated tests and the production build passed before deployment. New integration tests cover original dates/review identities, optional team review, duplicate/conflicting records, candidate matching, transaction safety, stale previews, permissions, cutover, repeated import protection, aggregate-count overlap, interview-first enrichment and researcher attribution before account creation. Blank XLSX templates were rendered and read back through the app's Excel parser. The supplied CSV was parsed in a read-only local dry run; no customer records or source files are committed or imported into production. Local browser visual testing was unavailable because the installed Playwright runtime has no browser executable. Live deployment is verified separately through Actions and served assets.
+
+### Researcher list correction
+
+The HTTP state response previously removed all staff without an active account, even after a successful researcher-only save. It now preserves directory records and keeps account-derived names/status for linked records. The regression case verifies save, reload, edit, reload and rendering the real no-login researcher table. See TEST-AUDIT-2026-10-08.md for the full test relevance review.

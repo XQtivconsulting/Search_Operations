@@ -41,7 +41,7 @@ export class Identity extends DurableObject {
   }
   details(m:any,definitions=roleDefinitions(this,m.tenant)) {
     const p=this.rows('SELECT * FROM member_profiles WHERE user_id=? AND tenant=?',m.id,m.tenant)[0];
-    const assigned=p?JSON.parse(p.roles):[m.role];
+    const assigned=(p?JSON.parse(p.roles):[m.role]).filter((id:string)=>id==='super_admin'||definitions.some(d=>d.id===id));
     const permissions=effectivePermissions(assigned,definitions);
     if(!m.staff_id&&(permissions.includes('pto.self')||permissions.includes('candidates.add'))){m={...m,staff_id:'person:'+m.id};this.rows('UPDATE memberships SET staff_id=? WHERE tenant=? AND user_id=?',m.staff_id,m.tenant,m.id);}
     return {...m,name:p?.name||m.name,roles:assigned,permissions,accessRoles:effectiveAccessRoles(assigned,definitions),version:p?.version||0};

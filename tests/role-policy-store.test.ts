@@ -26,10 +26,12 @@ test('role storage isolates tenants, protects assigned roles and records version
  }finally{sqlite.close();}
 });
 
-test('retired roles disappear from new catalogs but preserve existing member access until reassigned',()=>{
+test('retired roles are removed from the master even when historical assignments exist',()=>{
  const sql=new DatabaseSync(':memory:');sql.exec(identitySchema);sql.exec(rolePolicySchema);const db={rows:(q:string,...p:any[])=>sql.prepare(q).all(...p) as any[]};
  db.rows("INSERT INTO memberships VALUES('existing','tenant','planner',NULL,'active')");
- let roles=roleDefinitions(db,'tenant');assert.equal(roles.find(r=>r.id==='planner')?.retired,true);assert.equal(roles.some(r=>r.id==='founder'),false);
- assert.throws(()=>mutateRolePolicy(db,'tenant','admin',{...roles.find(r=>r.id==='planner'),action:'save'}),/retired/);
- db.rows("UPDATE memberships SET role='research_lead' WHERE user_id='existing'");roles=roleDefinitions(db,'tenant');assert.equal(roles.some(r=>r.id==='planner'),false);sql.close();
+ db.rows("INSERT INTO access_roles VALUES('tenant','planner','Planner','Legacy','[\"planning.allocate\"]',1,'2026-01-01')");
+ const roles=roleDefinitions(db,'tenant');assert.equal(roles.some(r=>['planner','founder'].includes(r.id)),false);
+ assert.throws(()=>validateAssignedRoles(db,'tenant',['planner']),/valid workspace roles/);
+ assert.equal(db.rows("SELECT COUNT(*) n FROM member_events WHERE tenant='tenant'")[0].n,1);
+ roleDefinitions(db,'tenant');assert.equal(db.rows("SELECT COUNT(*) n FROM member_events WHERE tenant='tenant'")[0].n,1);sql.close();
 });

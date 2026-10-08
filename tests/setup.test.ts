@@ -279,3 +279,15 @@ test('role header counts reconcile with directory assignments, including multi-r
   await assert.rejects(identity.roleCatalog({...owner,tenant:'foreign'} as any),/permission/);
  }finally{db.close();}
 });
+
+test('member roles and permissions resolve only from the current master, including after edits',async()=>{
+ const {db,identity}=peopleFixture();
+ db.exec("INSERT INTO member_profiles VALUES('reader','test','[\"researcher\",\"planner\"]','Synthetic researcher',1)");
+ let person=(await identity.members('test')).find(m=>m.id==='reader')!;
+ assert.deepEqual(person.roles,['researcher']);assert.ok(!person.permissions.includes('planning.allocate'));
+ const owner=(await identity.members('test')).find(m=>m.id==='owner')!;
+ const custom=await identity.rolePolicy(owner as any,{action:'save',name:'Delivery coordinator',permissions:['planning.allocate']});
+ await identity.updateMember(owner as any,{id:'reader',version:person.version,name:person.name,status:'active',roles:[custom.id]});
+ person=(await identity.members('test')).find(m=>m.id==='reader')!;assert.deepEqual(person.roles,[custom.id]);assert.ok(person.permissions.includes('planning.allocate'));
+ await assert.rejects(identity.updateMember(owner as any,{id:'reader',version:person.version,roles:['planner']}),/valid workspace roles/);db.close();
+});

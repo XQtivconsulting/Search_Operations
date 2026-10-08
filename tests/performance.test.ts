@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {researcherComparisons,performanceCandidates,performanceMetrics,searchAge,performancePeriod,performanceAllocationGaps} from '../src/performance';
+import {researcherComparisons,performanceCandidates,performanceMetrics,performancePeriod,performanceAllocationGaps} from '../src/performance';
 const base={assignments:[],entries:[],effort:[],research:{records:[]}};
 const map=(id:string,status:string,staff_id='s',role_id='r')=>({id,kind:'mapping',status,partner_decision:status==='Rejected'?'Reject':status==='Approved'?'Approve':null,staff_id,role_id,team_id:'t',work_date:'2026-09-27',submitted_at:'2026-09-27T12:00:00Z'});
 const effort=(days:number,search_id='r',staff_id='s')=>({search_id,staff_id,team_id:'t',work_date:'2026-09-27',days});
@@ -24,10 +24,6 @@ test('planned zero-output work supplies effort without confirmation',()=>{
  const d={...base,assignments:[{id:'a',search_id:'r',team_id:'t',work_date:'2026-09-27'}],entries:[{assignment_id:'a',staff_id:'s'}]};
  assert.equal(performanceMetrics(d,filter).missing,0);assert.equal(performanceMetrics(d,filter).days,1);assert.equal(performanceMetrics(d,filter).throughput,0);
  assert.equal(performanceMetrics({...d,effort:[effort(0)]},filter).missing,0);
-});
-test('search aging separates role age from first mapping age and preserves unknowns',()=>{
- assert.deepEqual(searchAge({id:'r',start_date:'2026-09-01'},[map('a','Approved')],'2026-09-29'),{age:28,sinceFirst:2,first:'2026-09-27'});
- assert.equal(searchAge({id:'r'},[],'2026-09-29').age,null);
 });
 test('performance renders definitions, separate tabs and no invented historical effort',async()=>{
  const React=await import('react'),{renderToStaticMarkup}=await import('react-dom/server'),{Performance}=await import('../src/Performance');

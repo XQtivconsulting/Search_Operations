@@ -12,7 +12,7 @@ Target repository: https://github.com/XQtivconsulting/Search_Operations
 - Optional Resend invitation email with explicit delivery status and private-link fallback; requires Worker email configuration.
 - Native search creation alongside RecruitCRM imports; reusable target-company and coverage cloning; weekly priorities, daily team assignments and researcher output.
 - Search repositories with versioned briefs/strategies, company ownership, reusable candidates, per-search mappings, team/partner review, My Work queues and workflow monitoring. See [Research workflow](docs/RESEARCH-WORKFLOW.md).
-- Candidate-derived daily output and revocable client-safe approved brief links.
+- Candidate-derived daily output and original job-description document storage.
 - Peer and partner approvals, immutable review events, correction/reopening history.
 - Candidate directory: required first/last names and unique LinkedIn identity, optional contact details, reusable across searches with independent mapping ownership and review history. Manual count entry and spreadsheet navigation are retired.
 - Atomic batches up to 200 rows: a stale or unauthorized row rolls back the entire batch and its audit records.
@@ -30,7 +30,7 @@ See [Deployment](docs/DEPLOYMENT.md), [Architecture](docs/ARCHITECTURE.md), [Wor
 
 ## New search pages and company imports
 
-- Search repository → Role brief: upload Word/PDF text, edit and preview a branded long-scroll page, add a partner video link, approve and publish, then invite selected mapped candidates with email verification. Legacy anonymous brief links are disabled.
+- Search repository → Job description: upload and download original Word/PDF files. Webpage creation and publishing controls have been removed. Older candidate invitation endpoints retain security checks while they remain in the server.
 - Company universe → Import Excel: regular XLSX imports with preview, duplicate matching and tag union. Profiles support public website/LinkedIn/revenue suggestions and manual edits.
 - Target companies: role-specific research waves, including bulk wave assignment.
 - Account settings: self-service password changes with current-password verification and revocation of other sessions.

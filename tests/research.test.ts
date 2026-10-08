@@ -31,7 +31,7 @@ test('company master metadata is reusable; role targets can be created before st
 test('bulk company selection is atomic and independent of role strategy approval',async()=>{const f=fixture();const a=await f.run(admin,{action:'company-master',name:'A'}),b=await f.run(admin,{action:'company-master',name:'B'});await assert.rejects(f.run(admin,{action:'company-batch',role_id:'r',company_ids:[a.id,'foreign']}),/not found/);assert.equal((await f.state()).research.records.filter(r=>r.kind==='target').length,0);await f.run(admin,{action:'company-batch',role_id:'r',company_ids:[a.id,b.id],category:'Consulting'});assert.equal((await f.state()).research.records.filter(r=>r.kind==='target').length,2);f.db.close();});
 test('submission enters shared team review without a designated lead',async()=>{const f=fixture(),t=await setup(f);f.db.exec("DELETE FROM research_records WHERE kind='team-reviewer'");const id=await mapping(f,t);await f.run(mapper,{...await f.rec(id),action:'mapping-submit'});assert.equal((await f.rec(id)).status,'Peer review');assert.equal((await f.rec(id)).reviewer_id,'');f.db.close();});
 test('pairings and reassignments reject outsiders and departed peer cannot review',async()=>{const f=fixture(),t=await setup(f),id=await mapping(f,t);f.db.exec("INSERT INTO staff VALUES('x','Outside');INSERT INTO teams VALUES('outside','Outside');INSERT INTO team_members VALUES('outside','x')");const outsider={id:'outsider',role:'researcher',status:'active',staff_id:'x',name:'Outside'};const ms=[...members,outsider];await assert.rejects(f.w.research(admin,{action:'peer-route',team_id:'t',staff_id:'s',reviewer_id:'outsider'},ms),/same team/);await assert.rejects(f.w.research(admin,{...await f.rec(id),action:'mapping-reassign',reviewer_id:'outsider'},ms),/same team/);await f.run(admin,{action:'peer-route',team_id:'t',staff_id:'s',reviewer_id:'peer'});await assert.rejects(f.run(admin,{action:'peer-route',team_id:'t',staff_id:'s',reviewer_id:'mapper'}),/Self-review/);await f.run(mapper,{...await f.rec(id),action:'mapping-submit'});f.db.exec("DELETE FROM team_members WHERE team_id='t' AND staff_id='p'");await assert.rejects(f.run(peer,{...await f.rec(id),action:'mapping-review',decision:'Approve'}),/same team/);f.db.close();});
-test('new daily, company and team screens render; reviewer options exclude self',async()=>{const React=await import('react');const {renderToStaticMarkup}=await import('react-dom/server');const {DailyWork}=await import('../src/DailyWork');const {CompanyUniverse}=await import('../src/CompanyUniverse');const {PeerSetup}=await import('../src/PeerSetup');const f=fixture(),state={...await f.state(),people:members};const shared={data:state,api:async()=>({}),reload:async()=>{},onDirty:()=>{}};assert.ok(renderToStaticMarkup(React.createElement(DailyWork,{...shared,assignments:[],entries:[],renderEntries:()=>null,onOpen:()=>{}})).includes('Group by'));assert.ok(renderToStaticMarkup(React.createElement(CompanyUniverse,shared)).includes('Company size'));const peers=renderToStaticMarkup(React.createElement(PeerSetup,shared));assert.ok(peers.includes('Team lead for Blue'));assert.ok(peers.includes('Team lead for Blue'));assert.ok(!peers.includes('value="partner"'));f.db.close();});
+test('company and team screens render with eligible team leads',async()=>{const React=await import('react');const {renderToStaticMarkup}=await import('react-dom/server');const {CompanyUniverse}=await import('../src/CompanyUniverse');const {TeamsPanel}=await import('../src/TeamsPanel');const f=fixture(),state={...await f.state(),people:members};const shared={data:state,api:async()=>({}),reload:async()=>{},onDirty:()=>{}};assert.ok(renderToStaticMarkup(React.createElement(CompanyUniverse,shared)).includes('Company size'));const peers=renderToStaticMarkup(React.createElement(TeamsPanel,{...shared,onAdd:()=>{}}));assert.ok(peers.includes('Team lead for Blue'));assert.ok(!peers.includes('value="partner"'));f.db.close();});
 
 test('company import combines repeated rows and tags, protects values, checks preview versions and rolls back conflicts',async()=>{
  const f=fixture();const c=await f.run(admin,{action:'company-master',name:'Example Co',tags:'AI',website:'https://example.com',revenue:'100 USD'});
@@ -97,10 +97,10 @@ test('unaccepted people cannot be assigned or paired; active account is required
 });
 test('unlinked teammates are hidden from reviewer choices',async()=>{
  const f=fixture();f.db.exec("INSERT INTO staff VALUES('unlinked','Future Teammate');INSERT INTO team_members VALUES('t','unlinked')");
- const React=await import('react'),{renderToStaticMarkup}=await import('react-dom/server'),{PeerSetup}=await import('../src/PeerSetup'),{StaffDirectory}=await import('../src/StaffDirectory');
+ const React=await import('react'),{renderToStaticMarkup}=await import('react-dom/server'),{TeamsPanel}=await import('../src/TeamsPanel');
  const data={...await f.state(),people:members},props={data,api:async()=>({}),reload:async()=>{}};
- const html=renderToStaticMarkup(React.createElement(PeerSetup,props));
- assert.ok(!html.includes('Future Teammate'));assert.ok(html.includes('Team lead for Blue'));
+ const html=renderToStaticMarkup(React.createElement(TeamsPanel,{...props,onAdd:()=>{},onDirty:()=>{}}));
+ const leadSelect=html.match(/<select[^>]*aria-label="Team lead for Blue"[\s\S]*?<\/select>/)?.[0];assert.ok(leadSelect);assert.ok(!leadSelect.includes('Future Teammate'));assert.ok(leadSelect.includes('Mapper'));
  f.db.close();
 });
 
@@ -478,7 +478,7 @@ test('candidate personal attributes preserve profile data, validate and require 
  assert.ok((await f.state()).research.events.some((e:any)=>e.action==='candidate-attributes'&&e.record_id===cid));f.db.close();
 });
 
-test('local searches are planner-owned creation with distinct references and audit',async()=>{
+test('local search creation enforces permissions, distinct references and audit',async()=>{
  const f=fixture();await assert.rejects(f.w.mutate(mapper,'search',{client:'Synthetic',title:'Local search'}),/permission/);
  await assert.rejects(f.w.mutate(admin,'search',{client:'Synthetic'}),/client and role/);
  const {id}=await f.w.mutate(admin,'search',{client:'Synthetic',title:'Local search',external_id:'108',partner_id:'partner',start_date:'2026-10-04'});
