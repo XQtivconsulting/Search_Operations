@@ -102,17 +102,17 @@ test('clearing a recommendation date in the app is a protected edit during repea
  const e=f.records().find(r=>r.kind==='engagement')!;e.recommended_on='';f.db.prepare('UPDATE research_records SET data=?,version=version+1 WHERE id=?').run(JSON.stringify(e),e.id);
  const changed=[{...source,'Date Recommendation Submitted':'2025-08-26'}],preview:any=await f.run({action,rows:changed,preview:true});assert.equal(preview.plan[0].needs_choice,true);assert.equal(preview.plan[0].conflicts[0].field,'Recommendation date');await assert.rejects(f.run({action,rows:changed,signature:preview.signature}),/Resolve/);f.db.close();
 });
-test('mapping locations normalize unique city/state matches and ambiguous cities require confirmation',async()=>{
+test('mapping locations normalize unique city/state matches while ambiguous cities remain importable',async()=>{
  const labels=['Dallas, Texas, United States','Dallas, Georgia, United States'];let indexLoads=0,shardLoads=0;
  const matches=await mappingLocationMatches([{location:'Dallas TX'},{location:'Dallas'},{location:'Dallas TX'}],async key=>{if(key==='index'){indexLoads++;return {states:[],shards:['64-61']};}shardLoads++;return [[labels[0],'dallas texas united states tx us','dallas','city'],[labels[1],'dallas georgia united states ga us','dallas','city']];});
  assert.equal(indexLoads,1);assert.equal(shardLoads,1);assert.deepEqual(matches['Dallas TX'].options,[labels[0]]);
  const unique=planHistoricalMappings([{...mappingRow,location:'Dallas TX'}],searches,[],members,[],matches)[0];assert.equal(unique.data.location,labels[0]);assert.equal(unique.data.source_location,'Dallas TX');assert.ok(!unique.needs_choice);
- const ambiguous=planHistoricalMappings([{...mappingRow,location:'Dallas'}],searches,[],members,[],matches)[0];assert.equal(ambiguous.needs_location,true);assert.equal(ambiguous.needs_choice,true);
+ const ambiguous=planHistoricalMappings([{...mappingRow,location:'Dallas'}],searches,[],members,[],matches)[0];assert.equal(ambiguous.needs_location,true);assert.ok(!ambiguous.needs_choice);assert.equal(ambiguous.data.location,'Dallas');assert.equal(ambiguous.data.location_verified,false);
  const selected=planHistoricalMappings([{...mappingRow,location:'Dallas',location_choice:labels[0]}],searches,[],members,[],matches)[0];assert.equal(selected.data.location,labels[0]);assert.ok(!selected.needs_choice);
  assert.match(planHistoricalMappings([{...mappingRow,location:'Dallas',location_choice:'Invented place'}],searches,[],members,[],matches)[0].error,/Location selection changed/);
 });
-test('unknown locations block import until corrected or explicitly left blank with original retained',()=>{
- const missing=planHistoricalMappings([{...mappingRow,location:'Unknown town'}],searches,[],members,[])[0];assert.equal(missing.needs_choice,true);
+test('unknown locations retain original text with a warning and may optionally be left blank',()=>{
+ const missing=planHistoricalMappings([{...mappingRow,location:'Unknown town'}],searches,[],members,[])[0];assert.ok(!missing.needs_choice);assert.equal(missing.data.location,'Unknown town');assert.equal(missing.data.location_verified,false);assert.ok(missing.warnings.some((w:string)=>/Original text/.test(w)));
  const blank=planHistoricalMappings([{...mappingRow,location:'Unknown town',location_choice:'blank'}],searches,[],members,[])[0];assert.equal(blank.data.location,'');assert.equal(blank.data.source_location,'Unknown town');assert.ok(!blank.needs_choice);
 });
 test('canonical imported locations populate candidate geography without overwriting other tags',async()=>{
@@ -132,4 +132,36 @@ test('HTTP researcher save, reload and edit retain no-login records while protec
  const html=renderToStaticMarkup(React.createElement(ResearchersWithoutLogin,{data:{...refreshed,actor:admin},members,invitations:[],onEdit:()=>{},onInvite:()=>{}}));assert.match(html,/HTTP Historical Researcher Updated/);assert.match(html,/No login/);assert.match(html,/Edit researcher/);
  const linked=await request({kind:'staff-edit',id:'s',version:0,name:'Changed account',email:''});assert.equal(linked.status,409);
  f.db.close();
+});
+
+test('historical team decisions allow unknown reviewer and date without inventing review history',async()=>{
+ const f=fixture(),action='historical-mapping-import',rows=[{...mappingRow,choice:'reuse:c',team_review:'Yes',team_reviewer:'',team_review_date:''}];
+ const p:any=await f.run({action,rows,preview:true});assert.equal(p.plan[0].error,undefined);assert.equal(p.plan[0].data.team_decision,'Approve');assert.equal(p.plan[0].data.team_review_date,'');
+ await f.run({action,rows,signature:p.signature});const m=f.records().find(r=>r.kind==='mapping')!;assert.equal(m.status,'Approved');assert.equal(m.peer_reviewed_at,null);assert.equal(m.peer_reviewed_by,'');assert.equal(m.peer_reviewed_name,'');
+ const events=f.db.prepare("SELECT * FROM research_events WHERE action='historical-review'").all() as any[];const team=events.find(e=>JSON.parse(e.data).stage==='Team');assert.ok(team);assert.equal(JSON.parse(team.data).reviewed_on,'');assert.ok(Number.isFinite(Date.parse(team.created_at)));
+ const blank=planHistoricalMappings([{...mappingRow,team_review:'',team_reviewer:'',team_review_date:''}],searches,[],members,[])[0];assert.equal(blank.error,undefined);assert.equal(blank.data.status,'Approved');assert.equal(blank.data.team_decision,'');f.db.close();
+});
+
+test('unresolved location imports as editable source text without inventing geography tags',async()=>{
+ const f=fixture(),rows=[{...mappingRow,choice:'reuse:c',location:'Unknown metro area'}],action='historical-mapping-import';
+ const p:any=await f.run({action,rows,preview:true});assert.ok(!p.plan[0].needs_choice);assert.equal(p.plan[0].error,undefined);
+ await f.run({action,rows,signature:p.signature});const c=f.records().find(r=>r.kind==='candidate')!,m=f.records().find(r=>r.kind==='mapping')!;assert.equal(c.location,'Unknown metro area');assert.ok(!c.tag_values?.geography?.length);assert.equal(m.source_location,'Unknown metro area');f.db.close();
+});
+
+test('mapping import creates company masters once, reuses aliases and preserves current candidate company',async()=>{
+ const f=fixture(),action='historical-mapping-import';f.put('company','co','canonical',{name:'Canonical Company',aliases:['Known Alias']});
+ const rows=[{...mappingRow,choice:'reuse:c',company:'Known Alias'},...['one','two'].map(s=>({...mappingRow,first_name:s,last_name:'Example',url:'https://linkedin.com/in/company-'+s,company:s==='one'?'New Company':'new company'}))];
+ const p:any=await f.run({action,rows,preview:true});assert.equal(p.plan[0].company_result,'Reuse company');assert.equal(p.plan[1].company_result,'Create company');
+ const result:any=await f.run({action,rows,signature:p.signature});assert.equal(result.companies_created,1);assert.equal(f.records().filter(r=>r.kind==='company').length,2);
+ const mapped=f.records().filter(r=>r.kind==='mapping'),current=f.records().find(r=>r.id==='c')!;assert.equal(mapped.find(r=>r.candidate_id==='c')!.company_id,'co');assert.equal(current.company,'Existing Co');assert.ok(!current.company_id);
+ const newCompany=f.records().find(r=>r.kind==='company'&&r.id!=='co')!;assert.equal(mapped.filter(r=>r.company_id===newCompany.id).length,2);assert.equal(f.records().filter(r=>r.kind==='candidate'&&r.company_id===newCompany.id).length,2);
+ const repeat:any=await f.run({action,rows,preview:true});await f.run({action,rows,signature:repeat.signature});assert.equal(f.records().filter(r=>r.kind==='company').length,2);f.db.close();
+});
+test('ambiguous company aliases block import before creating any new company',async()=>{
+ const f=fixture(),action='historical-mapping-import';f.put('company','a','a',{name:'A',aliases:['Same']});f.put('company','b','b',{name:'B',aliases:['Same']});
+ const rows=[{...mappingRow,choice:'reuse:c',company:'New Company'},{...mappingRow,url:'https://linkedin.com/in/ambiguous-company',company:'Same'}];const p:any=await f.run({action,rows,preview:true});assert.match(p.plan[1].error,/multiple master/);await assert.rejects(f.run({action,rows,signature:p.signature}),/Resolve/);assert.equal(f.records().filter(r=>r.kind==='company').length,2);f.db.close();
+});
+test('imported free-text location can be corrected through candidate profile without changing mapping history',async()=>{
+ const f=fixture(),action='historical-mapping-import',rows=[{...mappingRow,choice:'reuse:c',location:'Unknown area'}];const p:any=await f.run({action,rows,preview:true});await f.run({action,rows,signature:p.signature});
+ const c=f.records().find(r=>r.kind==='candidate')!;await f.run({...c,action:'candidate-save',first_name:'Example',last_name:'Person',location:'Dallas, Texas, United States'});assert.equal(f.records().find(r=>r.id===c.id)!.location,'Dallas, Texas, United States');assert.equal(f.records().find(r=>r.kind==='mapping')!.source_location,'Unknown area');f.db.close();
 });

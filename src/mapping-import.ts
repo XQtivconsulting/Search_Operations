@@ -1,3 +1,5 @@
+import {companyNames,normalizedCompany} from './company-match';
+import {cleanCompany} from './company-import';
 import type {ImportLocationMatches} from './mapping-locations';
 import {linkedin,linkedinKey} from './candidate-identity';
 import {hasPermission} from './access-policy';
@@ -24,9 +26,12 @@ export function planHistoricalMappings(rows:R[],searches:R[],records:R[],members
    if(raw.location_choice==='blank')location='';
    else if(raw.location_choice){if(!out.location_options.includes(raw.location_choice))throw Error('Location selection changed. Choose a location from the preview.');location=raw.location_choice;}
    else if(out.location_options.length===1)location=out.location_options[0];
-   else{out.needs_location=true;out.needs_choice=true;out.warnings.push(match?.error||(!out.location_options.length?'Location not found. Refine the location search.':'Several locations match. Confirm the city, state and country.'));}
+   else{out.needs_location=true;out.warnings.push(match?.error||(!out.location_options.length?'Location not matched. Original text will be imported; correct it in the candidate profile.':'Several locations match. Original text will be imported unless you choose one.'));}
   }
   out.normalized_location=out.needs_location?'':location;
+  const company=str(raw.company);if(company.length>200)throw Error('Company name exceeds 200 characters.');
+  const companyMatches=company?records.filter(c=>c.kind==='company'&&companyNames(c).includes(normalizedCompany(company))):[];if(companyMatches.length>1)throw Error('Company name matches multiple master records. Resolve the company aliases before importing.');
+  out.company_result=company?(companyMatches.length?'Reuse company':'Create company'):'';out.company_name=company;
   const profile={first_name,last_name,name:[first_name,last_name].filter(Boolean).join(' '),url,email,company:str(raw.company),title:str(raw.title),location};
   const exact=candidates.filter(c=>linkedinKey(c.url)===url||email&&norm(c.email)===norm(email));
   if(exact.length>1)throw Error('Conflicting existing candidate identities. Resolve duplicates before import.');
@@ -37,7 +42,7 @@ export function planHistoricalMappings(rows:R[],searches:R[],records:R[],members
   if(raw.choice==='new'&&exact.length)throw Error('This LinkedIn or email already exists. Reuse the existing candidate.');
   if(suggestions.length&&!raw.choice)out.needs_choice=true;
   const tm=decision(raw.team_review,true),pm=decision(raw.partner_review),td=importDate(raw.team_review_date),pd=importDate(raw.partner_review_date),tr=str(raw.team_reviewer),pr=str(raw.partner_reviewer);
-  for(const [d,who,date,label] of [[tm,tr,td,'Team'],[pm,pr,pd,'Partner']]){if(d&&(!who||!date))throw Error(`${label} decision requires reviewer and review date.`);if(!d&&(who||date))throw Error(`${label} review date/reviewer requires a decision.`);if(date&&date<mapped_on)throw Error(`${label} review precedes mapping date.`);}
+  for(const [d,who,date,label] of [[tm,tr,td,'Team'],[pm,pr,pd,'Partner']]){if(label==='Partner'&&d&&(!who||!date))throw Error(`${label} decision requires reviewer and review date.`);if(!d&&(who||date))throw Error(`${label} review date/reviewer requires a decision.`);if(date&&date<mapped_on)throw Error(`${label} review precedes mapping date.`);}
   if(td&&pd&&pd<td)throw Error('Partner review precedes team review.');
   const people=named(mapped_by,members),staffMatches=named(mapped_by,staff);if(people.length>1||staffMatches.length>1)throw Error('Researcher name is ambiguous. Use a unique staff ID.');
   const staffId=people[0]?.staff_id||people[0]?.staffId||staffMatches[0]?.id||'',mapper=people[0]||members.find(p=>(p.staff_id||p.staffId)===staffId);
@@ -45,7 +50,7 @@ export function planHistoricalMappings(rows:R[],searches:R[],records:R[],members
   const reviewer=(label:string)=>{const found=named(label,members);if(found.length>1)throw Error('Reviewer name is ambiguous. Use a unique member ID.');if(label&&!found.length)out.warnings.push(`Historical reviewer retained: ${label}`);return found[0]?.id||'';};
   const teamReviewer=reviewer(tr),partnerReviewer=reviewer(pr);
   const status=pm==='Approve'?'Approved':pm==='Reject'?'Rejected':pm==='Needs information'?'Needs information':tm==='Reject'?'Rejected':tm==='Needs information'?'Needs information':'Partner review';
-  const data={...profile,source_location:str(raw.location),mapped_by,mapped_on,notes:str(raw.notes),team_decision:tm,team_reviewer:tr,team_reviewer_id:teamReviewer,team_review_date:td,partner_decision:pm,partner_reviewer:pr,partner_reviewer_id:partnerReviewer,partner_review_date:pd,status,staff_id:staffId,mapper_id:mapper?.id||''};
+  const data={...profile,company_id:companyMatches[0]?.id||'',location_verified:!!location&&!out.needs_location,source_location:str(raw.location),mapped_by,mapped_on,notes:str(raw.notes),team_decision:tm,team_reviewer:tr,team_reviewer_id:teamReviewer,team_review_date:td,partner_decision:pm,partner_reviewer:pr,partner_reviewer_id:partnerReviewer,partner_review_date:pd,status,staff_id:staffId,mapper_id:mapper?.id||''};
   const identity=candidate?.id||url,key=search.id+':'+identity,existing=records.find(r=>r.kind==='mapping'&&r.role_id===search.id&&r.candidate_id===candidate?.id),fingerprint=JSON.stringify(data);
   if(seen.has(key)&&seen.get(key)!==fingerprint)throw Error('Conflicting rows for the same candidate and search. Keep one final historical record.');
   const enrich=existing?.source==='SharePoint'&&existing.status==='Imported'&&!existing.submitted_at&&!existing.partner_decision&&!existing.peer_decision;
@@ -68,17 +73,19 @@ export function importHistoricalMappings(db:any,a:any,b:R,members:R[]){
  if(b.preview)return {plan,signature};
  requireThat(signature===b.signature,'Data changed. Preview the file again.',409);
  requireThat(!plan.some((p:R)=>p.error||p.needs_choice),'Resolve every error and candidate match before importing.');
- const now=new Date().toISOString(),run=crypto.randomUUID(),result={created:0,reused:0,mapped:0,skipped:0};
+ const now=new Date().toISOString(),run=crypto.randomUUID(),result={created:0,reused:0,mapped:0,skipped:0,companies_created:0};
  const save=(kind:string,role:string,key:string,data:R,old?:R)=>{const id=old?.id||crypto.randomUUID();db.rows('INSERT INTO research_records(id,kind,role_id,record_key,data,version) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data,version=excluded.version',id,kind,role,key,JSON.stringify(data),(old?.version||0)+1);db.rows('INSERT INTO research_events VALUES(?,?,?,?,?,?)',crypto.randomUUID(),id,a.id,'historical-mapping-import',JSON.stringify({before:old||null,after:data,import_run:run}),now);db.audit(a,'historical-mapping-import',id,old||null,data);return {...data,id,kind,role_id:role,version:(old?.version||0)+1};};
+ const companies=records.filter((r:R)=>r.kind==='company');
+ const ensureCompany=(name:string)=>{if(!name)return '';let company=companies.find((c:R)=>companyNames(c).includes(normalizedCompany(name)));if(!company){company=save('company','',name.toLowerCase().replace(/\s+/g,' '),cleanCompany({name}));companies.push(company);result.companies_created++;}return company.id;};
  const byId=new Map<string,R>(records.filter((r:R)=>r.kind==='candidate').map((r:R)=>[r.id,r]));
  const cache=new Map(records.filter((r:R)=>r.kind==='candidate').map((r:R)=>[linkedinKey(r.url),r]));
- for(const p of plan){if(p.result!=='Create mapping'){result.skipped++;continue;}const d=p.data;let c:R|undefined=p.existing_id?byId.get(p.existing_id):cache.get(d.url) as R|undefined;
+ for(const p of plan){if(p.result!=='Create mapping'){result.skipped++;continue;}const d=p.data,companyId=ensureCompany(d.company);let c:R|undefined=p.existing_id?byId.get(p.existing_id):cache.get(d.url) as R|undefined;
   const profile=Object.fromEntries(['first_name','last_name','name','url','email','company','title','location'].map(k=>[k,d[k]]));
-  if(c){const fill=Object.fromEntries(Object.entries(profile).filter(([k,v])=>!c![k]&&v));if(d.location&&(!c.location||c.location===d.location)&&!c.tag_values?.geography?.length)fill.tag_values={...c.tag_values,geography:[d.location]};if(Object.keys(fill).length)c=save('candidate','',linkedinKey(c.url)||d.url,{...c,...fill},c);result.reused++;}else{c=save('candidate','',d.url,{...profile,...(d.location?{tag_values:{geography:[d.location]}}:{}),created_at:now,source:'Historical mapping import'});result.created++;}cache.set(d.url,c);byId.set(c.id,c);
+  if(c){const fill=Object.fromEntries(Object.entries(profile).filter(([k,v])=>!c![k]&&v));if(companyId&&!c.company_id&&(!c.company||companyNames(companies.find((co:R)=>co.id===companyId)).includes(normalizedCompany(c.company))))fill.company_id=companyId;if(d.location_verified&&d.location&&(!c.location||c.location===d.location)&&!c.tag_values?.geography?.length)fill.tag_values={...c.tag_values,geography:[d.location]};if(Object.keys(fill).length)c=save('candidate','',linkedinKey(c.url)||d.url,{...c,...fill},c);result.reused++;}else{c=save('candidate','',d.url,{...profile,company_id:companyId,...(d.location_verified&&d.location?{tag_values:{geography:[d.location]}}:{}),created_at:now,source:'Historical mapping import'});result.created++;}cache.set(d.url,c);byId.set(c.id,c);
   const at=(date:string)=>date+'T12:00:00.000Z';
-  const mapping={candidate_id:c.id,name:d.name,url:d.url,title:d.title,company:d.company,location:d.location,rationale:d.notes,status:d.status,mapper_id:d.mapper_id,mapper_name:d.mapped_by,staff_id:d.staff_id,team_id:'',work_date:d.mapped_on,created_at:at(d.mapped_on),submitted_at:at(d.mapped_on),stage_at:at(d.partner_review_date||d.team_review_date||d.mapped_on),peer_decision:d.team_decision,peer_reviewed_by:d.team_reviewer_id,peer_reviewed_name:d.team_reviewer,peer_reviewed_at:d.team_review_date?at(d.team_review_date):null,partner_decision:d.partner_decision,partner_reviewed_by:d.partner_reviewer_id,partner_reviewed_name:d.partner_reviewer,partner_reviewed_at:d.partner_review_date?at(d.partner_review_date):null,criteria_snapshot:[],evidence:{},source:'Historical Excel',source_location:d.source_location,import_run:run,imported_at:now,imported_by:a.id,team_review_skipped:!d.team_decision,cycle:1};
+  const mapping={candidate_id:c.id,name:d.name,url:d.url,title:d.title,company:d.company,company_id:companyId,location:d.location,rationale:d.notes,status:d.status,mapper_id:d.mapper_id,mapper_name:d.mapped_by,staff_id:d.staff_id,team_id:'',work_date:d.mapped_on,created_at:at(d.mapped_on),submitted_at:at(d.mapped_on),stage_at:at(d.partner_review_date||d.team_review_date||d.mapped_on),peer_decision:d.team_decision,peer_reviewed_by:d.team_reviewer_id,peer_reviewed_name:d.team_reviewer,peer_reviewed_at:d.team_review_date?at(d.team_review_date):null,partner_decision:d.partner_decision,partner_reviewed_by:d.partner_reviewer_id,partner_reviewed_name:d.partner_reviewer,partner_reviewed_at:d.partner_review_date?at(d.partner_review_date):null,criteria_snapshot:[],evidence:{},source:'Historical Excel',source_location:d.source_location,import_run:run,imported_at:now,imported_by:a.id,team_review_skipped:!d.team_decision,cycle:1};
   const m=save('mapping',p.role_id,p.role_id+':'+c.id,mapping,records.find((r:R)=>r.id===p.existing_mapping_id));result.mapped++;
-  for(const [stage,decision,who,actor,date] of [['Team',d.team_decision,d.team_reviewer,d.team_reviewer_id,d.team_review_date],['Partner',d.partner_decision,d.partner_reviewer,d.partner_reviewer_id,d.partner_review_date]])if(decision)db.rows('INSERT INTO research_events VALUES(?,?,?,?,?,?)',crypto.randomUUID(),m.id,a.id,'historical-review',JSON.stringify({stage,decision,reviewer_name:who,reviewer_id:actor,reviewed_on:date,imported_by:a.id,import_run:run}),at(date));
+  for(const [stage,decision,who,actor,date] of [['Team',d.team_decision,d.team_reviewer,d.team_reviewer_id,d.team_review_date],['Partner',d.partner_decision,d.partner_reviewer,d.partner_reviewer_id,d.partner_review_date]])if(decision)db.rows('INSERT INTO research_events VALUES(?,?,?,?,?,?)',crypto.randomUUID(),m.id,a.id,'historical-review',JSON.stringify({stage,decision,reviewer_name:who,reviewer_id:actor,reviewed_on:date,imported_by:a.id,import_run:run}),date?at(date):now);
  }
  return {...result,import_run:run};
 }
