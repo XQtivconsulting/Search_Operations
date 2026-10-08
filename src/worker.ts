@@ -268,7 +268,7 @@ export default {
             // Never trust a caller-supplied list of verified locations.
             delete body.verified_geographies;
             delete body.location_matches;
-            if(body.action==='historical-mapping-import'){
+            if(body.action==='historical-mapping-import'||body.action==='historical-mapping-batch'&&body.op==='save'){
               requireThat(hasPermission(a,'integrations.manage'),'Manage integrations permission required.',403);
               body.location_matches=await mappingLocationMatches(body.rows,async key=>{
                 requireThat(/^(index|[a-f0-9]+-[a-f0-9]+)$/.test(key),'Invalid location catalog key.');

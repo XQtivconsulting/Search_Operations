@@ -1,3 +1,4 @@
+import {mappingBatch,mappingBatchSchema} from './mapping-batch';
 import {importInterviews} from './interview-import';
 import {importHistoricalMappings} from './mapping-import';
 import {defaultSourcingSettings} from './sourcing-settings';
@@ -50,6 +51,7 @@ export class Workspace extends DurableObject {
   constructor(ctx: DurableObjectState, env: any) {
     super(ctx, env);
     ctx.storage.sql.exec(workspaceSchema);
+    ctx.storage.sql.exec(mappingBatchSchema);
     initializeSearchNumbers(this);
     ctx.storage.transactionSync(()=>backfillSearchNumbers(this));
     if(!this.rows('PRAGMA table_info(searches)').some(c=>c.name==='origin'))this.rows("ALTER TABLE searches ADD COLUMN origin TEXT NOT NULL DEFAULT ''");
@@ -170,6 +172,7 @@ export class Workspace extends DurableObject {
     }
     return this.ctx.storage.transactionSync(()=>{
       if(['historical-interview-import','interview-import-settings'].includes(b.action))return importInterviews(this,a,b);
+      if(b.action==='historical-mapping-batch')return mappingBatch(this,a,b,members);
       if(b.action==='historical-mapping-import')return importHistoricalMappings(this,a,b,members);
       if(['candidate-summary-draft','candidate-summary-save','candidate-summary-publish'].includes(b.action))return candidateSummaryMutation(this,a,b,generated);
       if(['candidate-file-save','candidate-file-list','candidate-file-read'].includes(b.action)) {

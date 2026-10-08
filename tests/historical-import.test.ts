@@ -182,3 +182,33 @@ test('ready selection imports valid history while leaving an invalid row unwritt
  const {readyMappingRows}=await import('../src/mapping-preview');const f=fixture(),action='historical-mapping-import',rows=[{...mappingRow,choice:'reuse:c',row:2},{...mappingRow,row:3,first_name:'',last_name:'',url:'https://linkedin.com/in/invalid-example'}];
  const p:any=await f.run({action,rows,preview:true});assert.ok(p.plan[1].error);const selected=readyMappingRows(rows,p.plan);const fresh:any=await f.run({action,rows:selected,preview:true});const result:any=await f.run({action,rows:selected,signature:fresh.signature});assert.equal(result.mapped,1);assert.equal(result.skipped,1);assert.equal(f.records().filter(r=>r.kind==='mapping').length,1);assert.equal(rows[1].first_name,'');assert.equal('choice' in rows[1],false);f.db.close();
 });
+
+test('saved mapping batch resumes after response loss, retains issues and rejects stale tabs',async()=>{
+ const f=fixture(),action='historical-mapping-batch',id='test-batch';
+ const rows=Array.from({length:13},(_,i)=>({...mappingRow,row:i+2,url:`https://www.linkedin.com/in/batch-${i}`,first_name:'Synthetic',last_name:String(i)}));
+ rows.push({...mappingRow,row:99,first_name:'',last_name:''});
+ let b:any=await f.run({action,op:'save',id,version:0,request_id:'save-1',name:'Synthetic',rows});
+ assert.equal(b.rows.length,14);
+ const request={action,op:'process',id,version:b.version,request_id:'chunk-1'};
+ b=await f.run(request);assert.equal(b.outcomes.length,10);assert.equal(b.totals.mapped,10);
+ const events=f.db.prepare('SELECT COUNT(*) n FROM research_events').get()!.n;
+ const replay:any=await f.run(request);assert.equal(replay.version,b.version);assert.equal(replay.totals.mapped,10);
+ assert.equal(f.db.prepare('SELECT COUNT(*) n FROM research_events').get()!.n,events);
+ await assert.rejects(()=>f.run({...request,request_id:'stale-tab'}),/another tab/);
+ await assert.rejects(()=>f.run({action,op:'get',id},{...admin,id:'other'}),/not found/);
+ await assert.rejects(()=>f.run({action,op:'list'},{...admin,role:'researcher'}),/permission/i);
+ b=await f.run({action,op:'get',id});assert.equal(b.rows.length,4);
+ b=await f.run({action,op:'process',id,version:b.version,request_id:'chunk-2'});
+ assert.equal(b.totals.mapped,13);assert.equal(b.rows.length,1);assert.equal(b.plan[0].row,99);assert.match(b.plan[0].error,/name/);
+ const listed:any=await f.run({action,op:'list'});assert.equal(listed[0].pending,1);assert.equal(listed[0].completed,13);
+ f.db.close();
+});
+test('failed chunk rolls back mappings and batch ledger together',async()=>{
+ const f=fixture(),action='historical-mapping-batch',id='rollback';
+ const b:any=await f.run({action,op:'save',id,version:0,request_id:'save',rows:[{...mappingRow,row:2,choice:'reuse:c'}]});
+ f.db.exec("CREATE TRIGGER fail_batch BEFORE UPDATE ON mapping_batches BEGIN SELECT RAISE(ABORT,'synthetic storage failure'); END");
+ await assert.rejects(()=>f.run({action,op:'process',id,version:b.version,request_id:'chunk'}),/synthetic/);
+ assert.equal(f.records().filter(r=>r.kind==='mapping').length,0);
+ const saved:any=await f.run({action,op:'get',id});assert.equal(saved.outcomes.length,0);assert.equal(saved.version,b.version);
+ f.db.close();
+});

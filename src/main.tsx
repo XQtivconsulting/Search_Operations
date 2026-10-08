@@ -65,11 +65,11 @@ function accountChanged(){sessionRevision++;expectedUser=null;window.dispatchEve
 if(sessionChannel)sessionChannel.onmessage=()=>accountChanged();
 async function api(path: string, body?: unknown) {
   const publicCall=['login','accept','invitation'].includes(path),expected=publicCall?null:expectedUser,revision=sessionRevision;
-  const r = await fetch('/api/'+path, {method:body?'POST':'GET',headers:{'Content-Type':'application/json','X-Workspace':workspace,...(expected?{'X-Expected-User':expected}:{})},body:body?JSON.stringify(body):undefined});
+  const r = await fetch('/api/'+path, {...((body as any)?.action==='historical-mapping-batch'?{signal:AbortSignal.timeout(45000)}:{}),method:body?'POST':'GET',headers:{'Content-Type':'application/json','X-Workspace':workspace,...(expected?{'X-Expected-User':expected}:{})},body:body?JSON.stringify(body):undefined});
   if(r.status===401&&expected){accountChanged();throw new Error('Please sign in again.');}
   const result=await apiResponse(r);
   if(result.code==='SESSION_CHANGED'||r.status===401&&!!expected){accountChanged();throw new Error(result.error||'Please sign in again.');}
-  if(!r.ok)throw new Error(result.error||'Request failed.');
+  if(!r.ok)throw Object.assign(new Error(result.error||'Request failed.'),{status:r.status});
   if(!publicCall&&revision!==sessionRevision)throw new Error('Account changed while loading. Reload this page.');
   if(['login','accept','logout'].includes(path)){sessionRevision++;expectedUser=null;sessionChannel?.postMessage({changed:true});}
   return result;

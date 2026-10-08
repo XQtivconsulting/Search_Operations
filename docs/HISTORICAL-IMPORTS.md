@@ -57,3 +57,13 @@ Candidate profile editing now accepts Location and stores corrections without re
 ### Historical mapping attribution and partial imports (2026-10-08)
 
 Typecheck, all 389 automated tests and the production build passed locally. Regression checks cover RecruitCRM-first enrichment, preserving existing decisions while filling missing attribution, conflicting saved attribution, repeat imports, and excluding unresolved rows from a fresh validated selection. No customer workbook or production data is used by these tests. Deployment verification is separate from local validation.
+
+## Durable mapping batches
+
+Mapping uploads now save a private, tenant-local, owner-scoped batch in SQLite. Resume saved import restores pending rows and choices after navigation, refresh or a failed response. Completed source rows have a durable outcome ledger. Skips and location/candidate choices are saved before further processing; failed saves explicitly report the failure. Existing in-memory previews from older releases cannot be recovered without uploading the source again.
+
+Processing applies at most ten eligible rows per request. Each chunk's business records, audits, outcome ledger and request receipt share the Workspace transaction. Replaying the last request returns saved progress without rewriting records. Stale versions from other tabs are rejected. Transient network/HTTP 502–504 errors receive two bounded retries; further failure pauses processing and offers retrieval of saved progress. Processing pauses when the page is left; this is resumable foreground processing, not a background job. Validation conflicts remain pending and do not overwrite existing history. Location lookup occurs during save/preview, not during chunk execution.
+
+Verification added: synthetic lost-response replay with no duplicate audit events; 13 mappings over two chunks plus a retained invalid row; stale-tab rejection; owner and permission isolation; injected storage failure rolls back mappings and progress together. These checks do not establish the cause of the previously observed production HTTP 503 or constitute a production load test.
+
+Actual local verification for this change: TypeScript passed, all 391 tests passed, and the Vite production build passed (existing bundle-size advisory remains). Production deployment and authenticated UI verification are separate checks.

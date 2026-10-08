@@ -3,6 +3,7 @@ import {requireThat,text} from './domain';
 import type {Actor} from './domain';
 type DB={rows:(q:string,...p:any[])=>any[]};
 const researchPermissions:Record<string,string>={
+ 'historical-mapping-batch':'integrations.manage',
  'historical-mapping-import':'integrations.manage',
  'historical-interview-import':'integrations.manage',
  'interview-import-settings':'integrations.manage',
