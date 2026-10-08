@@ -250,3 +250,32 @@ test('changing a role to sourcing provisions stable identities for existing memb
  }finally{db.close();}
 });
 
+
+test('invitation API permits Super Admin grants only from an actual Super Admin, including combined roles',async()=>{
+ const {db,identity}=peopleFixture();
+ try{
+  await identity.members('test');const adminSession=await identity.session('admin2'),ownerSession=await identity.session('owner');
+  const env:any={IDENTITY:{getByName:()=>identity},WORKSPACE:{getByName:()=>({})}};
+  const invite=(session:string,assigned:string[],email:string)=>worker.fetch(new Request('https://app.example.com/api/invite?workspace=test',{method:'POST',headers:{Origin:'https://app.example.com',Cookie:'search_session='+session},body:JSON.stringify({name:'Synthetic Invite',email,roles:assigned})}),env);
+  for(const assigned of [['super_admin'],['admin','super_admin']]){
+   const response=await invite(adminSession.token,assigned,'blocked@example.com');assert.equal(response.status,403);assert.match(JSON.stringify(await response.json()),/Only a super admin/);
+  }
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM invites').get()?.n,0);
+  const allowed=await invite(ownerSession.token,['super_admin'],'allowed@example.com');assert.equal(allowed.status,200);
+  assert.deepEqual((await identity.pendingInvitations('test'))[0].roles,['super_admin']);
+  assert.equal((await invite(adminSession.token,['admin'],'ordinary@example.com')).status,200);
+ }finally{db.close();}
+});
+
+test('role header counts reconcile with directory assignments, including multi-role and revoked members',async()=>{
+ const {db,identity}=peopleFixture();
+ try{
+  let people=await identity.members('test');const owner=people.find(m=>m.id==='owner')!;const reader=people.find(m=>m.id==='reader')!;
+  await identity.updateMember(owner as any,{...reader,roles:['admin','engagement'],status:'revoked'});
+  const catalog=await identity.roleCatalog(owner as any);people=await identity.members('test');
+  assert.equal(catalog.superAdminUsers,people.filter(m=>m.roles.includes('super_admin')).length);
+  for(const role of catalog.roles)assert.equal(role.users,people.filter(m=>m.roles.includes(role.id)).length);
+  assert.equal(catalog.roles.find(r=>r.id==='engagement')?.users,1);
+  await assert.rejects(identity.roleCatalog({...owner,tenant:'foreign'} as any),/permission/);
+ }finally{db.close();}
+});

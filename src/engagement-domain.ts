@@ -17,7 +17,14 @@ export const engagementAssignees=(records:R[],role:string,group?:string):string[
  return assignment.member_ids||[];
 };
 export const engagementReady=(m:R)=>m.status==='Approved'||m.status==='Imported'&&m.source==='RecruitCRM';
-export const engagementRows=(records:R[],searches:R[]=[]):R[]=>records.filter(m=>m.kind==='mapping'&&(engagementReady(m)||records.some(e=>e.kind==='engagement'&&e.mapping_id===m.id))).map(m=>{const e=records.find(e=>e.kind==='engagement'&&e.mapping_id===m.id),base=e||{stage:'Assigned',stage_id:'assigned'},stage=resolvedStage(base,pipelineStages(records));return {...e,mapping_id:m.id,candidate_id:m.candidate_id,role_id:m.role_id,mapping_version:m.version,search_closed:engagementSearchClosed(searches.find(s=>s.id===m.role_id)?.status),approved:engagementReady(m),stage:stage.label,stage_id:stage.id};});
+export const engagementRows=(records:R[],searches:R[]=[]):R[]=>{
+ const stages=pipelineStages(records),searchById=new Map(searches.map(s=>[s.id,s])),byMapping=new Map<string,R>();
+ for(const r of records)if(r.kind==='engagement'&&!byMapping.has(r.mapping_id))byMapping.set(r.mapping_id,r);
+ return records.filter(m=>m.kind==='mapping'&&(engagementReady(m)||byMapping.has(m.id))).map(m=>{
+  const e=byMapping.get(m.id),stage=resolvedStage(e||{stage:'Assigned',stage_id:'assigned'},stages);
+  return {...e,mapping_id:m.id,candidate_id:m.candidate_id,role_id:m.role_id,mapping_version:m.version,search_closed:engagementSearchClosed(searchById.get(m.role_id)?.status),approved:engagementReady(m),stage:stage.label,stage_id:stage.id};
+ });
+};
 const read=(db:DB,id:string)=>{const r=db.rows('SELECT * FROM research_records WHERE id=?',id)[0];return r?{...JSON.parse(r.data),id:r.id,kind:r.kind,role_id:r.role_id,version:r.version}:null;};
 const byKey=(db:DB,kind:string,key:string)=>{const r=db.rows('SELECT id FROM research_records WHERE kind=? AND record_key=?',kind,key)[0];return r?read(db,r.id):null;};
 function save(db:DB,a:Actor,kind:string,role:string,key:string,next:R,old:R|null,action:string){const id=old?.id||crypto.randomUUID();const clean={...next};for(const k of ['id','kind','role_id','version'])delete clean[k];db.rows('INSERT INTO research_records(id,kind,role_id,record_key,data,version) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data,version=excluded.version',id,kind,role,key,JSON.stringify(clean),(old?.version||0)+1);db.rows('INSERT INTO research_events VALUES(?,?,?,?,?,?)',crypto.randomUUID(),id,a.id,action,JSON.stringify({before:old,after:clean}),new Date().toISOString());db.audit(a,action,id,old,clean);return{id};}

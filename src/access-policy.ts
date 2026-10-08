@@ -34,7 +34,7 @@ export const permissionGroups=[
  define('teams.create','Planning & allocation','Create sourcing teams','Create team records.',['admin','planner']),
  define('teams.members','Planning & allocation','Maintain team membership','Edit team rosters and team leads.',['admin','planner']),
  define('teams.assign','Planning & allocation','Assign or move associates','Assign associates to existing sourcing teams.',['admin','planner']),
- define('engagement.view','Engagement','View engagement and interviews','View dashboard, queue and interview tracker.'),
+ define('engagement.view','Engagement','View engagement and interviews','View the unified Engagement workspace and interview tracker.'),
  define('engagement.assign','Engagement','Assign engagement resources','Assign people directly to searches across all funnel stages.',['admin','planner','partner']),
  define('engagement.work','Engagement','Update engagement activities','Record activities and move candidates on assigned searches.',['admin','planner','partner','engagement']),
  define('engagement.interviews','Engagement','Maintain interview tracker','Record dates, outcomes and feedback on assigned searches.',['admin','planner','partner','engagement']),

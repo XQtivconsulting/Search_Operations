@@ -7,16 +7,16 @@ import {EngagementSearchWorkspace} from './EngagementSearchWorkspace';
 import {useViewState} from './ViewState';
 import {LinkedInIcon} from './LinkedInIcon';
 import {SortableTable} from './SortableTable';
-import React,{useEffect,useState} from 'react';
+import React,{useEffect,useState,useMemo} from 'react';
 import {canPlan,hasRole} from './domain';
 import {engagementRows,engagementAssignees} from './engagement-domain';
 import {pipelineStages,pipelineConfig,resolvedStage,stageDays,stageOverdue,funnelGroups,funnelColors} from './engagement-pipeline';
 import {teamColor} from './team-colors';
 type R=Record<string,any>;
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'}).format(new Date());
-export function Engagement({data,api,reload,onDirty,onCandidate,onInterviews,onAllAssignments,onQueue,mine=false,section='Pipeline',initialRole='',initialMapping='',initialStage=''}:any){
+export function Engagement({data,api,reload,onDirty,onCandidate,onInterviews,onAllAssignments,mine=false,section='Pipeline',initialRole='',initialMapping='',initialStage=''}:any){
  const [role,setRole]=useViewState('Engagement.role',initialRole),[edit,setEdit]=useState<R|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
- const records:R[]=data.research.records,people=data.people.filter((p:R)=>hasRole(p,'engagement')),rows=engagementRows(records,data.searches),planner=hasPermission(data.actor,'engagement.assign'),stages=pipelineStages(records);
+ const records:R[]=data.research.records,people=data.people.filter((p:R)=>hasRole(p,'engagement')),rows=useMemo(()=>engagementRows(records,data.searches),[records,data.searches]),planner=hasPermission(data.actor,'engagement.assign'),stages=pipelineStages(records);
  const [assignmentQuery,setAssignmentQuery]=useViewState('Engagement.assignmentQuery',''),[assignmentDetail,setAssignmentDetail]=useState<{role:string;view:string}|null>(null);
  const [now,setNow]=useState(Date.now());useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),60000);return()=>clearInterval(timer);},[]);
  useEffect(()=>{onDirty(!!edit||busy);return()=>onDirty(false);},[!!edit,busy]);
@@ -33,7 +33,7 @@ export function Engagement({data,api,reload,onDirty,onCandidate,onInterviews,onA
  const age=(r:R)=>{const s=resolvedStage(r,stages),days=stageDays(r,now);return <span className={stageOverdue(r,s,now)?'stage-age overdue':'stage-age'}>{days===null?'Stage age unknown':`${days} ${days===1?'day':'days'} in stage`}{stageOverdue(r,s,now)?` · ${s.threshold}d threshold`:''}</span>;};
  return <section className={"panel engagement-workspace"+(section==='Pipeline'&&!mine?' engagement-pipeline':'')}>{error&&!edit&&<p className="error" role="alert">{error}</p>}
  {section==='Search assignments'?<><div className="sheet-toolbar"><label>Find search or assignee<input type="search" value={assignmentQuery} onChange={e=>setAssignmentQuery(e.target.value)} placeholder="Search name, client, partner or assigned member…"/></label>{assignmentQuery&&<button onClick={()=>setAssignmentQuery('')}>Clear</button>}</div><div className="table-scroll"><SortableTable stateKey="Engagement.table1" className="sheet-table engagement-assignments-table"><thead><tr><th>Search ID</th><th>Search</th><th>Status</th><th>Engagement partner</th><th>Assigned members</th><th>Actions</th></tr></thead><tbody>{data.searches.filter((s:R)=>assignmentQuery.trim().toLowerCase().split(/\s+/).every(term=>[s.search_number,s.title,s.client,s.partner,s.status,...assignees(s.id).map(name)].join(' ').toLowerCase().includes(term))).map((s:R)=><tr key={s.id}><td>{s.search_number??'—'}</td><td>{roleName(s.id)}</td><td data-sort-value={s.status}><SearchStatus search={s}/></td><td>{s.partner||'Not assigned'}</td><td>{assignees(s.id).map(name).join(', ')||'Unassigned'}</td><td><div className="engagement-assignment-actions"><button className="text-button" onClick={()=>setAssignmentDetail({role:s.id,view:'funnels'})}>View assignees</button>{canManage({role_id:s.id})&&<button className="text-button" onClick={()=>assignSearch(s.id)}>Assign people</button>}</div></td></tr>)}</tbody></SortableTable></div></>:<>
- <EngagementSearchWorkspace data={data} role={role} setRole={setRole} mine={mine} now={now} canWork={canWork} open={open} onCandidate={onCandidate} onInterviews={onInterviews} onAssignments={id=>setAssignmentDetail({role:id,view:'funnels'})} onAllAssignments={onAllAssignments} onQueue={onQueue}/>
+ <EngagementSearchWorkspace data={data} role={role} setRole={setRole} mine={mine} now={now} canWork={canWork} open={open} onCandidate={onCandidate} onInterviews={onInterviews} onAssignments={id=>setAssignmentDetail({role:id,view:'funnels'})} onAllAssignments={onAllAssignments}/>
 
  </>}
  {assignmentDetail&&<div className="modal-backdrop"><section className="modal engagement-assignment-modal" role="dialog" aria-modal="true" aria-label="View assignees"><div className="section-head"><h2>View assignees</h2><button onClick={()=>setAssignmentDetail(null)}>Close</button></div><p>{roleName(assignmentDetail.role)}</p><ul>{assignees(assignmentDetail.role).map(id=><li key={id}>{name(id)}</li>)}</ul>{!assignees(assignmentDetail.role).length&&<p>No engagement members assigned.</p>}{canManage({role_id:assignmentDetail.role})&&<button onClick={()=>{assignSearch(assignmentDetail.role);setAssignmentDetail(null);}}>Edit assignments</button>}</section></div>}

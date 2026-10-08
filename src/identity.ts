@@ -49,7 +49,7 @@ export class Identity extends DurableObject {
   async roleCatalog(a:Actor){
     const current=(await this.members(a.tenant)).find(m=>m.id===a.id);
     requireThat(current?.status==='active'&&(hasPermission(current,'roles.manage')||hasPermission(current,'users.view')),'Administrator permission required.',403);
-    return {roles:roleDefinitions(this,a.tenant).map(r=>({...r,...roleUsage(this,a.tenant,r.id)}))};
+    return {roles:roleDefinitions(this,a.tenant).map(r=>({...r,...roleUsage(this,a.tenant,r.id)})),superAdminUsers:roleUsage(this,a.tenant,'super_admin').users};
   }
   async validRoles(tenant:string,ids:unknown){validateAssignedRoles(this,tenant,ids);return true;}
   async rolePolicy(a:Actor,b:any){

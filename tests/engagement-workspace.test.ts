@@ -46,10 +46,10 @@ test('awaiting recommendation expands interview tracker only to the to-be-recomm
 });
 
 
-test('queue drilldown displays the selected daily cohort in the shared dashboard',async()=>{
+test('priority filters stay inside the unified engagement workspace',async()=>{
  const React=await import('react'),{renderToStaticMarkup}=await import('react-dom/server'),{EngagementSearchWorkspace}=await import('../src/EngagementSearchWorkspace'),{ViewStateProvider}=await import('../src/ViewState');
  const now=Date.parse('2026-10-08T12:00:00Z'),records=[...mappings,{kind:'candidate',id:'c2',name:'Overdue Example'},{kind:'engagement',mapping_id:'m2',role_id:'s1',candidate_id:'c2',stage_id:'linkedin',stage_at:'2026-01-01'},{kind:'engagement-pipeline',stages:defaultPipeline.map(s=>({...s,threshold:2}))}];
- const props={data:{research:{records},searches,people:[],actor:{id:'viewer',roles:[]}},role:'s1',setRole:()=>{},mine:false,now,canWork:()=>false,open:()=>{},onCandidate:()=>{},onAssignments:()=>{},onQueue:()=>{}};
+ const props={data:{research:{records},searches,people:[],actor:{id:'viewer',roles:[]}},role:'s1',setRole:()=>{},mine:false,now,canWork:()=>false,open:()=>{},onCandidate:()=>{},onAssignments:()=>{}};
  const render=(bucket:string)=>renderToStaticMarkup(React.createElement(ViewStateProvider,{state:{'Engagement.queueBucket':bucket},change:()=>{},children:React.createElement(EngagementSearchWorkspace,props)}));
- assert.match(render('overdue'),/Overdue Example/);assert.match(render('overdue'),/Back to queue/);assert.doesNotMatch(render('due'),/Overdue Example/);assert.match(render('due'),/No candidates match/);
+ assert.match(render('overdue'),/Overdue Example/);assert.doesNotMatch(render('overdue'),/Back to queue/);assert.match(render('overdue'),/Filter engagement priorities/);assert.doesNotMatch(render('due'),/Overdue Example/);assert.match(render('due'),/No candidates match/);
 });

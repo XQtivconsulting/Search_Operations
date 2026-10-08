@@ -7,11 +7,11 @@ const RolesPanel=lazy(()=>import('./RolesPanel').then(m=>({default:m.RolesPanel}
 import {NavigationTooltip} from './NavigationTooltip';
 import './engagement-workspace.css';
 import {ViewStateProvider} from './ViewState';
-const navigationLabel=(name:string)=>({'Teams':'People & teams','People & access':'People & teams','Daily Work':'Engagement Queue','Pipeline':'Engagement dashboard','Organization':'Admin','Delivery Monitor':'Sourcing Monitor','Performance':'Sourcing Performance','Search assignments':'Engagement Assignments'} as Record<string,string>)[name]||name;
+const navigationLabel=(name:string)=>({'Teams':'Access Management','People & access':'Access Management','Daily Work':'Engagement','Pipeline':'Engagement','Organization':'Admin','Delivery Monitor':'Sourcing Monitor','Performance':'Sourcing Performance','Search assignments':'Engagement Assignments'} as Record<string,string>)[name]||name;
 import './engagement-layout.css';
 import {useNavigationHistory} from './useNavigationHistory';
 const Backups=lazy(()=>import('./Backups').then(m=>({default:m.Backups})));
-const EngagementDaily=lazy(()=>import('./EngagementDaily').then(m=>({default:m.EngagementDaily})));
+import {normalizeEngagementVisit} from './navigation-history';
 const InterviewTracker=lazy(()=>import('./InterviewTracker').then(m=>({default:m.InterviewTracker})));
 const EngagementAdmin=lazy(()=>import('./EngagementAdmin').then(m=>({default:m.EngagementAdmin})));
 const Engagement=lazy(()=>import('./Engagement').then(m=>({default:m.Engagement})));
@@ -19,7 +19,7 @@ import {searchDisplayId} from './SearchPicker';
 const Performance=lazy(()=>import('./Performance').then(m=>({default:m.Performance})));
 import './role-page.css';
 import {CandidateRolePage} from './RolePageView';
-const PeoplePanel=lazy(()=>import('./PeoplePanel').then(m=>({default:m.PeoplePanel})));
+const PeopleAndTeams=lazy(()=>import('./PeopleAndTeams').then(m=>({default:m.PeopleAndTeams})));
 import {Candidates,CandidateProfile} from './Candidates';
 const MyWork=lazy(()=>import('./MyWork').then(m=>({default:m.MyWork})));
 import {AccountSettings} from './AccountSettings';
@@ -105,7 +105,8 @@ function App() {
   const [deliveryStart,setDeliveryStart]=useState<any>({view:'daily',roles:null});
   const [allocationStart,setAllocationStart]=useState<{date:string;view:'decisions'|'allocation'}>({date:'',view:'decisions'});
   const [memberships,setMemberships]=useState<Row[]>([]);
-  const [teamType,setTeamType]=useState('Sourcing teams');
+  const [teamType,setTeamType]=useState('People & teams');
+  const [peopleRoleFilter,setPeopleRoleFilter]=useState('');
   const [navPinned,setNavPinned]=useState(()=>{try{return localStorage.getItem('xqtiv.navigationPinned')==='true';}catch{return false;}});
   const [navExpanded,setNavExpanded]=useState(navPinned);
   useEffect(()=>{if(!navPinned)setNavExpanded(false);},[page,navPinned]);
@@ -124,7 +125,7 @@ function App() {
   const visitLabel=(v:any)=>v.page==='Pipeline'&&v.viewStates?.Pipeline?.['Engagement.role']?(data?.searches.find((r:Row)=>r.id===v.viewStates.Pipeline['Engagement.role'])?.title||'Engagement search'):v.page==='Search repository'&&!v.selected?'Search repository':v.page==='Search repository'?(data?.searches.find((r:Row)=>r.id===v.selected)?.title||'Search repository')+' · '+(v.repoTab==='Candidate mappings'?'Candidates':v.repoTab==='Role brief'?'JD':v.repoTab==='Candidate pitch'?'Pitch':v.repoTab==='Search strategy'?'Fit criteria':v.repoTab||'Searches'):v.page==='Candidates'&&v.candidateId?(data?.research?.records.find((r:Row)=>r.id===v.candidateId)?.name||'Candidate'):navigationLabel(v.page);
   const navigation=useNavigationHistory(data?workspace+':'+data.actor.id:'',
     {page,candidateId,selected,repoTab,repoState,viewStates,deliveryStart,allocationStart,engagementStart,interviewRole,mappingStart,companySearch},
-    v=>{setViewStates(v.viewStates||{});setRepoRestore(n=>n+1);setSheetDirty(false);setPage(v.page);setCandidateId(v.candidateId);setSelected(v.selected);setRepoTab(v.repoTab);setRepoState(v.repoState||{});setDeliveryStart(v.deliveryStart);setAllocationStart(v.allocationStart);setEngagementStart(v.engagementStart);setInterviewRole(v.interviewRole);setMappingStart(v.mappingStart);setCompanySearch(v.companySearch||'');},sheetDirty);
+    v=>{v=normalizeEngagementVisit(v);setViewStates(v.viewStates||{});setRepoRestore(n=>n+1);setSheetDirty(false);setPage(v.page);setCandidateId(v.candidateId);setSelected(v.selected);setRepoTab(v.repoTab);setRepoState(v.repoState||{});setDeliveryStart(v.deliveryStart);setAllocationStart(v.allocationStart);setEngagementStart(v.engagementStart);setInterviewRole(v.interviewRole);setMappingStart(v.mappingStart);setCompanySearch(v.companySearch||'');},sheetDirty);
   useEffect(()=>{const warn=(e:BeforeUnloadEvent)=>{if(sheetDirty){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[sheetDirty]);
   const invite = location.pathname.startsWith('/join/') ? location.pathname.split('/')[2] : new URLSearchParams(location.hash.slice(1)).get("invite");
   const [invitation,setInvitation] = useState<Row|null>(null);
@@ -305,7 +306,6 @@ function App() {
     ['Delivery Monitor',Gauge,'Sourcing'],
     ['Performance',ChartBar,'Sourcing'],
     ['Pipeline',SquaresFour,'Engagement'],
-    ['Daily Work',ListChecks,'Engagement'],
     ['Interview tracker',Chats,'Engagement'],
     ['Teams',Users,'Organization'],
     ...((hasPermission(actor,'data.backup')||hasPermission(actor,'data.export'))?[['Backups & exports',Database,'Organization'] as [string,React.ElementType,string]]:[]),
@@ -386,7 +386,7 @@ function App() {
                 if(label==='Candidates')setCandidateId('');
                 if(label==='Search repository'){setSelected('');setRepoTab('Candidate mappings');}
                 if(label==='Companies')setCompanySearch('');
-                if(label==='Pipeline'){setEngagementStart({role:'',mapping:'',stage:''});setViewStates(previous=>({...previous,Pipeline:{...previous.Pipeline,'Engagement.role':''}}));}
+                if(label==='Pipeline'){setEngagementStart({role:'',mapping:'',stage:''});}
                 if(label==='Interview tracker')setInterviewRole('');
                 if(label==='Delivery Monitor')setDeliveryStart({view:'daily',roles:null});
                 if(label==='Weekly plan')setAllocationStart({date:'',view:'decisions'});
@@ -425,7 +425,7 @@ function App() {
       <main className={"main"+(["Search repository","Companies","Candidates","Delivery Monitor","Performance","Engagement","Pipeline","Daily Work","Search assignments","Interview tracker","Engagement Config","Backups & exports"].includes(page)?" compact-workspace":"")}><Suspense fallback={<p role="status" className="muted">Loading screen…</p>}><ViewStateProvider key={page+repoRestore} state={viewStates[page]||{}} change={patch=>setViewStates(previous=>({...previous,[page]:{...previous[page],...patch}}))}>
         {!(page === "Candidates" && candidateId) && <header>
           <div>
-            <h1>{page === "Search repository" && sBy[selected] ? sBy[selected].title : page==='Pipeline'?(data.searches.find((s:Row)=>s.id===viewStates.Pipeline?.['Engagement.role'])?.title||'Engagement dashboard'):navigationLabel(page)}</h1>
+            <h1>{page === "Search repository" && sBy[selected] ? sBy[selected].title : page==='Pipeline'?'Engagement':navigationLabel(page)}</h1>
           </div>
         </header>}
         {notice && (
@@ -568,8 +568,7 @@ function App() {
         )}
         {page === "Weekly plan" && <WeeklyPlanner onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} data={data} api={api} reload={load} initialSearch={selected} initialDate={allocationStart.date} initialView={allocationStart.view} onDirty={setSheetDirty} onTeams={()=>setPage('Teams')}/>}
         {page==='Backups & exports'&&(hasPermission(actor,'data.backup')||hasPermission(actor,'data.export'))&&<Backups actor={actor} api={api} download={downloadBackup}/>}
-        {page==='Daily Work'&&<EngagementDaily onSearch={(role:string,bucket='active')=>{setViewStates(previous=>({...previous,Pipeline:{...previous.Pipeline,'Engagement.role':role,'Engagement.group':'all','Engagement.candidateQuery':'','Engagement.workspaceAttention':false,'Engagement.activeOnly':false,'Engagement.focus':'','Engagement.workspaceTab':'Candidates','Engagement.workspaceLayout':'List','Engagement.queueBucket':bucket}}));setEngagementStart({role,mapping:'',stage:''});setPage('Pipeline');}} data={data} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}} onWork={(role:string,mapping:string,stage:string)=>{setViewStates(previous=>({...previous,Pipeline:{...previous.Pipeline,'Engagement.role':role}}));setEngagementStart({role,mapping,stage});setPage('Pipeline');}}/>}
-        {['Pipeline','Search assignments'].includes(page)&&<Engagement onQueue={()=>setPage('Daily Work')} onAllAssignments={()=>setPage('Search assignments')} initialRole={engagementStart.role} initialMapping={page==='Pipeline'?engagementStart.mapping:''} initialStage={engagementStart.stage} key={page+engagementStart.mapping} section={page} onInterviews={(id:string)=>{setViewStates(previous=>({...previous,'Interview tracker':{...previous['Interview tracker'],'InterviewTracker.role':id}}));setInterviewRole(id);setPage('Interview tracker');}} data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
+        {['Pipeline','Search assignments'].includes(page)&&<Engagement onAllAssignments={()=>setPage('Search assignments')} initialRole={engagementStart.role} initialMapping={page==='Pipeline'?engagementStart.mapping:''} initialStage={engagementStart.stage} key={page+engagementStart.mapping} section={page} onInterviews={(id:string)=>{setViewStates(previous=>({...previous,'Interview tracker':{...previous['Interview tracker'],'InterviewTracker.role':id}}));setInterviewRole(id);setPage('Interview tracker');}} data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page==='Interview tracker'&&<InterviewTracker key={interviewRole} initialRole={interviewRole} data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page==='Engagement Config'&&hasPermission(actor,'engagement.config')&&<EngagementAdmin data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page==='My Work'&&hasRole(data.actor,'engagement')&&<Engagement mine data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
@@ -579,7 +578,7 @@ function App() {
 
         {page==='Candidates'&&candidateId&&<CandidateProfile key={candidateId} id={candidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} backLabel={navigation.back?.page==='Search repository'?'Back to '+(sBy[navigation.back.selected]?.title||'search'):navigation.back?'Back to '+visitLabel(navigation.back):'Back to candidates'} onBack={()=>navigation.back?navigation.go('back'):setCandidateId('')} onRole={id=>{setSelected(id);setRepoTab('Candidate mappings');setPage('Search repository');}}/>}
         {page==='Candidates'&&!candidateId&&<Candidates onCandidate={setCandidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} onOpen={id=>{setSelected(id);setRepoTab("Candidate mappings");setPage("Search repository");}}/>}
-        {(page==='Teams'||page==='People & access')&&<div className="people-teams-workspace"><div className="research-tabs" role="group" aria-label="People and teams sections">{[...(hasPermission(actor,'users.view')?['People & access']:[]),...(hasPermission(actor,'roles.manage')?['Roles & permissions']:[]),'Sourcing teams'].map(type=><button key={type} aria-pressed={teamType===type} className={teamType===type?'primary':''} onClick={()=>{if(!sheetDirty||confirm('Discard unsaved edits?'))setTeamType(type);}}>{type}</button>)}</div>{teamType==='People & access'&&hasPermission(actor,'users.view')?<PeoplePanel data={data} api={api} reload={load} onDirty={setSheetDirty}/>:teamType==='Roles & permissions'&&hasPermission(actor,'roles.manage')?<RolesPanel api={api} reload={load} onDirty={setSheetDirty}/>:<TeamsPanel data={data} api={api} reload={load} onDirty={setSheetDirty} onAdd={()=>open({kind:'team'})}/>}</div>}
+        {(page==='Teams'||page==='People & access')&&<div className="people-teams-workspace"><div className="research-tabs" role="group" aria-label="Access Management sections">{['People & teams',...(hasPermission(actor,'roles.manage')?['Roles & permissions']:[])].map(type=><button key={type} aria-pressed={teamType===type} className={teamType===type?'primary':''} onClick={()=>{if(!sheetDirty||confirm('Discard unsaved edits?'))setTeamType(type);}}>{type}</button>)}</div>{teamType==='Roles & permissions'&&hasPermission(actor,'roles.manage')?<RolesPanel api={api} reload={load} onDirty={setSheetDirty} onShowPeople={(role:string)=>{setPeopleRoleFilter(role);setTeamType('People & teams');}}/>:hasPermission(actor,'users.view')?<PeopleAndTeams data={data} api={api} reload={load} onDirty={setSheetDirty} roleFilter={peopleRoleFilter} onRoleFilterChange={setPeopleRoleFilter} onAddTeam={()=>open({kind:'team'})}/>:<TeamsPanel data={data} api={api} reload={load} onDirty={setSheetDirty} onAdd={()=>open({kind:'team'})}/>}</div>}
 
         {page === "Delivery Monitor" && <DeliveryMonitor data={data} initialState={deliveryStart} onStateChange={setDeliveryStart} initialView={deliveryStart.view} initialRoles={deliveryStart.roles} onOpen={(id,tab,mapping='')=>{setMappingStart(mapping);setSelected(id);setRepoTab(tab);setPage('Search repository');}} onCandidate={id=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page === "Performance" && <Performance onOpen={(id,mapping)=>{setMappingStart(mapping);setSelected(id);setRepoTab("Candidate mappings");setPage("Search repository");}} data={data} api={api} reload={load} onDirty={setSheetDirty} onDecision={id=>{setViewStates(previous=>({...previous,'Weekly plan':{'WeeklyPlanner.roles':[id],'WeeklyPlanner.view':'decisions'}}));setSelected(id);setAllocationStart({date:'',view:'decisions'});setPage('Weekly plan');}}/>}

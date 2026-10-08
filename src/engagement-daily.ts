@@ -1,7 +1,8 @@
 import {actionLabel,isActiveStage,pipelineStages,resolvedStage,stageDays,PipelineStage} from './engagement-pipeline';
 import {engagementRows,engagementAssignees} from './engagement-domain';
 type R=Record<string,any>;
-export const easternDay=(time:number|string)=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'}).format(new Date(time));
+const easternDayFormat=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'});
+export const easternDay=(time:number|string)=>easternDayFormat.format(new Date(time));
 export function nextActivity(stage:PipelineStage,stages:PipelineStage[]){
  const index=stages.findIndex(s=>s.id===stage.id),later=index<0?[]:stages.slice(index+1);
  if(stage.group==='Placed')return {label:'Placement completed',target:''};
@@ -16,11 +17,11 @@ export function nextActivity(stage:PipelineStage,stages:PipelineStage[]){
  return {label:actionLabel(stage),target:''};
 }
 export function dailyEngagementRows(records:R[],searches:R[],now=Date.now()):R[]{
- const stages=pipelineStages(records);
+ const stages=pipelineStages(records),membersBySearch=new Map(searches.map(s=>[s.id,engagementAssignees(records,s.id)]));
  return engagementRows(records,searches).filter(r=>r.approved).map((r):R=>{
   const stage=resolvedStage(r,stages),days=stageDays(r,now),active=isActiveStage(stage)&&!r.search_closed,due=active&&stage.threshold>0&&days!==null&&days===stage.threshold;
   const start=Date.parse(r.stage_at||r.handoff_at||'');
-  return {...r,group:stage.group,days,threshold:stage.threshold,active,due,overdue:active&&stage.threshold>0&&days!==null&&days>stage.threshold,due_at:active&&stage.threshold>0&&Number.isFinite(start)?new Date(start+stage.threshold*86400000).toISOString():null,newToday:Number.isFinite(Date.parse(r.handoff_at||''))&&easternDay(r.handoff_at)===easternDay(now),members:engagementAssignees(records,r.role_id,stage.group),...nextActivity(stage,stages)};
+  return {...r,group:stage.group,days,threshold:stage.threshold,active,due,overdue:active&&stage.threshold>0&&days!==null&&days>stage.threshold,due_at:active&&stage.threshold>0&&Number.isFinite(start)?new Date(start+stage.threshold*86400000).toISOString():null,newToday:Number.isFinite(Date.parse(r.handoff_at||''))&&easternDay(r.handoff_at)===easternDay(now),members:membersBySearch.get(r.role_id)||[],...nextActivity(stage,stages)};
  }).filter(r=>!r.search_closed||r.group==='Placed').sort((a,b)=>Number(b.overdue)-Number(a.overdue)||Number(b.due)-Number(a.due)||Number(b.newToday)-Number(a.newToday)||(b.days??-1)-(a.days??-1));
 }
 
