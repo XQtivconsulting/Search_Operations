@@ -1,3 +1,4 @@
+import {ColumnFilter} from './ColumnFilter';
 import React from 'react';
 type R=Record<string,any>;
 export const searchStatusKey=(value:unknown)=>{const key=String(value||'').trim().toLowerCase();return key==='opened'?'open':key==='canceled'?'cancelled':key||'not set';};
@@ -6,3 +7,6 @@ export function searchStatusOptions(searches:R[]){const options=new Map([['open'
 export function SearchStatusFilter({searches,value,onChange}:{searches:R[];value:string;onChange:(value:string)=>void}){return <label>Search status (CRM)<select value={value} onChange={e=>onChange(e.target.value)}><option value="all">All search statuses</option>{searchStatusOptions(searches).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>;}
 export const matchesFunnel=(group:string,value:string)=>value==='all'||value==='active'&&!['Exited','Placed'].includes(group)||value==='late'&&['Shortlist','Client Process'].includes(group)||value===`group:${group}`;
 export function FunnelFilter({value,onChange}:{value:string;onChange:(value:string)=>void}){return <label>Candidate funnel<select value={value} onChange={e=>onChange(e.target.value)}><option value="all">All candidates</option><optgroup label="Active candidates"><option value="active">All active candidates</option>{['Top Funnel','Outreach','Engaged','Screening'].map(g=><option key={g} value={'group:'+g}>{g}</option>)}<option value="late">Late stage — all</option><option value="group:Shortlist">Late stage › Shortlist</option><option value="group:Client Process">Late stage › Client Process</option></optgroup><optgroup label="Outcomes"><option value="group:Placed">Placed</option><option value="group:Exited">Exited</option></optgroup></select></label>;}
+
+export const matchesSearchStatuses=(search:R|undefined,selected:string[]|null)=>selected===null||selected.includes(searchStatusKey(search?.status));
+export function SearchStatusMultiFilter({searches,value,onChange}:{searches:R[];value:string[]|null;onChange:(value:string[]|null)=>void}){const options=searchStatusOptions(searches),labels=new Map(options);return <div className="search-multi-filter"><span className="filter-label">Search status</span><ColumnFilter label="search status" options={options.map(([key])=>key)} selected={value} onChange={onChange} optionLabel={key=>labels.get(key)||key}/></div>;}
