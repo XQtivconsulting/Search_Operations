@@ -439,3 +439,11 @@ test('duplicate public search IDs are rejected by storage and bulk writes withou
  assert.deepEqual(db.prepare('SELECT id,version,search_number FROM searches ORDER BY search_number').all(),rows);
  await assert.rejects(w.mutate(actor,'search-number-batch',{items:[{...rows[1],search_number:rows[0].search_number}]}));db.close();
 });
+
+test('hours-per-day settings enforce admin permission, validation, versions and audit',async()=>{
+ const {db,w}=fixture();assert.equal((await w.state(actor)).sourcingSettings.hoursPerDay,8);
+ await assert.rejects(w.mutate({...actor,role:'researcher'},'sourcing-settings',{hoursPerDay:6,version:0}),/permission/);
+ for(const hoursPerDay of [0,-1,25,6.1,NaN])await assert.rejects(w.mutate(actor,'sourcing-settings',{hoursPerDay,version:0}));
+ await w.mutate(actor,'sourcing-settings',{hoursPerDay:6.5,version:0});assert.deepEqual((await w.state(actor)).sourcingSettings,{hoursPerDay:6.5,version:1});
+ await assert.rejects(w.mutate(actor,'sourcing-settings',{hoursPerDay:7,version:0}),/changed/);assert.equal(db.prepare("SELECT COUNT(*) n FROM audit WHERE action='sourcing-settings'").get()!.n,1);db.close();
+});

@@ -1,3 +1,5 @@
+import './sourcing-monitor.css';
+const SourcingSettings=lazy(()=>import('./SourcingSettings').then(m=>({default:m.SourcingSettings})));
 import './roles.css';
 import './search-management.css';
 import {hasPermission} from './access-policy';
@@ -307,7 +309,7 @@ function App() {
     ['Interview tracker',Chats,'Engagement'],
     ['Teams',Users,'Organization'],
     ...((hasPermission(actor,'data.backup')||hasPermission(actor,'data.export'))?[['Backups & exports',Database,'Organization'] as [string,React.ElementType,string]]:[]),
-    ...(hasPermission(actor,'integrations.manage')?[['Integrations',Plugs,'Organization'] as [string,React.ElementType,string]]:[]),
+    ...(hasPermission(actor,'integrations.manage')?[['Sourcing settings',SlidersHorizontal,'Organization'] as [string,React.ElementType,string],['Integrations',Plugs,'Organization'] as [string,React.ElementType,string]]:[]),
     ...(hasPermission(actor,'engagement.config')?[['Engagement Config',SlidersHorizontal,'Organization'] as [string,React.ElementType,string]]:[]),
   ];
   const open = (m: Row) => {
@@ -436,7 +438,7 @@ function App() {
             {error}
           </div>
         )}
-        {!["Searches","Account settings","Search repository","My Work","Delivery Monitor","Performance","Companies","Teams","Candidates","People & access","Engagement","Pipeline","Daily Work","Search assignments","Interview tracker","Engagement Config","Backups & exports"].includes(page)  && page !== "Integrations" && page !== "Weekly plan" && (
+        {!["Sourcing settings","Searches","Account settings","Search repository","My Work","Delivery Monitor","Performance","Companies","Teams","Candidates","People & access","Engagement","Pipeline","Daily Work","Search assignments","Interview tracker","Engagement Config","Backups & exports"].includes(page)  && page !== "Integrations" && page !== "Weekly plan" && (
           <div className="filters">
             <label>
               From
@@ -484,6 +486,7 @@ function App() {
             </button>
           </div>
         )}
+        {page==='Sourcing settings'&&hasPermission(actor,'integrations.manage')&&<SourcingSettings data={data} api={api} reload={load} onDirty={setSheetDirty}/>}
         {page==='Account settings'&&<AccountSettings api={api} onDirty={setSheetDirty} email={actor.email} reload={load}/>}
         {page === "Integrations" && <CRMPanel partners={data.partners || []} searches={data.searches} api={api} reload={load} />}
         {page === "Searches" && (
@@ -578,7 +581,7 @@ function App() {
         {page==='Candidates'&&!candidateId&&<Candidates onCandidate={setCandidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} onOpen={id=>{setSelected(id);setRepoTab("Candidate mappings");setPage("Search repository");}}/>}
         {(page==='Teams'||page==='People & access')&&<div className="people-teams-workspace"><div className="research-tabs" role="group" aria-label="People and teams sections">{[...(hasPermission(actor,'users.view')?['People & access']:[]),...(hasPermission(actor,'roles.manage')?['Roles & permissions']:[]),'Sourcing teams'].map(type=><button key={type} aria-pressed={teamType===type} className={teamType===type?'primary':''} onClick={()=>{if(!sheetDirty||confirm('Discard unsaved edits?'))setTeamType(type);}}>{type}</button>)}</div>{teamType==='People & access'&&hasPermission(actor,'users.view')?<PeoplePanel data={data} api={api} reload={load} onDirty={setSheetDirty}/>:teamType==='Roles & permissions'&&hasPermission(actor,'roles.manage')?<RolesPanel api={api} reload={load} onDirty={setSheetDirty}/>:<TeamsPanel data={data} api={api} reload={load} onDirty={setSheetDirty} onAdd={()=>open({kind:'team'})}/>}</div>}
 
-        {page === "Delivery Monitor" && <DeliveryMonitor data={data} initialState={deliveryStart} onStateChange={setDeliveryStart} initialView={deliveryStart.view} initialRoles={deliveryStart.roles} onOpen={(id,tab,mapping='')=>{setMappingStart(mapping);setSelected(id);setRepoTab(tab);setPage('Search repository');}} onCandidate={id=>{setCandidateId(id);setPage('Candidates');}} onAllocate={(id,date)=>{setViewStates(previous=>({...previous,'Weekly plan':{'WeeklyPlanner.roles':[id],'WeeklyPlanner.view':'allocation'}}));setSelected(id);setAllocationStart({date,view:'allocation'});setPage('Weekly plan');}}/>}
+        {page === "Delivery Monitor" && <DeliveryMonitor data={data} initialState={deliveryStart} onStateChange={setDeliveryStart} initialView={deliveryStart.view} initialRoles={deliveryStart.roles} onOpen={(id,tab,mapping='')=>{setMappingStart(mapping);setSelected(id);setRepoTab(tab);setPage('Search repository');}} onCandidate={id=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page === "Performance" && <Performance onOpen={(id,mapping)=>{setMappingStart(mapping);setSelected(id);setRepoTab("Candidate mappings");setPage("Search repository");}} data={data} api={api} reload={load} onDirty={setSheetDirty} onDecision={id=>{setViewStates(previous=>({...previous,'Weekly plan':{'WeeklyPlanner.roles':[id],'WeeklyPlanner.view':'decisions'}}));setSelected(id);setAllocationStart({date:'',view:'decisions'});setPage('Weekly plan');}}/>}
 
         <footer>

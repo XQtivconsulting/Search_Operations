@@ -1,3 +1,4 @@
+import {defaultSourcingSettings} from './sourcing-settings';
 import {initializeSearchStatus,searchStatusHistory} from './search-status';
 import {hasPermission} from './access-policy';
 import {authorizeResearch,authorizeMutation} from './operation-permissions';
@@ -300,6 +301,7 @@ export class Workspace extends DurableObject {
     const research=researchState(this);
     const result = {
       research,
+      sourcingSettings:JSON.parse(this.rows("SELECT value FROM settings WHERE key='sourcing_settings'")[0]?.value||JSON.stringify(defaultSourcingSettings)),
       effort:this.rows('SELECT * FROM effort_records'),
       effortDays:this.rows('SELECT * FROM effort_days'),
       timeOff:this.rows('SELECT * FROM time_off'),
@@ -487,6 +489,13 @@ export class Workspace extends DurableObject {
   }
   private applyMutation(a: Actor, kind: string, b: any,members:Member[]=[]): any {
       a=authorizeMutation(this,a,kind,b);
+      if(kind==='sourcing-settings'){
+        requireThat(hasPermission(a,'integrations.manage'),'Administrator settings permission required.',403);
+        const old=JSON.parse(this.rows("SELECT value FROM settings WHERE key='sourcing_settings'")[0]?.value||JSON.stringify(defaultSourcingSettings));
+        requireThat(Number(b.version)===old.version,'Sourcing settings changed. Reload before saving.',409);
+        const hoursPerDay=Number(b.hoursPerDay);requireThat(Number.isFinite(hoursPerDay)&&hoursPerDay>=0.25&&hoursPerDay<=24&&Number.isInteger(hoursPerDay*4),'Choose hours per person-day from 0.25 to 24 in quarter-hour increments.');
+        const next={hoursPerDay,version:old.version+1};this.rows("INSERT INTO settings VALUES('sourcing_settings',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",JSON.stringify(next));this.audit(a,kind,'sourcing_settings',old,next);return next;
+      }
       if(kind==='week-copy'){
         requireThat(canPlan(a),'Planning permission required.',403);
         requireThat(Array.isArray(b.items)&&b.items.length>0&&b.items.length<=500,'Choose 1–500 allocations to copy.');

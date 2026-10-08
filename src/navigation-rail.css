@@ -124,3 +124,9 @@
 .app .fixed-row-actions.target-row-actions>span{width:32px;min-height:32px}
 
 .app .main .relative-search-table>thead>tr>th:first-child{width:74px}
+
+/* Public search numbers must not inherit the old subject-column width. */
+.app .main .performance-table.relative-person-table>thead>tr>th:first-child,.app .main .performance-table.relative-search-table>thead>tr>th:first-child{width:76px;min-width:76px;max-width:76px}
+.app .main .performance-table.relative-person-table>thead>tr>th:nth-child(2){width:230px}
+.app .main .performance-table.relative-person-table>thead>tr>th:last-child{width:75px}
+.app .main .performance-table.relative-person-table>tbody>tr>td:last-child{min-width:0}

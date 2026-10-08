@@ -24,10 +24,11 @@ test('future plans are not overdue and today is not below target before day ends
  assert.deepEqual(deliveryRows(d,null,'2026-09-28','2026-09-28','2026-09-27')[0].attention,[]);
  assert.deepEqual(deliveryRows(d,null,'2026-09-28','2026-09-28','2026-09-28')[0].attention,['No mappings yet']);
 });
-test('combined monitor renders both views with pipeline older work and planner actions',async()=>{
+test('tactical monitor replaces duplicate views with yesterday and per-search metrics',async()=>{
  const React=await import('react'),{renderToStaticMarkup}=await import('react-dom/server'),{DeliveryMonitor}=await import('../src/DeliveryMonitor');
  const html=renderToStaticMarkup(React.createElement(DeliveryMonitor,{data,initialView:'pipeline',onOpen:()=>{},onCandidate:()=>{},onAllocate:()=>{}}));
- assert.ok(html.includes('Candidate reviews'));assert.ok(html.includes('Hold'));assert.ok(html.includes('Peer review'));assert.ok(html.includes('All outstanding'));assert.ok(!html.includes('Adjust allocation'));
+ for(const text of ['Sourcing progress','Yesterday','Custom date range','Approval target','Effort hours','Cumulative','Throughput','Quality','Researchers for Role'])assert.ok(html.includes(text),text);
+ for(const text of ['Candidate reviews','All outstanding','Adjust allocation','delivery-summary','This week'])assert.ok(!html.includes(text),text);
 });
 test('unplanned work from multiple researchers is one search/team/day row',()=>{
  const d={...data,assignments:[],staff:[...data.staff,{id:'s2',name:'Other'}],entries:[data.entries[0],{...data.entries[0],assignment_id:'other',staff_id:'s2'}]};

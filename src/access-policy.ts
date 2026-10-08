@@ -50,7 +50,7 @@ export const permissionGroups=[
  define('users.invite','People & administration','Invite users','Create or cancel invitations.',['admin']),
  define('users.access','People & administration','Manage user access','Assign roles and revoke or restore access. Super Admin remains protected.',['admin']),
  define('roles.manage','People & administration','Manage roles and permissions','Create, edit or delete ordinary roles and their permissions.',['admin']),
- define('integrations.manage','People & administration','Manage integrations','Run RecruitCRM imports and manage integration records.',['admin']),
+ define('integrations.manage','People & administration','Manage integrations and settings','Run RecruitCRM imports, manage integration records and configure sourcing effort hours.',['admin']),
 ];
 export const permissionIds=permissionGroups.map(p=>p.id);
 export function hasPermission(a:AccessSubject={},key:string):boolean{

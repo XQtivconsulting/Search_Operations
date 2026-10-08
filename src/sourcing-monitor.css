@@ -1,0 +1,23 @@
+.app .tactical-monitor .monitor-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}.monitor-heading span{font-size:11px;color:#65758b}.app .tactical-monitor h2{font-size:15px;margin:0}
+.monitor-table-scroll{overflow:auto;max-height:68vh;border:1px solid #d5dfea;border-radius:6px}
+.app .tactical-monitor .tactical-grid{table-layout:fixed;min-width:1244px;width:100%;border-spacing:0}
+.app .tactical-monitor .tactical-grid th,.app .tactical-monitor .tactical-grid td{padding:9px 6px;white-space:normal;vertical-align:middle;font-size:11px;text-align:center;line-height:1.4}
+.app .tactical-monitor .tactical-grid thead th{position:sticky;top:53px;background:#eef3f8;z-index:3;height:52px;border-bottom:1px solid #cbd8e6}
+.app .tactical-monitor .tactical-grid thead .monitor-band th{top:0;height:53px;background:#e0e9f3;color:#29476a;font-size:12px;border-right:2px solid white}
+.app .tactical-monitor .tactical-grid .monitor-band .period-band{background:#dbece9;color:#215b50}
+.app .tactical-monitor .monitor-band small{font-weight:400;font-size:10px;color:#526881;margin-top:2px}
+.app .tactical-monitor .tactical-grid th:nth-child(2){text-align:left}
+.app .tactical-monitor .table-sort-heading{font-size:11px;line-height:1.35;white-space:normal;padding:0;gap:3px}
+.app .tactical-monitor .monitor-search-row>:is(td,th){background:#fff;border-bottom:1px solid #d9e2ed}
+.app .tactical-monitor .monitor-search-row:hover>:is(td,th){background:#f1f6fc}
+.app .tactical-monitor .monitor-search-row>.period-cell{background:#f2f8f6}
+.app .tactical-monitor .cumulative-start{border-left:2px solid #d2deeb}
+.app .tactical-monitor .review-cell{border-left:2px solid #d2deeb}
+.app .tactical-monitor .monitor-expand{display:flex;align-items:flex-start;gap:5px;background:transparent;border:0;box-shadow:none;color:#183653;text-align:left;font-size:12px;font-weight:600;padding:0;white-space:normal}
+.monitor-expand svg{flex:none;margin-top:2px}.app .tactical-monitor .monitor-expand small{font-size:10px;color:#6a7b8e;font-weight:400;margin-top:3px}
+.app .tactical-monitor .monitor-researcher-row>:is(th,td){background:#f4f7fb;color:#566b83;font-size:11px}.app .tactical-monitor .monitor-researcher-row th{text-align:left;padding-left:25px;font-weight:500}
+.app .tactical-monitor .monitor-count{font-size:12px;padding:2px 4px}.app .tactical-monitor .monitor-count:disabled{color:#8b98a8;opacity:1}
+.monitor-signals{display:flex;gap:5px;justify-content:flex-start}.monitor-signals span{display:inline-flex;padding:3px;border-radius:4px}.signal-active{background:#fff0d7;color:#90651e}.signal-clear{background:#eef2f6;color:#9aa8b7}
+.app .tactical-monitor .monitor-attention{text-align:left}.app .tactical-monitor .monitor-attention small{font-size:10px;line-height:1.35;margin-top:4px;color:#637185}
+
+.monitor-signal-legend{display:flex;justify-content:flex-end;gap:14px;flex-wrap:wrap;margin:0 0 8px;color:#697b91;font-size:10px}.monitor-signal-legend span{display:inline-flex;align-items:center;gap:4px}

@@ -19,6 +19,7 @@ const researchPermissions:Record<string,string>={
  'engagement-search-assign':'engagement.assign','engagement-update':'engagement.work','engagement-interview-save':'engagement.interviews','engagement-pipeline-save':'engagement.config'
 };
 const mutationPermissions:Record<string,string>={
+ 'sourcing-settings':'integrations.manage',
  'week-copy':'planning.allocate','plan-transfer':'planning.allocate','week-plan':'planning.allocate','assignment':'planning.allocate','assignment-edit':'planning.allocate',
  'decision':'planning.decisions','team':'teams.create','team-members':'teams.members','team-transfer':'teams.assign','team-reviewer':'teams.members',
  'crm-owner':'search.partner','search-owner':'search.partner','search-remove':'search.delete','search-manage':'search.edit','search':'search.create',
