@@ -1,3 +1,5 @@
+import {importInterviews} from './interview-import';
+import {importHistoricalMappings} from './mapping-import';
 import {defaultSourcingSettings} from './sourcing-settings';
 import {initializeSearchStatus,searchStatusHistory} from './search-status';
 import {hasPermission} from './access-policy';
@@ -167,6 +169,8 @@ export class Workspace extends DurableObject {
       b={...b,sources};
     }
     return this.ctx.storage.transactionSync(()=>{
+      if(['historical-interview-import','interview-import-settings'].includes(b.action))return importInterviews(this,a,b);
+      if(b.action==='historical-mapping-import')return importHistoricalMappings(this,a,b,members);
       if(['candidate-summary-draft','candidate-summary-save','candidate-summary-publish'].includes(b.action))return candidateSummaryMutation(this,a,b,generated);
       if(['candidate-file-save','candidate-file-list','candidate-file-read'].includes(b.action)) {
         const c=this.rows("SELECT id FROM research_records WHERE id=? AND kind='candidate'",text(b.candidate_id))[0];requireThat(c,'Candidate not found.',404);
@@ -773,13 +777,19 @@ export class Workspace extends DurableObject {
         );
         const name = text(b.name, 100);
         requireThat(name, "Enter a name.");
+        const email=kind==='staff'?text(b.email,254).toLowerCase():'';
+        if(kind==='staff'){
+          requireThat(!email||/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),'Enter a valid contact email.');
+          requireThat(!this.rows('SELECT id FROM staff WHERE lower(trim(name))=lower(?)',name).length,'Another researcher already has this name.',409);
+        }
         const id = uuid();
         this.rows(
           `INSERT INTO ${kind === "staff" ? "staff" : "teams"}(id,name) VALUES(?,?)`,
           id,
           name,
         );
-        this.audit(a, kind, id, null, { name });
+        if(kind==='staff'&&email)this.rows('INSERT INTO staff_profiles VALUES(?,?,0,1)',id,email);
+        this.audit(a, kind, id, null, { name,...(kind==='staff'?{email}:{}) });
         return { id };
       }
       if (kind === "assignment") {

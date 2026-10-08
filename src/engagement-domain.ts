@@ -17,7 +17,7 @@ export const engagementAssignees=(records:R[],role:string,group?:string):string[
  if(assignment.group_member_ids)return [...new Set<string>([...(assignment.member_ids||[]),...Object.values(assignment.group_member_ids).flat() as string[]])];
  return assignment.member_ids||[];
 };
-export const engagementReady=(m:R)=>m.status==='Approved'||m.status==='Imported'&&m.source==='RecruitCRM';
+export const engagementReady=(m:R)=>m.status==='Approved'||m.status==='Imported'&&['RecruitCRM','SharePoint'].includes(m.source);
 export const engagementRows=(records:R[],searches:R[]=[]):R[]=>{
  const stages=pipelineStages(records),searchById=new Map(searches.map(s=>[s.id,s])),byMapping=new Map<string,R>();
  for(const r of records)if(r.kind==='engagement'&&!byMapping.has(r.mapping_id))byMapping.set(r.mapping_id,r);
@@ -118,11 +118,11 @@ export function engagementMutation(db:DB,a:Actor,b:R,members:Member[]){
   const previous=rounds.find(r=>r.number===number),today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'}).format(new Date());
   const date=input.date?day(input.date):'',decision_on=outcome==='Pending'?'':input.decision_on?day(input.decision_on):previous?.outcome===outcome&&previous?.decision_on?previous.decision_on:today,cancelled_on=status==='Cancelled'&&input.cancelled_on?day(input.cancelled_on):'';
   requireThat(status!=='Cancelled'||cancelled_on,'Enter the cancellation date.');
-  requireThat(!['Scheduled','Completed'].includes(status)||date,'Enter the interview date.');
+  requireThat(!['Scheduled','Rescheduled','Completed'].includes(status)||date,'Enter the interview date.');
   requireThat(outcome==='Pending'||decision_on,'Enter the outcome date.');
   requireThat(!decision_on||!date||decision_on>=date,'Outcome date cannot precede the interview.');
-  requireThat(!closed||status!=='Scheduled','This search is closed. New interviews cannot be scheduled.',409);
-  round={number,status,outcome,date,decision_on,cancelled_on,interviewer:input.interviewer===undefined?previous?.interviewer||'':text(input.interviewer,300),feedback:text(b.notes,10000)||previous?.feedback||'',updated_at:new Date().toISOString(),actor_id:a.id};
+  requireThat(!closed||!['Scheduled','Rescheduled','To be scheduled'].includes(status),'This search is closed. New interviews cannot be scheduled.',409);
+  round={...previous,number,status,outcome,date,decision_on,cancelled_on,interviewer:input.interviewer===undefined?previous?.interviewer||'':text(input.interviewer,300),feedback:text(b.notes,10000)||previous?.feedback||'',updated_at:new Date().toISOString(),actor_id:a.id};
   const i=rounds.findIndex(r=>r.number===number);if(i<0)rounds.push(round);else rounds[i]=round;rounds.sort((a,b)=>a.number-b.number);
  }
  const now=new Date().toISOString();

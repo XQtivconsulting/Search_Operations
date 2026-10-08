@@ -3,6 +3,9 @@ import {requireThat,text} from './domain';
 import type {Actor} from './domain';
 type DB={rows:(q:string,...p:any[])=>any[]};
 const researchPermissions:Record<string,string>={
+ 'historical-mapping-import':'integrations.manage',
+ 'historical-interview-import':'integrations.manage',
+ 'interview-import-settings':'integrations.manage',
  'pitch-save':'search.pitch','target-clone':'search.targets','task-save':'planning.allocate','task-status':'planning.monitor',
  'company-master':'companies.edit','company-master-and-target':'companies.edit','company-import':'companies.edit',
  'peer-route':'reviews.manage','team-reviewer':'teams.members',
@@ -19,6 +22,7 @@ const researchPermissions:Record<string,string>={
  'engagement-search-assign':'engagement.assign','engagement-update':'engagement.work','engagement-interview-save':'engagement.interviews','engagement-pipeline-save':'engagement.config'
 };
 const mutationPermissions:Record<string,string>={
+ 'staff':'users.profile','staff-edit':'users.profile','staff-archive':'users.access',
  'sourcing-settings':'integrations.manage',
  'week-copy':'planning.allocate','plan-transfer':'planning.allocate','week-plan':'planning.allocate','assignment':'planning.allocate','assignment-edit':'planning.allocate',
  'decision':'planning.decisions','team':'teams.create','team-members':'teams.members','team-transfer':'teams.assign','team-reviewer':'teams.members',

@@ -664,3 +664,12 @@
 .app .search-settings-modal .search-settings-footer button{width:auto;margin:0}
 .app .search-settings-modal .search-settings-footer .error{flex-basis:100%;margin:0}
 .app .search-settings-modal .search-settings-note{font-size:12px;line-height:1.4;color:#617188}
+
+.app .mapping-import-table{table-layout:fixed;min-width:1180px;width:100%}
+.app .mapping-import-table :is(th,td){white-space:normal;overflow-wrap:anywhere;vertical-align:top;padding:8px}
+.app .mapping-import-table :is(th,td):first-child{width:45px}
+.app .mapping-import-table small{display:block;margin-top:4px;font-size:11px}
+.app .mapping-import-table select{width:100%;min-width:0;font-size:12px;margin-top:6px}
+.app .mapping-import-table .error{font-size:12px;margin:0 0 5px}
+
+.app .mapping-import-table .import-conflict{min-width:0;width:100%;table-layout:fixed;font-size:11px}.app .mapping-import-table .import-conflict th,.app .mapping-import-table .import-conflict td{width:auto;padding:4px;white-space:normal;overflow-wrap:anywhere}.app .mapping-import-table details{margin:4px 0}.app .mapping-import-table details p{white-space:pre-wrap;overflow-wrap:anywhere}
