@@ -1,3 +1,4 @@
+import {hasPermission} from './access-policy';
 import {Popup} from './Popup';
 import {carryoverAssignments} from './plan-carryover';
 import {ColumnFilter} from './ColumnFilter';
@@ -30,7 +31,7 @@ export function WeeklyPlanner({data,api,reload,initialSearch='',initialDate='',i
  const [copy,setCopy]=useState<Row[]|null>(null),[workload,setWorkload]=useState<{team:string;date:string}|null>(null);
  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[dirty,setDirty]=useState(false);
  const warningsFor=useMemo(()=>workloadIndex(data),[data]);
- const planner=canPlan(data.actor),dates=weekDays(week);
+ const planner=hasPermission(data.actor,'planning.allocate'),dates=weekDays(week);
  const onPTO=(staff:string,date:string)=>(data.timeOff||[]).some((r:Row)=>r.staff_id===staff&&r.work_date===date&&r.pto);
  const searches=new Map<string,Row>(data.searches.map((s:Row)=>[s.id,s])),teams=new Map<string,Row>(data.teams.map((t:Row)=>[t.id,t]));
  const tasks=(data.research?.records||[]).filter((t:Row)=>t.kind==='task'&&dates.includes(t.work_date)&&t.status!=='Cancelled');
@@ -82,7 +83,7 @@ export function WeeklyPlanner({data,api,reload,initialSearch='',initialDate='',i
   {notice&&<p className="notice" role="status">{notice}</p>}
   {!editor&&!priority&&!change&&error&&<p className="error" role="alert">{error}</p>}
   {!data.teams.length&&<p className="source-note">Create teams and add their researchers in Teams before allocating work.</p>}
-  {view==='decisions'?<SearchDecisions onCandidate={onCandidate} data={data} roles={decisionRoles} week={week} canEdit={planner} onDecide={editPriority} onAllocate={id=>allocation(id)} onReviewPlan={(id,date)=>{setWeek(weekStart(date));allocation(id,true);}}/>:<div className="plan-scroll"><table className={'plan-grid allocation-compact '+(mode==='search'?'allocation-by-search':'allocation-by-team')}><thead><tr>{mode==='search'&&<>{gridHeading('search_number','XQtiv Search ID')}{gridHeading('status','Status')}</>}{gridHeading('name',mode==='search'?'Search / weekly priority':'Team / researchers')}{dates.map(d=>gridHeading(d,label(d)))}{gridHeading('total','Week target')}</tr></thead><tbody>
+  {view==='decisions'?<SearchDecisions onCandidate={onCandidate} data={data} roles={decisionRoles} week={week} canEdit={hasPermission(data.actor,'planning.decisions')} onDecide={editPriority} onAllocate={id=>allocation(id)} onReviewPlan={(id,date)=>{setWeek(weekStart(date));allocation(id,true);}}/>:<div className="plan-scroll"><table className={'plan-grid allocation-compact '+(mode==='search'?'allocation-by-search':'allocation-by-team')}><thead><tr>{mode==='search'&&<>{gridHeading('search_number','XQtiv Search ID')}{gridHeading('status','Status')}</>}{gridHeading('name',mode==='search'?'Search / weekly priority':'Team / researchers')}{dates.map(d=>gridHeading(d,label(d)))}{gridHeading('total','Week target')}</tr></thead><tbody>
    {sortedEntities.map((r:Row)=>{const row=visible.filter((a:Row)=>(mode==='search'?a.search_id:a.team_id)===r.id),p=decisionFor(r.id);return <tr key={r.id}>
     {mode==='search'&&<><td>{r.search_number??'—'}</td><td>{searchStatus(r.status)}</td></>}<th scope="row">{mode==='search'?<><strong>{r.client}</strong><span>{r.title}</span><small>Partner: {r.partner || 'Not assigned'}</small><div className="priority-line"><span className={p?`decision-state decision-state-${p.disposition.toLowerCase()}`:"plan-priority-text priority-text-none"}>{p?.disposition || 'No priority'}</span>{planner&&<IconAction label={`${p?'Edit':'Set'} sourcing decision`} accessibleLabel={`${p?'Edit':'Set'} weekly priority for ${r.client} — ${r.title}`} onClick={()=>editPriority(r)}><PencilSimple size={16}/></IconAction>}</div>{p?.notes&&<small>{p.notes}</small>}</>:<><strong style={{borderLeft:`4px solid ${teamColor(r.name,r.id)}`,paddingLeft:6}}>{r.name}</strong><small>{data.team_members.filter((m:Row)=>m.team_id===r.id).map((m:Row)=>data.staff.find((s:Row)=>s.id===m.staff_id)?.name).join(', ')||'No members configured'}</small>{canPlan(data.actor)&&<button onClick={onTeams}>Edit team</button>}</>}</th>
     {dates.map(date=>{const cell=row.filter((a:Row)=>a.work_date===date),cellTasks=tasks.filter((t:Row)=>t.work_date===date&&(mode==='search'?t.role_id===r.id:t.team_id===r.id)&&eligible(searches.get(t.role_id)||{id:t.role_id}));return <td key={date}>
@@ -112,4 +113,5 @@ export function WeeklyPlanner({data,api,reload,initialSearch='',initialDate='',i
   </section></div>}
  </section>;
 }
+
 

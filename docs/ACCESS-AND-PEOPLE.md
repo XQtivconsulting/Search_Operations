@@ -1,3 +1,7 @@
+# Current role configuration
+
+Role permissions are now editable in **Roles & permissions**. See [Configurable roles](CONFIGURABLE-ROLES.md) for permission groups, defaults and protected invariants. The matrix below describes the original defaults; saved tenant role definitions are authoritative.
+
 # People, permissions and candidate identity
 
 ## People flow
@@ -60,3 +64,4 @@ Overview is retired. Researchers without leadership roles land in My Work; other
 ### Clean baseline checkpoint
 
 The original owner can save a named Clean baseline under Reset workspace test data. This is a non-destructive, idempotent checkpoint, stored separately from pre-reset backups. It requires zero operational records, no other workspace members or pending invitations, and only the owner's optional researcher record. It includes settings and credential-free owner metadata; connection secrets and passwords remain in their existing stores. Repeated saves preserve the first baseline. Future clean resets use the existing preview/backup/reset flow to return to this empty operational state while retaining current software and connection configuration; no automatic snapshot restore is implied.
+

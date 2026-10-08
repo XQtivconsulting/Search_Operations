@@ -1,0 +1,10 @@
+
+.app .search-settings-form{display:grid;gap:16px;min-width:0;white-space:normal}
+.app .search-settings-form>p{margin:0}
+.app .search-settings-form>label:not(.checkbox){display:grid;gap:6px;min-width:0}
+.app .search-settings-form :is(input:not([type=checkbox]),select){width:100%;min-width:0;box-sizing:border-box}
+.app .search-settings-form .search-settings-takeover{display:flex;align-items:center;gap:10px;white-space:normal}
+.app .search-settings-takeover input[type=checkbox]{width:18px;height:18px;flex:0 0 18px;margin:0}
+.app .search-settings-note{font-size:13px;line-height:1.5;color:var(--muted,#607086);overflow-wrap:anywhere}
+.app .search-settings-footer{display:flex;justify-content:flex-end;gap:12px;flex-wrap:wrap;padding-top:8px}
+.app .search-settings-footer .error{width:100%}

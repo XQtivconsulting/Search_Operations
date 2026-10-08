@@ -1,4 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
+import {rolePolicySchema,roleDefinitions,validateAssignedRoles,roleUsage,mutateRolePolicy} from './role-policy-store';
+import {effectiveAccessRoles,effectivePermissions,hasPermission} from './access-policy';
 import { identitySchema } from "./schema";
 import { passwordHash, passwordOK } from "./password";
 import { Actor, AccessRole, requireThat, text, roles, roleList, hasRole } from "./domain";
@@ -16,6 +18,7 @@ export class Identity extends DurableObject {
   constructor(ctx: DurableObjectState, env: any) {
     super(ctx, env);
     ctx.storage.sql.exec(identitySchema);
+    ctx.storage.sql.exec(rolePolicySchema);
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS email_changes(user_id TEXT PRIMARY KEY,email TEXT NOT NULL,old_email TEXT NOT NULL,session_hash TEXT NOT NULL,code_hash TEXT NOT NULL,expires INTEGER NOT NULL,created INTEGER NOT NULL)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS account_events(id TEXT PRIMARY KEY,user_id TEXT NOT NULL,action TEXT NOT NULL,created_at TEXT NOT NULL)');
   }
@@ -27,18 +30,35 @@ export class Identity extends DurableObject {
     this.ctx.storage.transactionSync(()=>{
       for(const {tenant} of this.rows("SELECT DISTINCT tenant FROM memberships WHERE role='admin' AND status='active'")) {
         if(this.rows('SELECT tenant FROM workspace_owners WHERE tenant=?',tenant).length)continue;
-        const owner=this.rows("SELECT m.user_id FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.tenant=? AND m.role='admin' AND m.status='active' ORDER BY COALESCE((SELECT MIN(i.expires) FROM invites i WHERE i.tenant=m.tenant AND i.email=u.email AND i.used=1 AND i.role='admin'),9223372036854775807),m.rowid LIMIT 1",tenant)[0];
+        const owner=this.rows("SELECT m.user_id,m.staff_id,u.name FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.tenant=? AND m.role='admin' AND m.status='active' ORDER BY COALESCE((SELECT MIN(i.expires) FROM invites i WHERE i.tenant=m.tenant AND i.email=u.email AND i.used=1 AND i.role='admin'),9223372036854775807),m.rowid LIMIT 1",tenant)[0];
         if(!owner)continue;
-        const current=this.details({id:owner.user_id,tenant,role:'admin'});
+        const current=this.details({id:owner.user_id,tenant,role:'admin',staff_id:owner.staff_id,name:owner.name});
         this.rows('INSERT INTO workspace_owners VALUES(?,?)',tenant,owner.user_id);
         this.rows('INSERT INTO member_profiles VALUES(?,?,?,?,?) ON CONFLICT(user_id,tenant) DO UPDATE SET roles=excluded.roles,version=excluded.version',owner.user_id,tenant,JSON.stringify([...new Set(['super_admin',...current.roles])]),current.name||'',current.version+1);
         this.rows('INSERT INTO member_events VALUES(?,?,?,?,?,?,?)',crypto.randomUUID(),tenant,'system-migration',owner.user_id,JSON.stringify({roles:current.roles}),JSON.stringify({roles:['super_admin',...current.roles]}),new Date().toISOString());
       }
     });
   }
-  details(m:any) {
+  details(m:any,definitions=roleDefinitions(this,m.tenant)) {
     const p=this.rows('SELECT * FROM member_profiles WHERE user_id=? AND tenant=?',m.id,m.tenant)[0];
-    return {...m,name:p?.name||m.name,roles:p?JSON.parse(p.roles):[m.role],version:p?.version||0};
+    const assigned=p?JSON.parse(p.roles):[m.role];
+    const permissions=effectivePermissions(assigned,definitions);
+    if(!m.staff_id&&(permissions.includes('pto.self')||permissions.includes('candidates.add'))){m={...m,staff_id:'person:'+m.id};this.rows('UPDATE memberships SET staff_id=? WHERE tenant=? AND user_id=?',m.staff_id,m.tenant,m.id);}
+    return {...m,name:p?.name||m.name,roles:assigned,permissions,accessRoles:effectiveAccessRoles(assigned,definitions),version:p?.version||0};
+  }
+  async roleCatalog(a:Actor){
+    const current=(await this.members(a.tenant)).find(m=>m.id===a.id);
+    requireThat(current?.status==='active'&&(hasPermission(current,'roles.manage')||hasPermission(current,'users.view')),'Administrator permission required.',403);
+    return {roles:roleDefinitions(this,a.tenant).map(r=>({...r,...roleUsage(this,a.tenant,r.id)}))};
+  }
+  async validRoles(tenant:string,ids:unknown){validateAssignedRoles(this,tenant,ids);return true;}
+  async rolePolicy(a:Actor,b:any){
+    this.ensureOwners();
+    return this.ctx.storage.transactionSync(()=>{
+      const row=this.rows('SELECT u.id,m.* FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.tenant=? AND m.user_id=?',a.tenant,a.id)[0];
+      requireThat(row?.status==='active'&&hasPermission(this.details(row),'roles.manage'),'Administrator permission required.',403);
+      return mutateRolePolicy(this,a.tenant,a.id,b);
+    });
   }
   async sessionUser(raw:string) {
     return this.rows('SELECT u.id,u.email FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires>?',await digest(raw),Date.now())[0]||null;
@@ -47,14 +67,14 @@ export class Identity extends DurableObject {
     this.ensureOwners();
     return this.ctx.storage.transactionSync(()=>{
       const actorRow=this.rows('SELECT u.id,u.name,m.* FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.tenant=? AND m.user_id=?',a.tenant,a.id)[0];
-      requireThat(actorRow&&actorRow.status==='active'&&hasRole(this.details(actorRow),'admin'),'Administrator permission required.',403);
+      requireThat(actorRow&&actorRow.status==='active'&&hasPermission(this.details(actorRow),'users.access'),'Administrator permission required.',403);
       const authority=this.details(actorRow);
       const row=this.rows('SELECT u.id,u.name,u.email,m.* FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.tenant=? AND m.user_id=?',a.tenant,b.id)[0];
       requireThat(row,'Account not found in this workspace.',404);
       requireThat(Array.isArray(b.roles),'Choose at least one valid role.');
       const old=this.details(row),nextRoles=[...new Set<AccessRole>(b.roles)];
       requireThat(Number(b.version)===old.version,'This account changed. Reload before saving.',409);
-      requireThat(Array.isArray(b.roles)&&nextRoles.length>0&&nextRoles.every(r=>roles.includes(r)),'Choose at least one valid role.');
+      validateAssignedRoles(this,a.tenant,nextRoles);
       requireThat(hasRole(authority,'super_admin')||(!hasRole(old,'super_admin')&&!nextRoles.includes('super_admin')),'Only a super admin can change a super admin account.',403);
       const status=b.status||old.status;requireThat(['active','revoked'].includes(status),'Choose active or revoked access.');
       requireThat(b.id!==a.id||status==='active','You cannot revoke your own access.');
@@ -62,9 +82,10 @@ export class Identity extends DurableObject {
         const others=this.rows("SELECT u.id,m.* FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.tenant=? AND m.status='active' AND m.user_id<>?",a.tenant,b.id);
         requireThat(others.some(m=>hasRole(this.details(m),'super_admin')),'Keep at least one active super admin.',409);
       }
-      const staffId=old.staff_id||(nextRoles.includes('researcher')?'person:'+old.id:null);
+      const sourcing=effectiveAccessRoles(nextRoles,roleDefinitions(this,a.tenant)).includes('researcher');
+      const staffId=old.staff_id||'person:'+old.id;
       requireThat(!old.staff_id||!b.staff_id||old.staff_id===b.staff_id,'An existing researcher identity cannot be replaced. Keep the current staff link.');
-      requireThat(!nextRoles.includes('researcher')||staffId,'Link a researcher record first.');
+      requireThat(!sourcing||staffId,'Link a researcher record first.');
       if(staffId) {
         requireThat(!this.rows('SELECT user_id FROM memberships WHERE tenant=? AND staff_id=? AND user_id<>?',a.tenant,staffId,b.id).length,'This researcher is already linked to another account.',409);
         this.rows('UPDATE invites SET used=1 WHERE tenant=? AND staff_id=? AND used=0',a.tenant,staffId);
@@ -74,6 +95,18 @@ export class Identity extends DurableObject {
       this.rows('INSERT INTO member_profiles VALUES(?,?,?,?,?) ON CONFLICT(user_id,tenant) DO UPDATE SET roles=excluded.roles,name=excluded.name,version=excluded.version',b.id,a.tenant,JSON.stringify(nextRoles),name,old.version+1);
       this.rows('INSERT INTO member_events VALUES(?,?,?,?,?,?,?)',crypto.randomUUID(),a.tenant,a.id,b.id,JSON.stringify(old),JSON.stringify({name,roles:nextRoles,staff_id:staffId,status,version:old.version+1}),new Date().toISOString());
       return {ok:true};
+    });
+  }
+  async updateProfile(a:Actor,b:any){
+    return this.ctx.storage.transactionSync(()=>{
+      const actor=this.rows('SELECT u.id,u.name,m.* FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.tenant=? AND m.user_id=?',a.tenant,a.id)[0];
+      requireThat(actor?.status==='active'&&hasPermission(this.details(actor),'users.profile'),'Profile editing permission required.',403);
+      const row=this.rows('SELECT u.id,u.name,m.* FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.tenant=? AND m.user_id=?',a.tenant,b.id)[0];
+      requireThat(row,'Account not found.',404);const old=this.details(row);
+      requireThat(!hasRole(old,'super_admin')||hasRole(this.details(actor),'super_admin'),'Super Admin is protected.',403);
+      requireThat(old.version===Number(b.version),'Account changed. Reload.',409);const name=text(b.name,100);requireThat(name,'Enter a name.');
+      this.rows('INSERT INTO member_profiles VALUES(?,?,?,?,?) ON CONFLICT(user_id,tenant) DO UPDATE SET name=excluded.name,version=excluded.version',b.id,a.tenant,JSON.stringify(old.roles),name,old.version+1);
+      this.rows('INSERT INTO member_events VALUES(?,?,?,?,?,?,?)',crypto.randomUUID(),a.tenant,a.id,b.id,JSON.stringify({name:old.name}),JSON.stringify({name}),new Date().toISOString());return {ok:true};
     });
   }
   async resetTestPeople(a:Actor,b:any) {
@@ -96,7 +129,7 @@ export class Identity extends DurableObject {
   }
   async cancelInvitation(a:Actor,id:string) {
     const members=await this.members(a.tenant),actor=members.find(m=>m.id===a.id);
-    requireThat(actor?.status==='active'&&hasRole(actor,'admin'),'Administrator permission required.',403);
+    requireThat(actor?.status==='active'&&hasPermission(actor,'users.invite'),'Administrator permission required.',403);
     const invitation=this.rows('SELECT * FROM invites WHERE tenant=? AND token=? AND used=0',a.tenant,id)[0];
     requireThat(invitation,'Pending invitation not found.',404);
     const assigned=this.rows('SELECT roles FROM invitation_roles WHERE token=?',id)[0];
@@ -135,7 +168,7 @@ export class Identity extends DurableObject {
     assignedRoles?: AccessRole[],
   ) {
     const assigned=assignedRoles||[role];
-    requireThat(assigned.length>0&&assigned.every(r=>roles.includes(r))&&roles.includes(role), "Invalid permission role.");
+    validateAssignedRoles(this,tenant,assigned);validateAssignedRoles(this,tenant,[role]);
     requireThat(
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),
       "Enter a valid email.",
@@ -149,7 +182,7 @@ export class Identity extends DurableObject {
       requireThat(!this.rows('SELECT token FROM invites WHERE tenant=? AND role=? AND used=0 AND expires>? LIMIT 1', tenant, 'admin', Date.now()).length,
         'An administrator invitation is already pending. Use the invitation link already created.', 409);
     }
-    requireThat(!this.rows('SELECT m.user_id FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.tenant=? AND u.email=?',tenant,email.toLowerCase()).length,'This person already has a workspace account. Edit their roles instead of inviting again.',409);
+    requireThat(!this.rows('SELECT m.user_id,m.staff_id,u.name FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.tenant=? AND u.email=?',tenant,email.toLowerCase()).length,'This person already has a workspace account. Edit their roles instead of inviting again.',409);
     this.rows('UPDATE invites SET used=1 WHERE tenant=? AND email=? AND used=0',tenant,email.toLowerCase());
     if(staffId) {
       requireThat(!this.rows("SELECT user_id FROM memberships WHERE tenant=? AND staff_id=?",tenant,staffId).length,'This researcher already has an account. The account holder can change their sign-in email in Account settings.',409);
@@ -179,15 +212,19 @@ export class Identity extends DurableObject {
       tenant,
       "active",
     )[0];
+    const resolved=u?this.details(u):null;
     return u
       ? {
           id: u.id,
           email: u.email,
-          name: this.details(u).name,
-          roles: this.details(u).roles,
+          name: resolved!.name,
+          roles: resolved!.roles,
+          accessRoles: resolved!.accessRoles,
+          permissions: resolved!.permissions,
+          roleNames: Object.fromEntries(roleDefinitions(this,u.tenant).map(r=>[r.id,r.name])),
           tenant: u.tenant,
           role: u.role,
-          staffId: u.staff_id,
+          staffId: resolved!.staff_id,
         }
       : null;
   }
@@ -276,7 +313,8 @@ export class Identity extends DurableObject {
           hashPassword,
         );
       const invitationRoles=JSON.parse(this.rows('SELECT roles FROM invitation_roles WHERE token=?',hash)[0]?.roles||JSON.stringify([invite.role]));
-      const acceptedStaff=invitationRoles.includes('researcher')?'person:'+id:null;
+      validateAssignedRoles(this,invite.tenant,invitationRoles);
+      const acceptedStaff='person:'+id;
       this.rows(
         "INSERT OR IGNORE INTO memberships VALUES(?,?,?,?,?)",
         id,
@@ -371,7 +409,8 @@ export class Identity extends DurableObject {
   }
   async members(tenant: string) {
     this.ensureOwners();
-    return this.rows('SELECT u.id,u.email,u.name,m.tenant,m.role,m.staff_id,m.status FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.tenant=?',tenant).map(m=>this.details(m));
+    const definitions=roleDefinitions(this,tenant);
+    return this.rows('SELECT u.id,u.email,u.name,m.tenant,m.role,m.staff_id,m.status FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.tenant=?',tenant).map(m=>this.details(m,definitions));
   }
   async revoke(tenant:string,id:string,actor:string) {
     const members=await this.members(tenant),current=members.find(m=>m.id===actor),target=members.find(m=>m.id===id);
@@ -387,3 +426,4 @@ export class Identity extends DurableObject {
     );
   }
 }
+

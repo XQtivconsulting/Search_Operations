@@ -1,3 +1,4 @@
+import {hasPermission} from './access-policy';
 import {compareTableValues} from './table-sort';
 import {SearchPicker} from './SearchPicker';
 import {useViewState} from './ViewState';
@@ -18,7 +19,7 @@ export function CompanyUniverse({data,api,reload,onDirty,initialRole='',onOpen,e
  const [linkedOnly,setLinkedOnly]=useViewState('CompanyUniverse.linkedOnly',embedded);
  const [importing,setImporting]=useState(false),[query,setQuery]=useViewState('CompanyUniverse.query',''),[filters,setFilters]=useViewState<Record<string,string[]|null>>('CompanyUniverse.filters',{}),[sort,setSort]=useViewState('CompanyUniverse.sort','name'),[desc,setDesc]=useViewState('CompanyUniverse.desc',false),[page,setPage]=useViewState('CompanyUniverse.page',0),[size,setSize]=useViewState('CompanyUniverse.size',100);
  const [selected,setSelected]=useState<string[]>([]),[edit,setEdit]=useState<R|null>(null),[role,setRole]=useState(initialRole),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
- const records:R[]=data.research?.records||[],companies=records.filter(r=>r.kind==='company'),targets=records.filter(r=>r.kind==='target'),planner=canPlan(data.actor),canChoose=planner||hasRole(data.actor,'partner');
+ const records:R[]=data.research?.records||[],companies=records.filter(r=>r.kind==='company'),targets=records.filter(r=>r.kind==='target'),planner=hasPermission(data.actor,'companies.edit'),canChoose=hasPermission(data.actor,'search.targets');
  const coverageView=embedded&&linkedOnly;
  const targetFor=(id:string)=>targets.find(t=>t.role_id===initialRole&&t.company_id===id);
  const options=(key:string)=>key==='industries'?tagOptions(records,'industry'):key==='employee_band'?employeeBands:key==='revenue_band'?[...new Set([...revenueBands,...companies.flatMap(c=>companyValues(c,key))])]:[...new Set(companies.flatMap(c=>companyValues(c,key)))].sort((a,b)=>a.localeCompare(b));
@@ -38,3 +39,4 @@ export function CompanyUniverse({data,api,reload,onDirty,initialRole='',onOpen,e
   {edit&&edit.action!=='target-coverage'&&<CompanyProfile edit={edit} setEdit={setEdit} records={records} api={api} busy={busy} error={error} readOnly={!planner} onSave={save} onClose={()=>{if(!planner||confirm('Discard this form?'))setEdit(null);}}/>}
  </section>;
 }
+

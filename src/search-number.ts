@@ -26,3 +26,12 @@ export function initializeSearchNumbers(db:DB){
  ON CONFLICT(key) DO UPDATE SET value=CAST(MAX(CAST(value AS INTEGER),NEW.search_number) AS TEXT);
  END`);
 }
+export function backfillSearchNumbers(db:DB){
+ // Backfill only missing public numbers. Internal keys and CRM references never change.
+ for(const row of db.rows('SELECT id FROM searches WHERE search_number IS NULL ORDER BY id')){
+  const n=nextSearchNumber(db);searchNumber(n);
+  db.rows('UPDATE searches SET search_number=? WHERE id=? AND search_number IS NULL',n,row.id);
+ }
+
+}
+

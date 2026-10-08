@@ -1,3 +1,4 @@
+import {hasPermission} from './access-policy';
 import {taskCanEdit} from './search-task-types';
 import React,{useEffect,useState} from 'react';
 import {PencilSimple} from '@phosphor-icons/react';
@@ -8,7 +9,7 @@ type R=Record<string,any>;
 export function StrategySetup({data,role,manager,api,reload,onDirty,onNavigate,onClone,section='criteria'}:{section?:'criteria'|'guidance';data:R;role:string;manager:boolean;api:(p:string,b?:unknown)=>Promise<any>;reload:()=>Promise<void>;onDirty:(v:boolean)=>void;onNavigate:(tab:string)=>void;onClone:()=>void}){
  const guidance=section==='guidance',title=guidance?'Keyword guidance':'Fit criteria';
  const records:R[]=data.research?.records||[],doc=records.find(r=>r.kind==='strategy'&&r.role_id===role);
- const canEdit=manager||records.some(t=>t.kind==='task'&&t.role_id===role&&t.owner_id===data.actor.id&&t.status!=='Cancelled'&&taskCanEdit(t.task_type,guidance?'guidance':'criteria'));
+ const canEdit=hasPermission(data.actor,guidance?'search.keywords':'search.fit');
  const [content,setContent]=useState(doc?.draft||''),[criteria,setCriteria]=useState<R[]>(doc?.criteria||[]),[editing,setEditing]=useState(!doc),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const [cutover,setCutover]=useState(new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'}).format(new Date()));
  const dirty=content!==(doc?.draft||'')||JSON.stringify(criteria)!==JSON.stringify(doc?.criteria||[]);
@@ -23,7 +24,8 @@ export function StrategySetup({data,role,manager,api,reload,onDirty,onNavigate,o
  {error&&<p className="error" role="alert">{error}</p>}
  {guidance&&<div className="strategy-section">{editMode?<label>Keyword guidance<textarea rows={5} required disabled={busy} value={content} onChange={e=>setContent(e.target.value)} placeholder="Keywords, target titles, Boolean searches, synonyms and exclusions"/></label>:<><h3>Keyword guidance</h3><p className="document-text">{doc?.draft||'No keyword guidance yet.'}</p></>}</div>}
  {!guidance&&<div className="strategy-section">{editMode?<fieldset disabled={busy} className="strategy-criteria-fieldset"><StrategyCriteriaEditor value={criteria} onChange={setCriteria}/></fieldset>:<><h3>Fit criteria <span className="fine">({(doc?.criteria||[]).length})</span></h3>{doc?.criteria?.length?<div className="table-scroll"><table className="sheet-table strategy-criteria-table"><thead><tr><th>Criterion</th><th>Requirement</th><th>Weight</th></tr></thead><tbody>{doc.criteria.map((c:R,i:number)=><tr key={c.id}><td><strong>{c.label}</strong></td><td>{c.requirement||'—'}</td><td>{Number(weights[i].toFixed(2))}%</td></tr>)}</tbody></table></div>:<p className="fine">No fit criteria added.</p>}</>}</div>}
- {!guidance&&manager&&doc?.status==='Draft'&&!editMode&&<div className="strategy-approval">{!doc.cutover&&<label>Candidate tracking start date<input type="date" value={cutover} disabled={busy} onChange={e=>setCutover(e.target.value)}/></label>}<button className="primary" disabled={busy||dirty||!doc.draft?.trim()||!doc.cutover&&!cutover} onClick={()=>save('strategy-approve')}>Approve criteria & guidance</button>{!doc.draft?.trim()&&<button onClick={()=>onNavigate('Keyword guidance')}>Add keyword guidance before approval</button>}</div>}
+ {!guidance&&hasPermission(data.actor,'search.fit')&&doc?.status==='Draft'&&!editMode&&<div className="strategy-approval">{!doc.cutover&&<label>Candidate tracking start date<input type="date" value={cutover} disabled={busy} onChange={e=>setCutover(e.target.value)}/></label>}<button className="primary" disabled={busy||dirty||!doc.draft?.trim()||!doc.cutover&&!cutover} onClick={()=>save('strategy-approve')}>Approve criteria & guidance</button>{!doc.draft?.trim()&&<button onClick={()=>onNavigate('Keyword guidance')}>Add keyword guidance before approval</button>}</div>}
  {changedApproved&&<details className="strategy-approved"><summary>View approved version</summary>{guidance&&<p className="document-text">{doc.active}</p>}{!guidance&&(doc.active_criteria||[]).map((c:R)=><p key={c.id}><strong>{c.label}</strong>{c.requirement?' · '+c.requirement:''}</p>)}</details>}
  </section>;
 }
+

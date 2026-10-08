@@ -1,3 +1,5 @@
+import {hasPermission} from './access-policy';
+import {authorizeResearch} from './operation-permissions';
 import {allocationKey} from './performance-index';
 import {searchTaskTypes,taskCanEdit} from './search-task-types';
 import {linkedin,linkedinKey,sameLinkedin} from './candidate-identity';
@@ -24,10 +26,11 @@ export function researchRecords(db:DB){return db.rows('SELECT * FROM research_re
 export function researchState(db:DB) {return {records:researchRecords(db),events:db.rows('SELECT * FROM research_events ORDER BY created_at DESC').map(r=>({...r,data:JSON.parse(r.data)}))};}
 
 export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
- requireThat(b.action==='pitch-save'||(b.action==='candidate-save'&&!b.id)||roleList(a).some(r=>r!=='founder'),'This account has read-only access.',403);
+ a=authorizeResearch(db,a,b);
+ requireThat(b.action==='pitch-save'||(b.action==='candidate-save'&&!b.id)||['admin','planner','partner','researcher','engagement','data_quality'].some(r=>hasRole(a,r)),'This account has read-only access.',403);
  const active=members.filter(m=>m.status==='active');
  const member=(id:string)=>{const m=active.find(m=>m.id===id);requireThat(m,'Choose an active workspace member.');return m;};
- const researcher=(id:string)=>{const m=member(id);requireThat(hasRole(m,'researcher')&&(m.staff_id||m.staffId),'Choose a researcher linked to a staff record.');return m;};
+ const researcher=(id:string)=>{const m=member(id);requireThat(hasPermission(m,'candidates.add')&&(m.staff_id||m.staffId),'Choose a researcher linked to a staff record.');return m;};
  const teammate=(id:string,team:string,exclude='')=>{const m=researcher(id),sid=m.staff_id||m.staffId;requireThat(sid!==exclude,'Self-review is not allowed.');requireThat(db.rows('SELECT staff_id FROM team_members WHERE team_id=? AND staff_id=?',team,sid).length,'The peer reviewer must be a researcher in the same team.');return m;};
  const old=b.id?get(db,text(b.id)):null;
  if(old)requireThat(Number(b.version)===old.version,'This record changed. Reload before saving.',409);
@@ -71,6 +74,10 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
   kind='task';key=old?.id||id;next={...old,task_type:b.task_type,title:text(b.title,200)||b.task_type,team_id:team,owner_id:b.owner_id,staff_id:person.staff_id||person.staffId,work_date:day(b.work_date),status:b.status||'Planned',notes:text(b.notes,5000)};
  } else if(b.action==='task-status') {
   requireThat(old?.kind==='task','Task not found.');requireThat(canPlan(a)||old.owner_id===a.id,'Only the assignee or planner can update this task.',403);requireThat(['Planned','In progress','Completed','Cancelled'].includes(b.status),'Choose a task status.');kind='task';key=old.id;next={...old,status:b.status};
+ } else if(b.action==='candidate-archive') {
+  requireThat(old?.kind==='candidate','Candidate not found.',404);
+  requireThat(typeof b.archived==='boolean','Choose archived or active.');
+  kind='candidate';key=old.url||'recruitcrm:'+old.crm_ids?.[0];next={...old,archived:b.archived,archived_by:a.id,archived_at:b.archived?iso():null};
  } else if(b.action==='candidate-save') {
   requireThat(!old||canPlan(a)||hasRole(a,'data_quality')||hasRole(a,'researcher')||hasRole(a,'engagement')||hasRole(a,'partner'),'Candidate editing permission required.',403);
   requireThat(!old||old.kind==='candidate','Choose a candidate record.');
@@ -172,7 +179,7 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
   const companies=researchRecords(db).filter(r=>r.kind==='company');
   const ids=[];for(const item of items){
    requireThat(!linking||item.candidate_id,'Choose an existing candidate.');
-   const selected=item.candidate_id?get(db,text(item.candidate_id)):null;requireThat(!selected||selected.kind==='candidate','Choose an existing candidate.');
+   const selected=item.candidate_id?get(db,text(item.candidate_id)):null;requireThat(!selected||selected.kind==='candidate','Choose an existing candidate.');requireThat(!selected?.archived,'Restore this candidate before adding them to a search.');
    const url=selected?.url||linkedin(item.url),existing=selected?null:find('candidate',url),candidate=selected||(existing?get(db,existing.id):null);
    const first_name=candidate?.first_name||text(item.first_name,100),last_name=candidate?.last_name||text(item.last_name,100);
    requireThat(first_name&&last_name,'First name and last name are required. Update an older candidate record before mapping.');
@@ -231,4 +238,5 @@ export function derivedEntries(records:any[],assignments:any[]) {
   entry.mapped++;if(m.peer_decision==='Approve')entry.peer++;if(m.status==='Approved')entry.partner++;groups.set(key,entry);
  }return [...groups.values()];
 }
+
 

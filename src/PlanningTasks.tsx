@@ -1,3 +1,4 @@
+import {hasPermission} from './access-policy';
 import {searchTaskTypes,taskTypeLabel} from './search-task-types';
 import {SortableTable} from './SortableTable';
 import React,{useState,useEffect} from 'react';
@@ -5,7 +6,7 @@ import {canPlan} from './domain';
 import {displayDate} from './dates';
 import {teamColor} from './team-colors';
 export function PlanningTasks({data,api,reload,from='',to='',mine=false,roles=null,teamId='',teamIds=null,onDirty=()=>{}}:any){
- const [edit,setEdit]=useState<any>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');const planner=canPlan(data.actor);
+ const [edit,setEdit]=useState<any>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');const planner=hasPermission(data.actor,'planning.allocate');
  useEffect(()=>{onDirty(!!edit);return()=>onDirty(false);},[!!edit]);
  const tasks=data.research.records.filter((r:any)=>r.kind==='task'&&(!teamId||r.team_id===teamId)&&(teamIds===null||teamIds.includes(r.team_id))&&(roles===null||roles.includes(r.role_id))&&(!from||r.work_date>=from)&&(!to||r.work_date<=to)&&(!mine||r.owner_id===data.actor.id)).sort((a:any,b:any)=>a.work_date.localeCompare(b.work_date));
  async function save(b:any){setBusy(true);setError('');try{await api('research',b);await reload();setEdit(null);}catch(e:any){setError(e.message);}finally{setBusy(false);}}
@@ -13,3 +14,4 @@ export function PlanningTasks({data,api,reload,from='',to='',mine=false,roles=nu
  {edit&&<div className="modal-backdrop"><section className="modal"><h2>Assign search task</h2><form onSubmit={e=>{e.preventDefault();save({...edit,action:'task-save'});}}><label>Search<select required value={edit.role_id} disabled={!!edit.id} onChange={e=>setEdit({...edit,role_id:e.target.value})}><option value="">Choose search</option>{data.searches.map((s:any)=><option key={s.id} value={s.id}>{s.search_number??'—'} · {s.client} · {s.title} · {s.status}</option>)}</select></label><label>Task type<select value={edit.task_type} onChange={e=>setEdit({...edit,task_type:e.target.value})}>{searchTaskTypes.map(v=><option key={v}>{v}</option>)}</select></label><label>Task / deliverable<input value={edit.title||''} onChange={e=>setEdit({...edit,title:e.target.value})}/></label><label>Team<select required value={edit.team_id} onChange={e=>setEdit({...edit,team_id:e.target.value,owner_id:''})}><option value="">Choose team</option>{data.teams.map((t:any)=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label><label>Team member<select required value={edit.owner_id} onChange={e=>setEdit({...edit,owner_id:e.target.value})}><option value="">Choose person</option>{data.people.filter((p:any)=>data.team_members.some((m:any)=>m.team_id===edit.team_id&&m.staff_id===p.staff_id)).map((p:any)=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label><label>Planned date<input type="date" required value={edit.work_date} onChange={e=>setEdit({...edit,work_date:e.target.value})}/></label><label>Notes<textarea value={edit.notes} onChange={e=>setEdit({...edit,notes:e.target.value})}/></label>{error&&<p className="error">{error}</p>}<button disabled={busy}>Save task</button><button type="button" disabled={busy} onClick={()=>setEdit(null)}>Cancel</button></form></section></div>}
  </section>;
 }
+

@@ -1,3 +1,4 @@
+import {hasPermission} from './access-policy';
 import {useViewState} from './ViewState';
 import {LinkedInIcon} from './LinkedInIcon';
 import {SortableTable} from './SortableTable';
@@ -17,7 +18,7 @@ export function InterviewTracker({data,api,reload,onDirty,onCandidate,initialRol
  const records:R[]=data.research.records,stages=pipelineStages(records),rows=engagementRows(records,data.searches),clients:string[]=Array.from(new Set<string>(data.searches.map((s:R)=>s.client))).sort();
  useEffect(()=>{onDirty(!!edit||busy);return()=>onDirty(false);},[!!edit,busy]);
  const search=(id:string)=>data.searches.find((s:R)=>s.id===id),candidate=(r:R)=>records.find(c=>c.kind==='candidate'&&c.id===r.candidate_id);
- const canEdit=(r:R)=>r.approved&&(canPlan(data.actor)||hasRole(data.actor,'partner')&&search(r.role_id)?.partner_id===data.actor.id||hasRole(data.actor,'engagement')&&engagementAssignees(records,r.role_id,resolvedStage(r,stages).group).includes(data.actor.id));
+ const canEdit=(r:R)=>hasPermission(data.actor,'engagement.interviews')&&r.approved&&(hasPermission(data.actor,'engagement.assign')||hasRole(data.actor,'partner')&&search(r.role_id)?.partner_id===data.actor.id||hasRole(data.actor,'engagement')&&engagementAssignees(records,r.role_id,resolvedStage(r,stages).group).includes(data.actor.id));
  const visible=rows.filter(r=>(!role||r.role_id===role)&&(!client||search(r.role_id)?.client===client)&&matchesSearchStatus(search(r.role_id),searchStatus)&&candidateMatches(candidate(r),query)&&matchesInterviewTracker(r,resolvedStage(r,stages).group,all));
  const outcome=(r:R)=>['Placed','Exited'].includes(resolvedStage(r,stages).group)?r.stage:(r.interviews||[]).filter((i:R)=>i.outcome!=='Pending').sort((a:R,b:R)=>b.number-a.number)[0]?.outcome||(['Placed','Exited'].includes(resolvedStage(r,stages).group)?r.stage:'Pending');
  const value=(r:R,key:string)=>key==='candidate'?candidate(r)?.name:key==='client'?search(r.role_id)?.client:key==='search'?search(r.role_id)?.title:key==='recommended'?r.recommended_on:key==='stage'?r.stage:key==='outcome'?outcome(r):(()=>{const i=r.interviews?.find((i:R)=>'round'+i.number===key);return i?[i.outcome==='Pending'?i.status:i.outcome,i.date||''].join(' '):'Not started';})();
@@ -34,3 +35,4 @@ export function InterviewTracker({data,api,reload,onDirty,onCandidate,initialRol
  <label>Note date<input required type="date" value={edit.occurred_on} onChange={e=>setEdit({...edit,occurred_on:e.target.value})}/></label><label>{edit.mode==='round'?'Interview feedback / reason for update':'Recommendation note / reason for correction'}<textarea required rows={3} value={edit.notes} onChange={e=>setEdit({...edit,notes:e.target.value})}/></label><p className="fine">Dates are entered manually. Completed does not mean successful; choose Progressing when the candidate advances. Saving an interview does not change the CRM search status.</p>{error&&<p className="error" role="alert">{error}</p>}<button disabled={busy} className="primary">{busy?'Saving…':'Save update'}</button></form></section></div>}
  </section>;
 }
+

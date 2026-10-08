@@ -6,7 +6,8 @@ export type AccessRole =
   | "partner"
   | "researcher"
   | "engagement"
-  | "data_quality";
+  | "data_quality"
+  | (string & {});
 export type Actor = {
   id: string;
   name: string;
@@ -14,6 +15,9 @@ export type Actor = {
   tenant: string;
   role: AccessRole;
   roles?: AccessRole[];
+  accessRoles?: AccessRole[];
+  permissions?: string[];
+  roleNames?: Record<string,string>;
   staffId: string | null;
 };
 export const roles: AccessRole[] = [
@@ -25,13 +29,20 @@ export const roles: AccessRole[] = [
   "researcher",
   "engagement",
   "data_quality",
+  "research_lead",
+  "engagement_lead",
 ];
 export function roleList(a: {role?: unknown;roles?: unknown}): AccessRole[] {
-  return (Array.isArray(a.roles)?a.roles:[a.role]).filter((v):v is AccessRole=>roles.includes(v as AccessRole));
+  return (Array.isArray(a.roles)?a.roles:[a.role]).filter((v):v is AccessRole=>typeof v==='string'&&(roles.includes(v)||/^role_[a-f0-9-]+$/.test(v)));
 }
-export const hasRole=(a:{role?:unknown;roles?:unknown},role:AccessRole)=>roleList(a).includes(role)||(role==='admin'&&roleList(a).includes('super_admin'));
-export const canPlan = (a: {role?:unknown;roles?:unknown}) => hasRole(a,'admin')||hasRole(a,'planner');
-export const canPartnerReview = (a: {role?:unknown;roles?:unknown}) => hasRole(a,'admin')||hasRole(a,'partner');
+// accessRoles is resolved from tenant policy by Identity on every authenticated request.
+// Unenriched actors retain legacy defaults for migrations and internal test fixtures.
+export const hasRole=(a:{role?:unknown;roles?:unknown;accessRoles?:unknown},role:AccessRole)=>{
+ const effective=Array.isArray(a.accessRoles)?a.accessRoles:roleList(a);
+ return role==='super_admin'?roleList(a).includes('super_admin'):effective.includes(role)||(role==='admin'&&roleList(a).includes('super_admin'));
+};
+export const canPlan = (a: {role?:unknown;roles?:unknown;accessRoles?:unknown}) => hasRole(a,'admin')||hasRole(a,'planner');
+export const canPartnerReview = (a: {role?:unknown;roles?:unknown;accessRoles?:unknown}) => hasRole(a,'admin')||hasRole(a,'partner');
 export const roleLabel=(role:string)=>role==='super_admin'?'Super admin':role==='data_quality'?'Data quality analyst':role.charAt(0).toUpperCase()+role.slice(1);
 export function requireThat(
   condition: unknown,
@@ -126,3 +137,4 @@ export function aggregate(
     unknownMapped: entries.filter((e) => e.mapped === null).length,
   };
 }
+

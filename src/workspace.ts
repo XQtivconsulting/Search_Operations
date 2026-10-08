@@ -1,10 +1,12 @@
+import {hasPermission} from './access-policy';
+import {authorizeResearch,authorizeMutation} from './operation-permissions';
 import {generateCandidateAI} from './candidate-ai';
 import {canSummarize,candidateSummaryMutation} from './candidate-summary';
 import {planSearchImport,searchSignature} from './search-import';
 import {isCRMManaged,searchStatuses} from './search-management';
 import {assignmentWorkIds} from './performance-index';
 import {carryoverAssignments} from './plan-carryover';
-import {initializeSearchNumbers,nextSearchNumber,reserveSearchNumbers,searchNumber} from './search-number';
+import {backfillSearchNumbers,initializeSearchNumbers,nextSearchNumber,reserveSearchNumbers,searchNumber} from './search-number';
 import {taskCanEdit} from './search-task-types';
 import {sameLinkedin,linkedinKey} from './candidate-identity';
 import {backfillDraftTargets} from './draft-targets';
@@ -45,6 +47,7 @@ export class Workspace extends DurableObject {
     super(ctx, env);
     ctx.storage.sql.exec(workspaceSchema);
     initializeSearchNumbers(this);
+    ctx.storage.transactionSync(()=>backfillSearchNumbers(this));
     if(!this.rows('PRAGMA table_info(searches)').some(c=>c.name==='origin'))this.rows("ALTER TABLE searches ADD COLUMN origin TEXT NOT NULL DEFAULT ''");
     if(!this.rows('PRAGMA table_info(searches)').some(c=>c.name==='crm_managed'))this.rows("ALTER TABLE searches ADD COLUMN crm_managed INTEGER NOT NULL DEFAULT 1");
     ctx.storage.sql.exec(resetSchema);
@@ -106,18 +109,18 @@ export class Workspace extends DurableObject {
     if(!await this.ctx.storage.getAlarm())await this.ctx.storage.setAlarm(nextWeeklyBackup());
   }
   async backupStatus(a:Actor){
-    requireThat(hasRole(a,'super_admin'),'Workspace owner permission required.',403);
+    requireThat(hasPermission(a,'data.backup')||hasPermission(a,'data.export'),'Workspace owner permission required.',403);
     await this.ensureBackupSchedule(a.tenant);
     return {configured:!!(this.env as any).BACKUPS,next_at:await this.ctx.storage.getAlarm(),runs:this.rows('SELECT * FROM backup_runs ORDER BY created_at DESC LIMIT 20').map(r=>({...r,details:JSON.parse(r.details)}))};
   }
   async exportBusiness(a:Actor,people:any[]){
-    requireThat(hasRole(a,'super_admin'),'Workspace owner permission required.',403);
+    requireThat(hasPermission(a,'data.export'),'Workspace owner permission required.',403);
     const snapshot=this.ctx.storage.transactionSync(()=>snapshotBusiness(this,a.tenant,people));
     const bytes=buildBusinessArchive(snapshot);
     this.audit(a,'business-export',a.tenant,null,{sha256:snapshot.sha256});return bytes;
   }
   async backupNow(a:Actor,people:any[]){
-    requireThat(hasRole(a,'super_admin'),'Workspace owner permission required.',403);
+    requireThat(hasPermission(a,'data.backup'),'Workspace owner permission required.',403);
     await this.ensureBackupSchedule(a.tenant);
     return storeBusinessBackup(this,this.ctx.storage,(this.env as any).BACKUPS,a.tenant,people);
   }
@@ -146,7 +149,7 @@ export class Workspace extends DurableObject {
     for(const r of this.rows('SELECT * FROM reset_backup_rows WHERE backup_id=? ORDER BY table_name,row_no',id))(backup.tables[r.table_name]??=[]).push(JSON.parse(r.data));
     return backup;
   }
-  async research(a: Actor,b:any,members:Member[]):Promise<any> {await this.syncPeople(members);
+  async research(a: Actor,b:any,members:Member[]):Promise<any> {a=authorizeResearch(this,a,b);await this.syncPeople(members);
     let generated:any;
     if(b.action==='candidate-summary-draft'){
       requireThat(canSummarize(a),'Candidate editing permission required.',403);
@@ -186,6 +189,12 @@ export class Workspace extends DurableObject {
         const records=researchRecords(this),url=linkedin(b.url),candidate=records.find(r=>r.kind==='candidate'&&sameLinkedin(r.url,url));
         if(candidate)requireThat(candidate.version===Number(b.candidate_version),'Candidate details changed. Reload before adding the mapping.',409);
         const role=text(b.role_id),team=text(b.team_id);
+        if(!team&&!b.target_id&&Array.isArray(a.permissions)){
+          requireThat(hasPermission(a,'candidates.add'),'Candidate assignment permission required.',403);
+          const cid=candidate?.id||researchMutation(this,a,{...b,action:'candidate-save',role_id:''},members).id;
+          return researchMutation(this,a,{action:'mapping-link',role_id:role,items:[{candidate_id:cid,rationale:b.rationale,evidence:b.evidence}]},members);
+        }
+
         requireThat(!candidate||!records.some(r=>r.kind==='mapping'&&r.role_id===role&&r.candidate_id===candidate.id),'This candidate is already mapped to this role.',409);
         const requestedTarget=b.target_id?records.find(r=>r.kind==='target'&&r.id===b.target_id):null;
         if(b.target_id){requireThat(requestedTarget&&requestedTarget.role_id===role,'Choose a target company in this search.');requireThat(requestedTarget.owner_id===a.id&&requestedTarget.team_id===team,'This company is not assigned to you in this team.',403);requireThat(!candidate||candidate.company_id===requestedTarget.company_id||companyNames(records.find(r=>r.id===requestedTarget.company_id)||{}).includes(normalizedCompany(candidate.company)),'This candidate has a different current company. Add them from the Candidates tab.');}
@@ -194,7 +203,7 @@ export class Workspace extends DurableObject {
         if(b.company_id){const selected=records.find(r=>r.id===b.company_id&&r.kind==='company');requireThat(selected&&companyNames(selected).includes(normalizedCompany(companyName)),'Select the matching company.');company=selected;}
         requireThat(!companyName||company||b.create_company===true,'Choose an existing company or explicitly add the new company.');
         if(requestedTarget)target=requestedTarget;
-        if(companyName&&!requestedTarget){
+        if(companyName&&!requestedTarget&&!Array.isArray(a.permissions)){
           target=company?records.find(r=>r.kind==='target'&&r.role_id===role&&r.company_id===company!.id):null;
           if(!target){const created=researchMutation(this,a,{action:'company-save',role_id:role,company_id:company?.id,name:companyName,team_id:team,owner_id:a.id},members);target=researchRecords(this).find(r=>r.id===created.id);company=researchRecords(this).find(r=>r.id===target.company_id);}
           else if(!target.owner_id&&target.team_id===team){researchMutation(this,a,{...target,action:'company-claim'},members);target={...target,owner_id:a.id};}
@@ -328,11 +337,27 @@ export class Workspace extends DurableObject {
     const automated=new Set(research.records.filter(r=>r.kind==='strategy'&&r.active).map(r=>r.role_id));
     result.entries=result.entries.map(e=>({...e,automated:automated.has(e.search_id)}));
     result.entries.push(...derivedEntries(research.records,result.assignments));
+    if(Array.isArray(a.permissions)){
+      const viewSearch=hasPermission(a,'search.view'),viewCandidates=hasPermission(a,'candidates.view'),viewCompanies=hasPermission(a,'companies.view'),viewEngagement=hasPermission(a,'engagement.view'),viewPlan=hasPermission(a,'planning.view')||hasPermission(a,'reports.view');
+      result.research.records=result.research.records.filter(r=>{
+        if(r.kind==='company')return viewCompanies;
+        if(r.kind==='candidate'||r.kind.startsWith('candidate-')||r.kind==='mapping')return viewCandidates;
+        if(r.kind.startsWith('engagement'))return viewEngagement&&viewCandidates;
+        if(r.kind==='task'||r.kind==='peer-route'||r.kind==='team-reviewer')return viewPlan;
+        return viewSearch;
+      });
+      const ids=new Set(result.research.records.map(r=>r.id));
+      result.research.events=result.research.events.filter(e=>ids.has(e.record_id));
+      if(!viewSearch)result.searches=[];
+      if(!viewPlan){result.assignments=[];result.entries=[];result.priorities=[];result.decisions=[];result.effort=[];result.effortDays=[];}
+      if(!hasPermission(a,'users.view')&&!viewPlan){result.teams=[];result.team_members=[];result.staff=result.staff.filter(s=>s.id===a.staffId);result.timeOff=result.timeOff.filter(t=>t.staff_id===a.staffId);}
+      if(!hasPermission(a,'roles.manage')){result.issues=[];result.audit=[];}
+    }
     return result;
   }
-  async crmCandidateImports(a:Actor){requireThat(hasRole(a,'admin'),'Administrator permission required.',403);return this.rows('SELECT id,search_id,status,created_at FROM crm_candidate_batches ORDER BY created_at DESC LIMIT 30');}
+  async crmCandidateImports(a:Actor){requireThat(hasPermission(a,'integrations.manage'),'Administrator permission required.',403);return this.rows('SELECT id,search_id,status,created_at FROM crm_candidate_batches ORDER BY created_at DESC LIMIT 30');}
   async crmCandidateStart(a:Actor,searchId:string,token:string){
-    requireThat(hasRole(a,'admin'),'Administrator permission required.',403);
+    requireThat(hasPermission(a,'integrations.manage'),'Administrator permission required.',403);
     const search=this.rows('SELECT * FROM searches WHERE id=?',searchId)[0];requireThat(search?.external_id,'Choose a CRM-linked search already in the repository.');
     const job=this.rows('SELECT * FROM crm_jobs WHERE external_id=?',search.external_id)[0];const slug=crmSlug(job?.job_slug);
     const assignments=await crmAssignments(token,slug);
@@ -347,11 +372,11 @@ export class Workspace extends DurableObject {
   }
   async crmCandidateApply(a:Actor,id:string,stages:Record<string,string>){return this.ctx.storage.transactionSync(()=>applyConversionItem(this,a,id,stages));}
   async crmState(a: Actor) {
-    requireThat(hasRole(a,'admin'), 'Administrator permission required.',403);
+    requireThat(hasPermission(a,'integrations.manage'), 'Administrator permission required.',403);
     return {next_search_number:nextSearchNumber(this),jobs:this.rows('SELECT j.*,p.partner_id AS saved_partner_id,p.partner AS saved_partner,COALESCE(p.version,0) AS partner_version FROM crm_jobs j LEFT JOIN crm_partners p ON p.external_id=j.external_id ORDER BY j.title'), runs:this.rows('SELECT * FROM integration_runs ORDER BY created_at DESC LIMIT 20')};
   }
   async stageCRM(a: Actor, jobs: CRMJob[]) {
-    requireThat(hasRole(a,'admin'), 'Administrator permission required.',403);
+    requireThat(hasPermission(a,'integrations.manage'), 'Administrator permission required.',403);
     return this.ctx.storage.transactionSync(() => {
       // Refresh CRM-owned fields on existing searches; never activate new jobs.
       this.rows('DELETE FROM crm_jobs');
@@ -372,7 +397,7 @@ export class Workspace extends DurableObject {
     });
   }
   async applyCRM(a: Actor, jobs: any[]) {
-    requireThat(hasRole(a,'admin'),'Administrator permission required.',403);
+    requireThat(hasPermission(a,'integrations.manage'),'Administrator permission required.',403);
     requireThat(Array.isArray(jobs) && jobs.length > 0 && jobs.length <= 200,'Select 1–200 jobs.');
     requireThat(new Set(jobs.map(j=>j.external_id)).size === jobs.length,'Duplicate job selection.');
     return this.ctx.storage.transactionSync(() => {
@@ -408,13 +433,13 @@ export class Workspace extends DurableObject {
     return this.ctx.storage.transactionSync(()=>{
       this.rows('CREATE TABLE IF NOT EXISTS account_researchers(staff_id TEXT PRIMARY KEY,user_id TEXT NOT NULL)');
       this.rows('DELETE FROM account_researchers');
-      for(const m of members.filter(m=>m.status==='active'&&hasRole(m,'researcher')&&(m.staff_id||m.staffId))){const sid=m.staff_id||m.staffId!;
+      for(const m of members.filter(m=>m.status==='active'&&(m.staff_id||m.staffId))){const sid=m.staff_id||m.staffId!;
         // Legacy staff.name is unique, whereas account display names are not identities.
         // Keep historical staff IDs intact and disambiguate only this internal storage label.
         let storageName=m.name,suffix=0;
         while(this.rows('SELECT id FROM staff WHERE name=? AND id<>?',storageName,sid).length)storageName=m.name+' ['+sid+(suffix++?':'+suffix:'')+']';
         this.rows('INSERT INTO staff(id,name) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name',sid,storageName);
-        this.rows('INSERT INTO account_researchers VALUES(?,?)',sid,m.id);
+        if(hasPermission(m,'reviews.submit'))this.rows('INSERT INTO account_researchers VALUES(?,?)',sid,m.id);
         this.rows('UPDATE staff_profiles SET archived=0 WHERE staff_id=? AND archived<>0',sid);
       }
       const removed=this.rows('SELECT * FROM team_members WHERE staff_id NOT IN (SELECT staff_id FROM account_researchers)');
@@ -459,6 +484,7 @@ export class Workspace extends DurableObject {
     });
   }
   private applyMutation(a: Actor, kind: string, b: any,members:Member[]=[]): any {
+      a=authorizeMutation(this,a,kind,b);
       if(kind==='week-copy'){
         requireThat(canPlan(a),'Planning permission required.',403);
         requireThat(Array.isArray(b.items)&&b.items.length>0&&b.items.length<=500,'Choose 1–500 allocations to copy.');
@@ -510,11 +536,11 @@ export class Workspace extends DurableObject {
       }
       if(kind==='team-transfer') {
         requireThat(canPlan(a),'Planning permission required.',403);requireThat(b.from!==b.to,'Choose different teams.');
-        for(const [team,version] of [[b.from,b.from_version],[b.to,b.to_version]]){requireThat(this.rows('SELECT id FROM teams WHERE id=?',team).length,'Team not found.',404);requireThat((this.rows('SELECT version FROM team_rosters WHERE team_id=?',team)[0]?.version||0)===Number(version),'Team roster changed. Reload.',409);}
-        requireThat(this.assignableStaff(b.staff_id)&&this.rows('SELECT 1 FROM team_members WHERE team_id=? AND staff_id=?',b.from,b.staff_id).length,'Choose a current team member.');
+        for(const [team,version] of [...(b.from?[[b.from,b.from_version]]:[]),[b.to,b.to_version]]){requireThat(this.rows('SELECT id FROM teams WHERE id=?',team).length,'Team not found.',404);requireThat((this.rows('SELECT version FROM team_rosters WHERE team_id=?',team)[0]?.version||0)===Number(version),'Team roster changed. Reload.',409);}
+        requireThat(this.assignableStaff(b.staff_id)&&(!b.from||this.rows('SELECT 1 FROM team_members WHERE team_id=? AND staff_id=?',b.from,b.staff_id).length),'Choose a current team member.');
         const lead=researchRecords(this).find(r=>r.kind==='team-reviewer'&&r.team_id===b.from);requireThat(!lead||!this.rows('SELECT 1 FROM account_researchers WHERE user_id=? AND staff_id=?',lead.reviewer_id,b.staff_id).length,'Assign a replacement team lead before moving this researcher.');
         this.rows('DELETE FROM team_members WHERE team_id=? AND staff_id=?',b.from,b.staff_id);this.rows('INSERT OR IGNORE INTO team_members VALUES(?,?)',b.to,b.staff_id);
-        for(const team of [b.from,b.to])this.rows('INSERT INTO team_rosters VALUES(?,1) ON CONFLICT(team_id) DO UPDATE SET version=version+1',team);
+        for(const team of [b.from,b.to].filter(Boolean))this.rows('INSERT INTO team_rosters VALUES(?,1) ON CONFLICT(team_id) DO UPDATE SET version=version+1',team);
         this.audit(a,kind,b.staff_id,{team:b.from},{team:b.to});return {id:b.staff_id};
       }
       if(kind === 'team-members') {
@@ -1101,3 +1127,4 @@ export class Workspace extends DurableObject {
     });
   }
 }
+

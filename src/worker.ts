@@ -1,3 +1,4 @@
+import {hasPermission} from './access-policy';
 import {companyLogo} from './company-logo';
 import {lookupGeography,signGeography,verifyGeographies} from './geography-lookup';
 import {readJSONBody} from './request-security';
@@ -159,8 +160,10 @@ export default {
           const a = await identity.authenticate(rawCookie, tenant);
           requireThat(a, "Please sign in to this workspace.", 401);
           const workspace: any = env.WORKSPACE.getByName(a.tenant);
-          if(url.pathname.startsWith('/api/backups/')) {
-            requireThat(hasRole(a,'super_admin'),'Workspace owner permission required.',403);
+          if(url.pathname==='/api/roles'&&req.method==='GET')res=json(await identity.roleCatalog(a));
+          else if(url.pathname==='/api/roles'&&req.method==='POST')res=json(await identity.rolePolicy(a,body));
+          else if(url.pathname.startsWith('/api/backups/')) {
+            requireThat((hasPermission(a,url.pathname==='/api/backups/export'?'data.export':'data.backup')||url.pathname==='/api/backups/status'&&hasPermission(a,'data.export')),'Backup or export permission required.',403);
             if(url.pathname==='/api/backups/status'&&req.method==='GET')res=json(await workspace.backupStatus(a));
             else if(url.pathname==='/api/backups/run'&&req.method==='POST') {
               await identity.limit('backup:'+a.tenant,3);
@@ -179,7 +182,7 @@ export default {
             } else res=json({error:'Not found.'},404);
           }
           else if (url.pathname.startsWith('/api/crm/')) {
-            requireThat(hasRole(a,'admin'),'Administrator permission required.',403);
+            requireThat(hasPermission(a,'integrations.manage'),'Administrator permission required.',403);
             const token = readCRMToken(env.RECRUITCRM_TOKENS,a.tenant);
             if(url.pathname.startsWith('/api/crm/candidates/')&&req.method==='POST'){
               requireThat(typeof token==='string'&&token.length>0,'RecruitCRM is not connected for this workspace.',409);
@@ -221,13 +224,13 @@ export default {
           else if (url.pathname === "/api/state" && req.method === "GET") {
             const members=await identity.members(a.tenant);
             const partners=members.filter((m:any)=>m.status==='active' && canPartnerReview(m)).map((m:any)=>({id:m.id,name:m.name}));
-            const people=members.filter((m:any)=>m.status==='active').map((m:any)=>({id:m.id,name:m.name,role:m.role,roles:m.roles,staff_id:m.staff_id,status:m.status}));
+            const people=members.filter((m:any)=>m.status==='active').map((m:any)=>({id:m.id,name:m.name,role:m.role,roles:m.roles,accessRoles:m.accessRoles,permissions:m.permissions,staff_id:m.staff_id,status:m.status}));
             if(env.BACKUPS)await workspace.ensureBackupSchedule(a.tenant);
             const state=await workspace.state(a,members);
             res = json({...state,partners,people,staff:state.staff?.filter((s:any)=>people.some((p:any)=>p.staff_id===s.id)).map((s:any)=>({...s,name:people.find((p:any)=>p.staff_id===s.id)?.name||s.name,archived:people.some((p:any)=>p.staff_id===s.id&&hasRole(p,'researcher'))?0:1}))});
           }
           else if (url.pathname === '/api/geography-lookup'&&req.method==='POST') {
-            requireThat(canPlan(a)||['data_quality','researcher','partner','engagement'].some(role=>hasRole(a,role as any)),'Candidate editing permission required.',403);
+            requireThat(hasPermission(a,'candidates.edit'),'Candidate editing permission required.',403);
             await identity.limit('geography-lookup:'+a.tenant+':'+a.id,90);
             const labels=await lookupGeography(body.query,async key=>{
               requireThat(/^(index|[a-f0-9]+-[a-f0-9]+)$/.test(key),'Invalid location catalog key.');
@@ -244,7 +247,7 @@ export default {
             res=await companyLogo(url.searchParams.get('domain')||'');
           }
           else if (url.pathname === '/api/company-lookup'&&req.method==='POST') {
-            requireThat(canPlan(a),'Planning permission required.',403);
+            requireThat(hasPermission(a,'companies.edit'),'Company editing permission required.',403);
             await identity.limit('company-lookup:'+a.id,30);
             res=json(await companySuggestions(text(body.name,200)));
           }
@@ -267,11 +270,12 @@ export default {
             delete body.geography_choices;
             res=json(await workspace.research(a,body,await identity.members(a.tenant)));
           }
+          else if(url.pathname==='/api/members/profile'&&req.method==='POST')res=json(await identity.updateProfile(a,body));
           else if(url.pathname==='/api/members/update'&&req.method==='POST') {
-            requireThat(hasRole(a,'admin'),'Administrator permission required.',403);
+            requireThat(hasPermission(a,'users.access'),'Administrator permission required.',403);
             const members=await identity.members(a.tenant),old=members.find((m:any)=>m.id===body.id);
             requireThat(old,'Account not found.',404);
-            requireThat(Array.isArray(body.roles)&&body.roles.length>0&&body.roles.every((r:any)=>roles.includes(r)),'Choose at least one valid role.');
+            await identity.validRoles(a.tenant,body.roles);
             requireThat(Number(body.version)===old.version,'This account changed. Reload before saving.',409);
             requireThat(hasRole(a,'super_admin')||(!hasRole(old,'super_admin')&&!body.roles.includes('super_admin')),'Only a super admin can change a super admin account.',403);
             res=json(await identity.updateMember(a,body));
@@ -316,12 +320,12 @@ export default {
           }
           else if (url.pathname === "/api/invite" && req.method === "POST") {
             requireThat(
-              hasRole(a,'admin'),
+              hasPermission(a,'users.invite'),
               "Administrator permission required.",
               403,
             );
             const assigned=Array.isArray(body.roles)?body.roles:[body.role];
-            requireThat(assigned.length>0&&assigned.every((r:any)=>roles.includes(r)), "Choose a permission role.");
+            await identity.validRoles(a.tenant,assigned);
             requireThat(!assigned.includes('super_admin')||hasRole(a,'super_admin'),'Only a super admin can grant super admin access.',403);
             const members=await identity.members(a.tenant),email=text(body.email,254).toLowerCase();
             requireThat(!members.some((m:any)=>m.email===email),'This person already has an account here. Edit their roles instead.',409);
@@ -338,18 +342,18 @@ export default {
             const emailStatus = await sendInvitationEmail(env, text(body.email, 254).toLowerCase(), invitationUrl);
             res = json({ url: invitationUrl, emailStatus });
           } else if(url.pathname==='/api/staff-directory'&&req.method==='GET') {
-            requireThat(hasRole(a,'admin'),'Administrator permission required.',403);
-            res=json({members:await identity.members(a.tenant),invitations:await identity.pendingInvitations(a.tenant)});
+            requireThat(hasPermission(a,'users.view'),'Administrator permission required.',403);
+            res=json({members:await identity.members(a.tenant),invitations:hasPermission(a,'users.invite')?await identity.pendingInvitations(a.tenant):[]});
           } else if (url.pathname === "/api/members" && req.method === "GET") {
             requireThat(
-              hasRole(a,'admin'),
+              hasPermission(a,'users.view'),
               "Administrator permission required.",
               403,
             );
             res = json(await identity.members(a.tenant));
           } else if (url.pathname === "/api/revoke" && req.method === "POST") {
             requireThat(
-              hasRole(a,'admin'),
+              hasPermission(a,'users.access'),
               "Administrator permission required.",
               403,
             );
@@ -385,4 +389,5 @@ export default {
     return new Response(res.body, { status: res.status, headers });
   },
 };
+
 

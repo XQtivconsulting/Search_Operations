@@ -17,9 +17,9 @@ test('reopened and completed candidates retain their stage without active work o
  assert.equal(rows[2].stage_id,'linkedin');assert.equal(rows[2].pending,false);assert.equal(rows[2].attention,false);assert.match(rows[2].next_action,/reopened/);
  assert.equal(rows[1].group,'Placed');assert.equal(rows[1].active,false);assert.equal(rows[1].attention,false);
 });
-test('stage assignees and attention follow the current funnel',()=>{
+test('all previous funnel assignees become search resources while attention still follows stage',()=>{
  const records=[...mappings,{kind:'engagement-pipeline',stages:defaultPipeline.map(s=>({...s,threshold:2}))},{kind:'engagement',mapping_id:'m2',stage_id:'linkedin',stage_at:'2026-01-01'},{kind:'engagement-assignment',role_id:'s1',group_member_ids:{Outreach:['p1'],Screening:['p2']}}];
- const row=searchEngagementRows(records,searches,Date.parse('2026-10-01'))[1];assert.deepEqual(row.members,['p1']);assert.equal(row.attention,true);
+ const row=searchEngagementRows(records,searches,Date.parse('2026-10-01'))[1];assert.deepEqual(row.members,['p1','p2']);assert.equal(row.attention,true);
 });
 test('search activity excludes other searches and unscoped notes, with newest dates first',()=>{
  const records=[{id:'a1',kind:'candidate-activity',role_id:'s1',candidate_id:'c1',occurred_on:'2026-01-01'},{id:'a2',kind:'candidate-activity',role_id:'s1',candidate_id:'c2',occurred_on:'2026-02-01'},{id:'a3',kind:'candidate-activity',role_id:'s2',candidate_id:'c1'},{id:'a4',kind:'candidate-activity',role_id:'',candidate_id:'c1'}];
@@ -44,3 +44,4 @@ test('awaiting recommendation expands interview tracker only to the to-be-recomm
  assert.equal(matchesInterviewTracker({stage_id:'recommended'},'Shortlist',false),true);
  assert.equal(matchesInterviewTracker({stage_id:'client-rejected',recommended_on:'2026-01-01'},'Exited',true),true);
 });
+

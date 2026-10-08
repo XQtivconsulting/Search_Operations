@@ -1,5 +1,6 @@
+import {hasPermission} from './access-policy';
 import {geographyValues,canonicalGeography,geographySearchText,geographyParents} from './candidate-geography';
-import {requireThat} from './domain';
+import {requireThat,hasRole} from './domain';
 type R=Record<string,any>;
 export const tagCategories=[
  {key:'industry',label:'Industry',icon:'▥',values:['Banking & Financial Services','Insurance','Healthcare','Life Sciences','Retail & CPG','Manufacturing','Technology','Telecom & Media','Energy & Utilities','Professional Services','Private Equity']},
@@ -12,7 +13,7 @@ export const tagCategories=[
 export const normTag=(s:string)=>s.trim().replace(/\s+/g,' ').toLocaleLowerCase();
 export function tagOptions(records:R[],key:string){const values=[...(tagCategories.find(c=>c.key===key)?.values||[]),...(key==='industry'?records.filter(r=>r.kind==='company').flatMap(r=>r.industries||[]):[]),...records.filter(r=>r.kind==='candidate-tag-value'&&r.category===key).map(r=>r.label),...records.filter(r=>r.kind==='candidate').flatMap(r=>r.tag_values?.[key]||[])];return [...new Map((key==='geography'?values.flatMap(geographyParents):values).map(v=>[normTag(v),v])).values()].sort((a,b)=>a.localeCompare(b));}
 export function cleanTagValues(input:any,records:R[],verifiedGeographies:string[]=[]){requireThat(input&&typeof input==='object'&&!Array.isArray(input),'Choose candidate tags.');requireThat(Object.keys(input).every(k=>tagCategories.some(c=>c.key===k)),'Unknown tag category.');const out:Record<string,string[]>={};for(const c of tagCategories){const values=input[c.key]||[];requireThat(Array.isArray(values)&&values.length<=20,'Choose up to 20 values per category.');const known=new Map([...tagOptions(records,c.key),...(c.key==='geography'?verifiedGeographies:[])].map(v=>[normTag(v),v]));out[c.key]=[];for(const v of values){requireThat(typeof v==='string'&&v.trim().length>0&&v.length<=(c.key==='geography'?200:100),'Tag value is too long.');const canonical=c.key==='geography'?canonicalGeography(v):v,normalized=normTag(canonical);if(c.key==='geography')requireThat(known.has(normalized),'Choose geography from the standardized location suggestions.');if(!out[c.key].some(x=>normTag(x)===normalized))out[c.key].push(known.get(normalized)||canonical.trim().replace(/\s+/g,' '));}}return out;}
-export const canImportCandidates=(a:{role?:unknown;roles?:unknown})=>{const r=Array.isArray(a.roles)?a.roles:[a.role];return r.includes('super_admin')||r.includes('data_quality');};
+export const canImportCandidates=(a:{role?:unknown;roles?:unknown;accessRoles?:unknown;permissions?:unknown})=>hasPermission(a,'candidates.import');
 export function candidateSearchIndex(records:R[],searches:R[],events:R[]=[]){
  const index=new Map<string,string[]>(),owners=new Map<string,string>();
  const strings=(v:any):string=>typeof v==='string'?v:Array.isArray(v)?v.map(strings).join(' '):v&&typeof v==='object'?Object.values(v).map(strings).join(' '):typeof v==='number'?String(v):'';
@@ -21,3 +22,4 @@ export function candidateSearchIndex(records:R[],searches:R[],events:R[]=[]){
  for(const e of events){const cid=owners.get(e.record_id);if(cid)index.get(cid)!.push(strings(e.data));}
  return new Map([...index].map(([id,v])=>[id,v.join(' ').toLocaleLowerCase()]));
 }
+

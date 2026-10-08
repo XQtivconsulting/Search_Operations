@@ -77,13 +77,14 @@ test('engaged channel actions describe responses and replace old generated label
  }
 });
 
-test('work queue membership follows current funnel and preserves legacy search-wide assignments',()=>{
+test('work queue membership is search-wide for both legacy funnel and direct assignments',()=>{
  const rec=records('engaged-email',1);
  rec[3]={kind:'engagement-assignment',role_id:'r',member_ids:['early','late'],group_member_ids:{Outreach:['early'],Engaged:['late']}};
- assert.deepEqual(dailyEngagementRows(rec,searches)[0].members,['late']);
+ assert.deepEqual(dailyEngagementRows(rec,searches)[0].members,['early','late']);
  rec[2].stage_id='linkedin';
- assert.deepEqual(dailyEngagementRows(rec,searches)[0].members,['early']);
+ assert.deepEqual(dailyEngagementRows(rec,searches)[0].members,['early','late']);
  rec[2].stage_id='screening';
- assert.deepEqual(dailyEngagementRows(rec,searches)[0].members,[]);
+ assert.deepEqual(dailyEngagementRows(rec,searches)[0].members,['early','late']);
  assert.deepEqual(dailyEngagementRows(records(),searches)[0].members,['engager']);
 });
+

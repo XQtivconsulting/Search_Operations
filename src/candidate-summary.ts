@@ -1,9 +1,10 @@
+import {hasPermission} from './access-policy';
 import {summarizeTranscript} from './transcript-summary';
 import {tagCategories,tagOptions,normTag,cleanTagValues} from './candidate-tags';
 import {canPlan,hasRole,requireThat,text,Actor} from './domain';
 type R=Record<string,any>;
 export type ProfileSource={name:string;file_id?:string;activity_id?:string;text:string};
-export const canSummarize=(a:Actor)=>canPlan(a)||['researcher','partner','engagement','data_quality'].some(r=>hasRole(a,r as any));
+export const canSummarize=(a:Actor)=>hasPermission(a,'candidates.edit');
 const aliases:Record<string,string[]>={
  'Banking & Financial Services':['banking','financial services'], 'Healthcare':['healthcare'], 'Life Sciences':['life sciences'], 'Retail & CPG':['consumer packaged goods','retail'], 'Energy & Utilities':['energy and utilities'], 'Sales / Hunting':['sales hunting','new logo sales'], 'Account Management':['account management'], 'AI & Data':['artificial intelligence','data science'], 'HR / Talent':['human resources','talent acquisition'], 'C-suite':['chief executive officer','chief financial officer','chief technology officer','chief operating officer'], 'VP':['vice president'], 'SVP':['senior vice president'], 'EVP':['executive vice president']
 };
@@ -45,3 +46,4 @@ export function candidateSummaryMutation(db:any,a:Actor,b:R,generated?:R){
  const next={...candidate,executive_summary:b.summary.trim(),executive_summary_by:a.id,executive_summary_at:published_at,executive_summary_sources:draft.sources,tag_values};
  write(candidate.id,'candidate',next,candidate);write(draft.id,'candidate-summary-draft',{...draft,status:'Published',published_by:a.id,published_at,published_summary:b.summary.trim(),published_tags:tag_values},existing);return {id:candidate.id};
 }
+

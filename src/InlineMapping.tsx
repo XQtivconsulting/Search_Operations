@@ -1,3 +1,4 @@
+import {hasPermission} from './access-policy';
 import {candidateMatches,sameLinkedin} from './candidate-identity';
 import {CandidateMatches} from './CandidateMatches';
 import {LinkedInIcon} from './LinkedInIcon';
@@ -22,6 +23,7 @@ export function InlineMapping({data,role,team,api,reload,onCandidate,onDirty,ini
  {!!companyName&&!company&&<button type="button" disabled={busy||create} onClick={()=>setCreate(true)}>{create?`Will add “${companyName}” on save`:`Add “${companyName}” as a new company`}</button>}
  {candidate&&<p className="fine">Existing candidate: <button type="button" className="text-button" onClick={()=>onCandidate(candidate!.id)}>{candidate.name}</button><LinkedInIcon url={candidate.url} name={candidate.name}/>. Name, title and company come from their shared profile.</p>}
  {duplicate&&<p className="notice">Already mapped to this search. Use the existing mapping below.</p>}{error&&<p className="error" role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
- <label className="mapping-fit-overview">Researcher notes <span className="fine">(optional while drafting)</span><textarea rows={2} value={rationale} onChange={e=>setRationale(e.target.value)} placeholder="Summarize why this candidate is relevant to the search."/></label><StrategyEvidence author={data.actor.name} criteria={criteria} value={evidence} onChange={setEvidence}/>{role&&!criteria.length&&<p className="fine">No approved fit criteria for this search yet. Add your researcher notes above.</p>}<button className="primary" disabled={busy||!candidate&&matches.length>0&&!confirmed||!team||!role||!!duplicate||!!companyName&&!company&&!create}>{busy?'Saving…':'Save candidate draft'}</button>
+ <label className="mapping-fit-overview">Researcher notes <span className="fine">(optional while drafting)</span><textarea rows={2} value={rationale} onChange={e=>setRationale(e.target.value)} placeholder="Summarize why this candidate is relevant to the search."/></label><StrategyEvidence author={data.actor.name} criteria={criteria} value={evidence} onChange={setEvidence}/>{role&&!criteria.length&&<p className="fine">No approved fit criteria for this search yet. Add your researcher notes above.</p>}<button className="primary" disabled={busy||!candidate&&matches.length>0&&!confirmed||!team&&!hasPermission(data.actor,'candidates.add')||!role||!!duplicate||!!companyName&&!company&&!create}>{busy?'Saving…':'Save candidate draft'}</button>
  </form></section>;
 }
+

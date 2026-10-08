@@ -1,9 +1,10 @@
+import {hasPermission} from './access-policy';
 import {taskCanEdit} from './search-task-types';
 import React,{useEffect,useState} from 'react';
 type R=Record<string,any>;
 export function RoleBriefEditor({data,role,manager,api,onDirty}:{data:R;role:string;manager:boolean;api:(p:string,b?:unknown)=>Promise<any>;reload:()=>Promise<void>;onDirty:(v:boolean)=>void}){
  const records:R[]=data.research?.records||[];
- const canUpload=manager||records.some(t=>t.kind==='task'&&t.role_id===role&&t.owner_id===data.actor.id&&taskCanEdit(t.task_type,'brief')&&t.status!=='Cancelled');
+ const canUpload=hasPermission(data.actor,'search.jd');
  const [files,setFiles]=useState<R[]>([]),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  useEffect(()=>{let active=true;setLoading(true);setError('');api('research',{action:'brief-file-list',role_id:role}).then(v=>{if(active)setFiles(v)}).catch(e=>{if(active)setError(e.message)}).finally(()=>{if(active)setLoading(false)});return()=>{active=false}},[role]);
  useEffect(()=>{onDirty(busy);return()=>onDirty(false)},[busy]);
@@ -25,3 +26,4 @@ export function RoleBriefEditor({data,role,manager,api,onDirty}:{data:R;role:str
  {error&&<p className="error" role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
  </section>;
 }
+

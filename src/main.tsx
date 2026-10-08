@@ -1,3 +1,7 @@
+import './roles.css';
+import './search-management.css';
+import {hasPermission} from './access-policy';
+const RolesPanel=lazy(()=>import('./RolesPanel').then(m=>({default:m.RolesPanel})));
 import {NavigationTooltip} from './NavigationTooltip';
 import './engagement-workspace.css';
 import {ViewStateProvider} from './ViewState';
@@ -265,7 +269,7 @@ function App() {
     );
   const actor = data.actor,
     isAdmin = hasRole(actor,'admin'),
-    planner = isAdmin || hasRole(actor,'planner');
+    planner = hasPermission(actor,'planning.allocate');
   const sBy = Object.fromEntries(data.searches.map((s: Row) => [s.id, s])),
     tBy = Object.fromEntries(data.teams.map((t: Row) => [t.id, t])),
     pBy = Object.fromEntries(data.staff.map((s: Row) => [s.id, s]));
@@ -289,6 +293,7 @@ function App() {
       .includes(search.toLowerCase()),
   );
   const queue=(data.research?.records||[]).filter((m:Row)=>m.kind==='mapping'&&['Peer review','Partner review'].includes(m.status));
+  const pagePermission:Record<string,string>={'My Work':'search.view','Candidates':'candidates.view','Companies':'companies.view','Search repository':'search.view','Weekly plan':'planning.view','Delivery Monitor':'planning.view','Performance':'reports.view','Pipeline':'engagement.view','Daily Work':'engagement.view','Interview tracker':'engagement.view','Teams':'planning.view'};
   const nav: [string, React.ElementType,string][] = [
     ['My Work',ClipboardText,'Work'],
     ['Candidates',IdentificationCard,'Talent assets'],
@@ -301,8 +306,9 @@ function App() {
     ['Daily Work',ListChecks,'Engagement'],
     ['Interview tracker',Chats,'Engagement'],
     ['Teams',Users,'Organization'],
-    ...(hasRole(actor,'super_admin')?[['Backups & exports',Database,'Organization'] as [string,React.ElementType,string]]:[]),
-    ...(isAdmin?[['Integrations',Plugs,'Organization'] as [string,React.ElementType,string],['Engagement Config',SlidersHorizontal,'Organization'] as [string,React.ElementType,string]]:[]),
+    ...((hasPermission(actor,'data.backup')||hasPermission(actor,'data.export'))?[['Backups & exports',Database,'Organization'] as [string,React.ElementType,string]]:[]),
+    ...(hasPermission(actor,'integrations.manage')?[['Integrations',Plugs,'Organization'] as [string,React.ElementType,string]]:[]),
+    ...(hasPermission(actor,'engagement.config')?[['Engagement Config',SlidersHorizontal,'Organization'] as [string,React.ElementType,string]]:[]),
   ];
   const open = (m: Row) => {
     setError("");
@@ -367,7 +373,7 @@ function App() {
           <img src="/brand/xqtiv-logo.svg" alt="XQtiv"/><span>Search Operations</span>
         </div>
         <NavigationTooltip collapsed={!navExpanded}/><nav id="application-navigation" aria-label="Main navigation">
-          {Array.from(new Set(nav.map(item=>item[2]))).map(group=><section className="nav-module" key={group}><button className="nav-module-toggle" aria-expanded={!collapsedModules[group]} aria-controls={'nav-'+group.replaceAll(' ','-')} onClick={()=>setCollapsedModules(previous=>({...previous,[group]:!previous[group]}))}><span>{navigationLabel(group)}</span><span aria-hidden="true">{collapsedModules[group]?'▸':'▾'}</span></button><div id={'nav-'+group.replaceAll(' ','-')} hidden={navExpanded&&!!collapsedModules[group]}>{nav.filter(item=>item[2]===group).map(([label,Icon])=>(<React.Fragment key={label}>
+          {Array.from(new Set(nav.filter(item=>!pagePermission[item[0]]||hasPermission(actor,pagePermission[item[0]])||item[0]==='Teams'&&hasPermission(actor,'users.view')).map(item=>item[2]))).map(group=><section className="nav-module" key={group}><button className="nav-module-toggle" aria-expanded={!collapsedModules[group]} aria-controls={'nav-'+group.replaceAll(' ','-')} onClick={()=>setCollapsedModules(previous=>({...previous,[group]:!previous[group]}))}><span>{navigationLabel(group)}</span><span aria-hidden="true">{collapsedModules[group]?'▸':'▾'}</span></button><div id={'nav-'+group.replaceAll(' ','-')} hidden={navExpanded&&!!collapsedModules[group]}>{nav.filter(item=>item[2]===group&&(!pagePermission[item[0]]||hasPermission(actor,pagePermission[item[0]])||item[0]==='Teams'&&hasPermission(actor,'users.view'))).map(([label,Icon])=>(<React.Fragment key={label}>
             <button
               key={label}
               aria-label={navigationLabel(label)} title={!navExpanded?navigationLabel(label):undefined} aria-current={page===label?"page":undefined}
@@ -399,7 +405,7 @@ function App() {
           <strong>{actor.name}</strong>
           {memberships.length>1?<label>Workspace<select value={workspace} onChange={async e=>{if(sheetDirty&&!confirm('Discard unsaved changes and switch workspace?'))return;sessionRevision++;workspace=e.target.value;sessionStorage.setItem('workspace',workspace);setData(null);setLoading(true);setModal(null);setSelected('');setCompanySearch('');setCandidateId('');setEngagementStart({role:'',mapping:'',stage:''});setInterviewRole('');setPage('');setSheetDirty(false);await load();}}>{memberships.map(m=><option key={m.tenant} value={m.tenant}>{m.tenant==='xqtiv'?'XQtiv':m.tenant}</option>)}</select></label>:<small>{workspace==='xqtiv'?'XQtiv':workspace}</small>}
           <small className="identity-email">{actor.email}</small>
-          <small>{roleList(actor).map(roleLabel).join(' · ')}</small>
+          <small>{roleList(actor).map(r=>actor.roleNames?.[r]||roleLabel(r)).join(' · ')}</small>
           <button aria-label="Account settings" title={!navExpanded?'Account settings':undefined} className={page==='Account settings'?'active':''} onClick={()=>{if(sheetDirty&&!confirm('Discard unsaved changes?'))return;setSheetDirty(false);setPage('Account settings');}}><Users/><span className="nav-item-label">Account settings</span></button>
           <button aria-label="Sign out" title={!navExpanded?'Sign out':undefined}
             onClick={async () => {
@@ -547,7 +553,7 @@ function App() {
                               Weekly assignments
                             </button>
                           )}
-                          {planner&&<button onClick={()=>open({kind:'search-owner',...s})}>Edit engagement partner</button>}
+                          {hasPermission(actor,'search.partner')&&<button onClick={()=>open({kind:'search-owner',...s})}>Edit engagement partner</button>}
                         </div>
                         {data.assignments.some((a:Row)=>a.search_id===s.id&&a.link)&&<details><summary>Reference links</summary><p className="fine">Legacy links to external candidate lists; not required for planning.</p>{Array.from(new Set<string>(data.assignments.filter((a:Row)=>a.search_id===s.id&&a.link).map((a:Row)=>a.link))).map(link=><a className="external-link" key={link} href={link} target="_blank" rel="noreferrer">Open candidate reference <ArrowSquareOut/></a>)}</details>}
                       </div>
@@ -558,11 +564,11 @@ function App() {
           </>
         )}
         {page === "Weekly plan" && <WeeklyPlanner onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} data={data} api={api} reload={load} initialSearch={selected} initialDate={allocationStart.date} initialView={allocationStart.view} onDirty={setSheetDirty} onTeams={()=>setPage('Teams')}/>}
-        {page==='Backups & exports'&&hasRole(actor,'super_admin')&&<Backups api={api} download={downloadBackup}/>}
+        {page==='Backups & exports'&&(hasPermission(actor,'data.backup')||hasPermission(actor,'data.export'))&&<Backups actor={actor} api={api} download={downloadBackup}/>}
         {page==='Daily Work'&&<EngagementDaily onSearch={(role:string)=>{setViewStates(previous=>({...previous,Pipeline:{...previous.Pipeline,'Engagement.role':role,'Engagement.group':'all','Engagement.candidateQuery':'','Engagement.workspaceAttention':false,'Engagement.activeOnly':false,'Engagement.focus':'','Engagement.workspaceTab':'Candidates'}}));setEngagementStart({role,mapping:'',stage:''});setPage('Pipeline');}} data={data} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}} onWork={(role:string,mapping:string,stage:string)=>{setViewStates(previous=>({...previous,Pipeline:{...previous.Pipeline,'Engagement.role':role}}));setEngagementStart({role,mapping,stage});setPage('Pipeline');}}/>}
         {['Pipeline','Search assignments'].includes(page)&&<Engagement onAllAssignments={()=>setPage('Search assignments')} initialRole={engagementStart.role} initialMapping={page==='Pipeline'?engagementStart.mapping:''} initialStage={engagementStart.stage} key={page+engagementStart.mapping} section={page} onInterviews={(id:string)=>{setViewStates(previous=>({...previous,'Interview tracker':{...previous['Interview tracker'],'InterviewTracker.role':id}}));setInterviewRole(id);setPage('Interview tracker');}} data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page==='Interview tracker'&&<InterviewTracker key={interviewRole} initialRole={interviewRole} data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
-        {page==='Engagement Config'&&isAdmin&&<EngagementAdmin data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
+        {page==='Engagement Config'&&hasPermission(actor,'engagement.config')&&<EngagementAdmin data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page==='My Work'&&hasRole(data.actor,'engagement')&&<Engagement mine data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page==='My Work'&&(!hasRole(data.actor,'engagement')||hasRole(data.actor,'researcher')||hasRole(data.actor,'partner')||hasRole(data.actor,'super_admin'))&&<MyWork data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage("Search repository");}}/>}
         {page==='Search repository'&&<ResearchPanel initialState={repoState} onStateChange={setRepoState} onCreateSearch={()=>open({kind:"search"})} onTabChange={setRepoTab} onReturn={mappingStart&&navigation.back?()=>navigation.go('back'):undefined} returnLabel={navigation.back?'Back to '+visitLabel(navigation.back):undefined} initialMapping={mappingStart} onEditPartner={s=>open({kind:"search-owner",...s})} onRoleChange={setSelected} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} key={page+repoRestore} data={data} api={api} reload={load} view={page} initialRole={page==='Search repository'?selected:''} initialTab={repoTab} onDirty={setSheetDirty} onCompanies={id=>{setCompanySearch(id);setPage("Companies");}}/>}
@@ -570,7 +576,7 @@ function App() {
 
         {page==='Candidates'&&candidateId&&<CandidateProfile key={candidateId} id={candidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} backLabel={navigation.back?.page==='Search repository'?'Back to '+(sBy[navigation.back.selected]?.title||'search'):navigation.back?'Back to '+visitLabel(navigation.back):'Back to candidates'} onBack={()=>navigation.back?navigation.go('back'):setCandidateId('')} onRole={id=>{setSelected(id);setRepoTab('Candidate mappings');setPage('Search repository');}}/>}
         {page==='Candidates'&&!candidateId&&<Candidates onCandidate={setCandidateId} data={data} api={api} reload={load} onDirty={setSheetDirty} onOpen={id=>{setSelected(id);setRepoTab("Candidate mappings");setPage("Search repository");}}/>}
-        {(page==='Teams'||page==='People & access')&&<div className="people-teams-workspace"><div className="research-tabs" role="group" aria-label="People and teams sections">{[...(isAdmin?['People & access']:[]),'Sourcing teams','Engagement teams'].map(type=><button key={type} aria-pressed={teamType===type} className={teamType===type?'primary':''} onClick={()=>{if(!sheetDirty||confirm('Discard unsaved edits?'))setTeamType(type);}}>{type}</button>)}</div>{teamType==='People & access'&&isAdmin?<PeoplePanel data={data} api={api} reload={load} onDirty={setSheetDirty}/>:teamType==='Engagement teams'?<Engagement section="Teams" data={data} api={api} reload={load} onDirty={setSheetDirty}/>:<TeamsPanel data={data} api={api} reload={load} onDirty={setSheetDirty} onAdd={()=>open({kind:'team'})}/>}</div>}
+        {(page==='Teams'||page==='People & access')&&<div className="people-teams-workspace"><div className="research-tabs" role="group" aria-label="People and teams sections">{[...(hasPermission(actor,'users.view')?['People & access']:[]),...(hasPermission(actor,'roles.manage')?['Roles & permissions']:[]),'Sourcing teams'].map(type=><button key={type} aria-pressed={teamType===type} className={teamType===type?'primary':''} onClick={()=>{if(!sheetDirty||confirm('Discard unsaved edits?'))setTeamType(type);}}>{type}</button>)}</div>{teamType==='People & access'&&hasPermission(actor,'users.view')?<PeoplePanel data={data} api={api} reload={load} onDirty={setSheetDirty}/>:teamType==='Roles & permissions'&&hasPermission(actor,'roles.manage')?<RolesPanel api={api} reload={load} onDirty={setSheetDirty}/>:<TeamsPanel data={data} api={api} reload={load} onDirty={setSheetDirty} onAdd={()=>open({kind:'team'})}/>}</div>}
 
         {page === "Delivery Monitor" && <DeliveryMonitor data={data} initialState={deliveryStart} onStateChange={setDeliveryStart} initialView={deliveryStart.view} initialRoles={deliveryStart.roles} onOpen={(id,tab,mapping='')=>{setMappingStart(mapping);setSelected(id);setRepoTab(tab);setPage('Search repository');}} onCandidate={id=>{setCandidateId(id);setPage('Candidates');}} onAllocate={(id,date)=>{setViewStates(previous=>({...previous,'Weekly plan':{'WeeklyPlanner.roles':[id],'WeeklyPlanner.view':'allocation'}}));setSelected(id);setAllocationStart({date,view:'allocation'});setPage('Weekly plan');}}/>}
         {page === "Performance" && <Performance onOpen={(id,mapping)=>{setMappingStart(mapping);setSelected(id);setRepoTab("Candidate mappings");setPage("Search repository");}} data={data} api={api} reload={load} onDirty={setSheetDirty} onDecision={id=>{setViewStates(previous=>({...previous,'Weekly plan':{'WeeklyPlanner.roles':[id],'WeeklyPlanner.view':'decisions'}}));setSelected(id);setAllocationStart({date:'',view:'decisions'});setPage('Weekly plan');}}/>}
@@ -822,4 +828,5 @@ function Empty({ title, body }: any) {
   );
 }
 createRoot(document.getElementById("root")!).render(location.pathname === '/role-invite' ? <CandidateRolePage/> : location.pathname === '/brief' ? <PublicBrief/> : location.pathname === '/setup' ? <Setup /> : <App />);
+
 
