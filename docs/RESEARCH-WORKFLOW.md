@@ -207,3 +207,10 @@ Policy updated by the owner on 3 October 2026: the assigned search partner may r
 ### Mapping next-action owners
 
 Candidate tables and owner sorting resolve the same names from workspace data. Imported mappings use the search's active engagement assignees. Team-review rows use the current review permission and search/team allocation predicate; partner-review and draft rows use their assigned partner and mapper. Missing owners show Unassigned. No generic role or retired engagement-team label is presented as an assigned person. Assignment changes, revoked access, custom permissions and empty assignments are covered by regression checks. Historical team records in backup exports remain historical records, not active assignments.
+
+## Actual company coverage
+Search repository → Actual coverage groups all unique candidates linked to the selected search by employer, independently of target assignments, waves or the Candidates screen filters. Default ordering is candidate count descending. Company rows show target-list membership, candidate count/share and status counts; selecting a company opens candidate names, original mapper, mapping date and status, with profile navigation.
+
+Employer resolution prefers the mapping's company ID/name, consolidating unique company-master aliases. Where the mapping has no employer, the current candidate profile is used and explicitly labeled. Unknown employers remain in a separate group. Approved, rejected, pending team/partner review and other statuses reconcile to the total. Drafts/imported links are included as actual candidate coverage, not as sourcing throughput or presumed reviews. Existing server-side visibility controls remain authoritative; no new data endpoint or writes are introduced.
+
+Actual coverage verification: typecheck, all 394 tests and production build passed. Synthetic regression tests cover unplanned employers, original versus current company, missing employer, unique-candidate counts, ambiguous aliases, search isolation and status reconciliation. Authenticated production walkthrough remains separate.
