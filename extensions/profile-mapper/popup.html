@@ -1,9 +1,9 @@
 <!doctype html><html><head><meta charset="utf-8"><title>XRP Profile Mapper</title><link rel="stylesheet" href="style.css"></head><body>
-<header><h1>XRP Profile Mapper</h1><button id="connect">Connect to XRP</button></header>
+<header><h1>XRP Profile Mapper</h1><button id="connect">Connect to XRP</button></header><button id="detach" type="button" title="Open in a movable, resizable window">Open in separate window</button>
 <p id="status" role="status" aria-live="polite"></p>
 <p id="account">Not connected</p><button id="capture">Capture LinkedIn profile</button>
-<form id="profile"><div id="fields"></div><label>Search<input id="searchQuery" type="search" placeholder="Type search ID, company or title"></label><label>Import to<select id="search"><option value="">Candidate directory only</option></select></label>
+<form id="profile"><fieldset id="destination"><legend>Import destination</legend><label>Import to<select id="destinationMode"><option value="search" selected>Into a search</option><option value="directory">Candidate directory only</option></select></label><div id="searchDestination"><label>Find search<input id="searchQuery" type="search" placeholder="Type search name, client or ID"></label><label>Select search<select id="search"><option value="">Choose a search…</option></select></label></div><p id="destinationSummary">Choose a search before importing.</p></fieldset><div id="fields"></div>
 <button id="preview" type="submit">Review import</button></form>
-<section id="review" hidden><h2>Review matches</h2><p id="matchInfo"></p><label>Candidate<select id="candidateMatch"></select></label><label class="check"><input type="checkbox" id="newCandidate">Create a different candidate</label><label>Company<select id="companyMatch"></select></label><label class="check"><input type="checkbox" id="newCompany">Create a different company</label><button id="import">Import into XRP</button></section>
+<section id="review" hidden><h2>Review import</h2><p id="reviewDestination"></p><p id="matchInfo"></p><label>Candidate<select id="candidateMatch"></select></label><label class="check"><input type="checkbox" id="newCandidate">Create a different candidate</label><label>Company<select id="companyMatch"></select></label><label class="check"><input type="checkbox" id="newCompany">Create a different company</label><button id="import">Import into XRP</button></section>
 <a id="open" target="_blank" rel="noopener" hidden>Open XRP</a><button id="clear">Clear profile</button>
 <script src="popup.js"></script></body></html>

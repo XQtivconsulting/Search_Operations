@@ -33,3 +33,10 @@ Synthetic tests cover permission denial, revoked membership, unassigned searches
 Connect is explicit, single-flight, and reports progress/errors above the form. Discarded/frozen tabs prompt the user to open XRP. Injection does not wait for document idle; tab discovery, injection and network requests are bounded. Late injection after its deadline does not send a request. An import timeout reports an uncertain result and permits a duplicate-safe retry. Synthetic popup tests exercise hung injection, expired injection, fetch abort, successful retry and account pinning.
 
 Capture now recognizes paragraph-based current Experience entries and falls back to explicitly displayed profile-header employment details when Experience is absent. Plain company link text is supported for numeric LinkedIn company IDs. Capture reports missing job fields. Synthetic extraction cases cover both layouts; the reported live profile has not been retested in Edge.
+
+## 2.0.2 explicit destination
+Destination appears above the profile fields and defaults to Into a search with no implicit search selection. Search imports require an authorized selection; directory-only imports require choosing that mode. Preview and success show the destination name/ID. Changing the destination invalidates the preview.
+
+Open in separate window creates a movable/resizable extension window, carrying the current draft and destination choice (search is revalidated on connection). Capture reads the active profile in the originating browser window. Detached capture requests optional access only to LinkedIn; declining leaves the toolbar capture available. No automatic crawling or import is added. Native Edge window movement still needs a user acceptance check.
+
+Capture also parses visible Experience text when stable DOM selectors fail, including ordinary and grouped employer layouts. It requires a current dated entry and ignores other profile sections and past-only roles. This is covered with synthetic text fixtures; the specific reported LinkedIn profile remains unverified.

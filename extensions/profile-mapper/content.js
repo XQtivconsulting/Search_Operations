@@ -1,4 +1,4 @@
-var MAPPER_PROTOCOL = "EXTRACT_PROFILE_V127";
+var MAPPER_PROTOCOL = "EXTRACT_PROFILE_V128";
 globalThis.__xqtivMapperProtocols ||= new Set();
 if (!globalThis.__xqtivMapperProtocols.has(MAPPER_PROTOCOL)) {
   globalThis.__xqtivMapperProtocols.add(MAPPER_PROTOCOL);
@@ -11,15 +11,16 @@ if (!globalThis.__xqtivMapperProtocols.has(MAPPER_PROTOCOL)) {
 }
 
 async function extractProfile() {
-  const main = document.querySelector("main") || document.body;
+  const main = document.querySelector("main, [role=main]") || document.body;
   const structured = extractStructuredProfile();
   const name = extractName(structured);
   const location = extractLocation(main, name, structured);
   const item = findCurrentExperienceItem(main);
   const headerJob = item ? {company:'',currentTitle:''} : extractHeaderJob(main, structured);
-  const company = item ? extractCompanyFromExperienceItem(item) : headerJob.company;
+  let company = item ? extractCompanyFromExperienceItem(item) : headerJob.company;
   const lines = item ? [...item.querySelectorAll("p, span[aria-hidden='true'], time")].map(n=>clean(n.textContent)).filter(Boolean) : [];
-  const currentTitle = item ? extractTitleFromExperienceLines(lines.length ? lines : cleanLines(item.innerText), company) : headerJob.currentTitle;
+  let currentTitle = item ? extractTitleFromExperienceLines(lines.length ? lines : cleanLines(item.innerText), company) : headerJob.currentTitle;
+  if(!company || !currentTitle){const visible=extractVisibleExperience(main.innerText || '');if(visible.company&&visible.currentTitle){company=visible.company;currentTitle=visible.currentTitle;}}
   return {
     name,
     company,
@@ -27,6 +28,34 @@ async function extractProfile() {
     location,
     linkedinUrl: canonicalUrl(locationHref())
   };
+}
+
+// Rendered text fallback for layouts without stable section/list selectors.
+function extractVisibleExperience(text) {
+  const all=cleanLines(text).filter((line,index,lines)=>line!==lines[index-1]);
+  const start=all.findIndex(line=>/^experience$/i.test(line));
+  if(start<0)return {company:'',currentTitle:''};
+  const next=all.findIndex((line,index)=>index>start&&/^(education|licenses? & certifications?|skills|recommendations|volunteering|interests|projects|publications)$/i.test(line));
+  const lines=all.slice(start+1,next<0?undefined:next);
+  const employment=/^(.*?)\s*[·|]\s*(full[- ]?time|part[- ]?time|contract|self-employed|freelance|internship|temporary|apprenticeship|seasonal)\b/i;
+  let previousDate=-1;
+  for(let i=0;i<lines.length;i++){
+    if(!/\b(?:19|20)\d{2}\b.*(?:–|-|—|to).*\b(?:present|current)\b/i.test(lines[i])){if(/\b(?:19|20)\d{2}\b.*(?:–|-|—|to)/i.test(lines[i]))previousDate=i;continue;}
+    const before=lines.slice(Math.max(previousDate+1,i-7),i);
+    // Ordinary job: Title, Employer [· employment type], current dates.
+    const last=before.at(-1)||'',prior=before.at(-2)||'';
+    const employer=last.match(employment);
+    if(employer&&isPlausibleCompany(employer[1])&&isPlausibleCurrentTitle(prior))return {company:cleanCompany(employer[1]),currentTitle:prior};
+    // Grouped employer: Employer, tenure/type, Title, current dates.
+    if(isPlausibleCurrentTitle(last)){
+      for(let j=before.length-2;j>=1;j--){
+        if(/^(?:(?:full[- ]?time|part[- ]?time)\s*·\s*)?\d+\s*(?:yrs?|years?|mos?|months?)\b/i.test(before[j])&&isPlausibleCompany(before[j-1]))return {company:cleanCompany(before[j-1]),currentTitle:last};
+      }
+    }
+    if(before.length>=2&&isPlausibleCompany(last)&&isPlausibleCurrentTitle(prior)&&!/^(full[- ]?time|part[- ]?time|contract)$/i.test(last))return {company:cleanCompany(last),currentTitle:prior};
+    previousDate=i;
+  }
+  return {company:'',currentTitle:''};
 }
 
 // Only read the profile header, never unrelated company links elsewhere on the page.

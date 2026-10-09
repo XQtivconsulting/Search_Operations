@@ -1,9 +1,22 @@
 {
- "manifest_version":3,
- "name":"XRP Profile Mapper",
- "version":"2.0.1",
- "description":"Review LinkedIn candidate details and import into your authorized XRP searches.",
- "permissions":["activeTab","scripting","storage"],
- "host_permissions":["https://xqtiv-search-operations.xqtiv.workers.dev/*"],
- "action":{"default_popup":"popup.html","default_title":"Import into XRP"}
+  "manifest_version": 3,
+  "name": "XRP Profile Mapper",
+  "version": "2.0.2",
+  "description": "Review LinkedIn candidate details and import into your authorized XRP searches.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://xqtiv-search-operations.xqtiv.workers.dev/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Import into XRP"
+  },
+  "optional_host_permissions": [
+    "https://www.linkedin.com/*",
+    "https://linkedin.com/*"
+  ]
 }

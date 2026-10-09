@@ -1,4 +1,4 @@
-XRP Profile Mapper 2.0.1
+XRP Profile Mapper 2.0.2
 
 Install in Chrome or Edge:
 1. Unzip this package into a folder.
@@ -19,3 +19,7 @@ The current candidate draft is stored locally for up to 24 hours and can be remo
 To update: replace this folder's files and click Reload on the extension card. This internal package is not a Chrome Web Store release.
 
 Connection recovery: if XRP is sleeping, open or refresh its tab before reconnecting. Connection status/errors appear at the top. Requests time out rather than leaving the controls disabled.
+
+Import destination defaults to Into a search. Choose the search before Review import. Candidate directory only is a separate explicit option. The destination is shown above the fields and in the final review.
+
+Open in separate window lets you drag or resize the mapper outside the main browser window. Keep browsing LinkedIn in the original browser window. On first detached capture, allow the optional LinkedIn access prompt; capture still runs only when clicked. Connect to XRP again in the new window.

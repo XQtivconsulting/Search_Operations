@@ -20,12 +20,12 @@ test('extension has only the XRP host grant and no cookie, clipboard or broad si
  for(const file of ['content.js','popup.js'])new vm.Script(readFileSync(new URL('../extensions/profile-mapper/'+file,import.meta.url),'utf8'));
 });
 
-function popupHarness(){
+function popupHarness(search=""){
  const elements=new Map<string,any>(),timers=new Map<number,{fn:()=>void,ms:number}>();let timer=0;
  const element=(id='')=>({id,value:'',textContent:'',disabled:false,hidden:false,options:[] as any[],append(){},addEventListener(){},replaceChildren(){this.options=[];},add(o:any){this.options.push(o);}});
  const get=(id:string)=>{if(!elements.has(id))elements.set(id,element(id));return elements.get(id);};
  let injected:any,reply:any={actor:{id:'member',name:'Member'},workspace:'xqtiv',searches:[]};let hang=true;
- const context=vm.createContext({document:{getElementById:get,createElement:()=>element(),querySelectorAll:()=>[...elements.values()]},Option:function(label:string,id:string){return {label,value:id};},Date,Error,AbortController,
+ const context=vm.createContext({location:{search},URLSearchParams,document:{body:{classList:{add(){}}},getElementById:get,createElement:()=>element(),querySelectorAll:()=>[...elements.values()]},Option:function(label:string,id:string){return {label,value:id};},Date,Error,AbortController,
  setTimeout:(fn:()=>void,ms:number)=>{const id=++timer;timers.set(id,{fn,ms});return id;},clearTimeout:(id:number)=>timers.delete(id),
  chrome:{storage:{local:{setAccessLevel:async()=>{},get:async()=>({}),remove:async()=>{}}},tabs:{query:async()=>[{id:10,lastAccessed:100}]},scripting:{executeScript:async(spec:any)=>{injected=spec;return hang?new Promise(()=>{}):[{result:{data:reply}}];}}}});
  vm.runInContext(readFileSync(new URL('../extensions/profile-mapper/popup.js',import.meta.url),'utf8'),context);
@@ -67,4 +67,41 @@ test('modern paragraph Experience finds current entry without list-item classes'
  const root={querySelectorAll:()=>[heading],querySelector:()=>null};
  globalThis.found=findCurrentExperienceItem(root);globalThis.expected=card;`,c);
  assert.equal(vm.runInContext('found===expected',c),true);
+});
+
+test('search import requires an explicit destination and directory mode never carries a search',()=>{
+ const h=popupHarness();h.get('destinationMode').value='search';
+ assert.throws(()=>vm.runInContext('destination()',h.context),/Select the search/);
+ vm.runInContext("context={searches:[{id:'s1',search_number:108,client:'Example',title:'Sales Hunter'}]}",h.context);
+ h.get('search').value='s1';let target=vm.runInContext('destination()',h.context);assert.equal(target.searchId,'s1');assert.match(target.label,/108.*Sales Hunter/);
+ vm.runInContext('preview={payload:{searchId:"s1"}}',h.context);h.get('destinationMode').value='directory';h.get('destinationMode').onchange();
+ target=vm.runInContext('destination()',h.context);assert.equal(target.searchId,'');assert.equal(target.label,'Candidate directory only');assert.equal(vm.runInContext('preview',h.context),null);assert.equal(h.get('searchDestination').hidden,true);
+ h.get('destinationMode').value='search';h.get('search').value='foreign';assert.throws(()=>vm.runInContext('destination()',h.context),/Select the search/);
+});
+
+test('detached Capture targets the original browser window and requires optional LinkedIn consent',async()=>{
+ const h=popupHarness('?detached=1&sourceWindow=42');let query:any,captures=0,allowed=false;
+ h.context.chrome.permissions={request:async()=>allowed};
+ h.context.chrome.tabs.query=async(q:any)=>{query=q;return [{id:55,url:'https://www.linkedin.com/in/synthetic/'}];};
+ h.context.chrome.scripting.executeScript=async()=>{captures++;return [];};
+ h.context.chrome.tabs.sendMessage=async()=>({name:'Synthetic Person',company:'Example',currentTitle:'Director'});
+ h.context.chrome.storage.local.set=async()=>{};
+ await h.get('capture').onclick();assert.equal(captures,0);assert.match(h.get('status').textContent,/Allow LinkedIn/);
+ allowed=true;await h.get('capture').onclick();assert.equal(query.windowId,42);assert.equal(query.currentWindow,undefined);assert.equal(captures,1);assert.equal(h.get('firstName').value,'Synthetic');assert.equal(h.get('detach').hidden,true);
+});
+test('detach creates a resizable popup and carries destination without credentials',async()=>{
+ const h=popupHarness();let created:any,closed=false;
+ h.context.chrome.tabs.query=async()=>[{id:55,windowId:42}];h.context.chrome.storage.local.set=async()=>{};
+ h.context.chrome.runtime={getURL:()=> 'chrome-extension://test/popup.html'};
+ h.context.chrome.windows={create:async(args:any)=>{created=args;}};h.context.window={close:()=>{closed=true;}};
+ h.get('destinationMode').value='search';h.get('search').value='s1';await h.get('detach').onclick();
+ assert.equal(created.type,'popup');assert.equal(created.height,760);assert.match(created.url,/sourceWindow=42/);assert.match(created.url,/search=s1/);assert.equal(closed,true);
+});
+
+test('visible Experience fallback reads current jobs without relying on DOM classes',()=>{
+ const c=parser();const parse=(text:string)=>{c.input=text;return vm.runInContext('extractVisibleExperience(input)',c);};
+ let r=parse('About\nSomething\nExperience\nSales Director\nSales Director\nExample Systems · Full-time\nJan 2024 - Present · 2 yrs\nEducation\nUniversity');assert.equal(r.company,'Example Systems');assert.equal(r.currentTitle,'Sales Director');
+ r=parse('Experience\nExample Systems\nFull-time · 6 yrs\nSales Director\nJan 2024 – Present\nSales Manager\nJan 2020 - Jan 2024');assert.equal(r.company,'Example Systems');assert.equal(r.currentTitle,'Sales Director');
+ r=parse('Experience\nEngineer\nExample Labs\nJan 2024 - Present');assert.equal(r.company,'Example Labs');assert.equal(r.currentTitle,'Engineer');
+ r=parse('Experience\nEngineer\nOld Company\nJan 2020 - Dec 2023\nEducation\nNew University\nJan 2024 - Present');assert.equal(r.company,'');assert.equal(r.currentTitle,'');
 });
