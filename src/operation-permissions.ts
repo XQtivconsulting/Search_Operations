@@ -8,7 +8,7 @@ const researchPermissions:Record<string,string>={
  'historical-interview-import':'integrations.manage',
  'interview-import-settings':'integrations.manage',
  'pitch-save':'search.pitch','target-clone':'search.targets','task-save':'planning.allocate','task-status':'planning.monitor',
- 'company-master':'companies.edit','company-master-and-target':'companies.edit','company-import':'companies.edit',
+ 'company-merge':'companies.edit','company-master':'companies.edit','company-master-and-target':'companies.edit','company-import':'companies.edit',
  'peer-route':'reviews.manage','team-reviewer':'teams.members',
  'brief-save':'search.jd','brief-approve':'search.jd','brief-publish':'search.jd','brief-unpublish':'search.jd','brief-release':'search.jd',
  'brief-file-save':'search.jd','brief-file-list':'search.view','brief-file-read':'search.view',

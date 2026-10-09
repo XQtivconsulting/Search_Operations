@@ -1,3 +1,4 @@
+import {reconcileCompanyMaster,mergeCompanyMaster} from './company-master-integrity';
 import {mappingBatch,mappingBatchSchema} from './mapping-batch';
 import {importInterviews} from './interview-import';
 import {importHistoricalMappings} from './mapping-import';
@@ -83,6 +84,10 @@ export class Workspace extends DurableObject {
     if(!this.rows("SELECT value FROM settings WHERE key='draft_targets_v1'").length)ctx.storage.transactionSync(()=>{
       backfillDraftTargets(this);
       this.rows("INSERT INTO settings(key,value) VALUES('draft_targets_v1','1')");
+    });
+    if(!this.rows("SELECT value FROM settings WHERE key='company_master_v1'").length)ctx.storage.transactionSync(()=>{
+      reconcileCompanyMaster(this,{id:'system-company-reconcile'});
+      this.rows("INSERT INTO settings(key,value) VALUES('company_master_v1','1')");
     });
     if(!this.rows("SELECT value FROM settings WHERE key='planning_v2'").length) {
       ctx.storage.transactionSync(()=>{
@@ -171,6 +176,7 @@ export class Workspace extends DurableObject {
       b={...b,sources};
     }
     return this.ctx.storage.transactionSync(()=>{
+      if(b.action==='company-merge')return mergeCompanyMaster(this,a,b);
       if(['historical-interview-import','interview-import-settings'].includes(b.action))return importInterviews(this,a,b);
       if(b.action==='historical-mapping-batch')return mappingBatch(this,a,b,members);
       if(b.action==='historical-mapping-import')return importHistoricalMappings(this,a,b,members);
@@ -381,7 +387,7 @@ export class Workspace extends DurableObject {
     const details=await crmCandidateDetails(token,batch.job_slug,item.slug);
     return this.ctx.storage.transactionSync(()=>{saveConversionDetails(this,a,id,item.slug,details);return conversionPreview(this,a,id);});
   }
-  async crmCandidateApply(a:Actor,id:string,stages:Record<string,string>){return this.ctx.storage.transactionSync(()=>applyConversionItem(this,a,id,stages));}
+  async crmCandidateApply(a:Actor,id:string,stages:Record<string,string>){return this.ctx.storage.transactionSync(()=>{const result=applyConversionItem(this,a,id,stages);reconcileCompanyMaster(this,a);return result;});}
   async crmState(a: Actor) {
     requireThat(hasPermission(a,'integrations.manage'), 'Administrator permission required.',403);
     return {next_search_number:nextSearchNumber(this),jobs:this.rows('SELECT j.*,p.partner_id AS saved_partner_id,p.partner AS saved_partner,COALESCE(p.version,0) AS partner_version FROM crm_jobs j LEFT JOIN crm_partners p ON p.external_id=j.external_id ORDER BY j.title'), runs:this.rows('SELECT * FROM integration_runs ORDER BY created_at DESC LIMIT 20')};

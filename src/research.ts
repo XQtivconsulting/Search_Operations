@@ -87,9 +87,11 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
   requireThat(!old||old.url===url||sameLinkedin(old.url,url),'A candidate LinkedIn identity cannot be replaced.');
   const existing=find('candidate',url);requireThat(!existing||existing.id===old?.id,'This LinkedIn profile already exists. Open that candidate and map them to another role.',409);
   const companyName=text(b.company,200),normalized=companyName.toLowerCase().replace(/\s+/g,' ');
-  let companyRecord=companyName?find('company',normalized):null;
-  if(b.company_id){const c=get(db,text(b.company_id));requireThat(c.kind==='company'&&c.name.toLowerCase().replace(/\s+/g,' ')===normalized,'Choose the matching company.');companyRecord={id:c.id};}
-  if(companyName&&!companyRecord&&b.create_company===true){const cid=save('company','',normalized,{name:companyName});db.audit(a,'company-master',cid,null,{name:companyName});companyRecord={id:cid};}
+  const matches=companyName?db.rows("SELECT id,data FROM research_records WHERE kind='company'").map(c=>({...JSON.parse(c.data),id:c.id})).filter(c=>companyNames(c).includes(normalizedCompany(companyName))):[];
+  requireThat(matches.length<2,'Multiple companies share this name. Resolve their aliases in Companies.',409);
+  let companyRecord=matches[0]||null;
+  if(b.company_id){const c=get(db,text(b.company_id));requireThat(c.kind==='company'&&companyNames(c).includes(normalizedCompany(companyName)),'Choose the matching company.');companyRecord={id:c.id};}
+  if(companyName&&!companyRecord){const cid=save('company','',normalized,{name:companyName});db.audit(a,'company-master',cid,null,{name:companyName});companyRecord={id:cid};}
   requireThat(b.potential_client===undefined||typeof b.potential_client==='boolean','Choose Yes or No for potential client.');
   kind='candidate';key=url||'recruitcrm:'+old.crm_ids[0];next={...old,...(b.potential_client===undefined||b.potential_client===old?.potential_client?{}:{potential_client:b.potential_client,potential_client_by:a.id,potential_client_at:iso()}),first_name,last_name,name:first_name+' '+last_name,url,email,phone,...(b.location===undefined?{}:{location:text(b.location,300)}),title:text(b.title,300),company:companyName,company_id:companyRecord?.id||''};
  } else if(b.action==='company-master') {

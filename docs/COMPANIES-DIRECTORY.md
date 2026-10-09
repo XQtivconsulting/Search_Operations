@@ -25,3 +25,11 @@ Opening an editable profile with a missing website triggers a debounced public c
 Local typecheck, 263 tests and production build passed. Live deployment verification remains pending.
 
 Live verification: deployments 37210206528 and 37210487702 succeeded. The Target companies table uses company-name profile links and inline research-status controls with no Company details action. Opening Accenture from either table shows the compact master profile; its missing Website automatically resolved to https://www.accenture.com/. The final layout displays all seven fields without an inner fieldset scrollbar. Lookup-filled edits were discarded; no production company records were changed during verification. Existing records still require saving the resolved website before their table logo appears.
+
+## Company integrity and merging — 9 October 2026
+
+Candidate saves create/link an employer master record regardless of the old create-company flag. Exact aliases reuse existing records. A one-time transactional reconciliation repairs historical candidate, mapping and target references; ambiguous exact aliases remain untouched. CRM conversion reconciles employer links within its transaction. Blank employers remain unknown.
+
+Company and candidate entry suggest names with spacing/punctuation differences. Suggestions never automatically merge fuzzy matches. Companies users with company-edit permission can select two records, preview affected candidates/mappings/targets, choose the survivor and confirm. A version signature rejects changes since preview. The survivor retains its populated scalar values, unions classifications and aliases, and stores the full source profile in merge history. Shared search targets retain survivor settings and archive source settings; mappings are relinked without changing original employer text, review decisions or candidate identity. All writes, removal events and audits are atomic and tenant-local. Company imports recognize existing aliases.
+
+Verification: local typecheck, 398 tests and production build passed during implementation; final deployment status is recorded separately. Synthetic tests cover historical reconciliation/idempotence, alias reuse, unauthorized/stale merges, shared target relinking and immutable review data. No live company merge was performed during testing.

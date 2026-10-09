@@ -1,3 +1,4 @@
+import {companyNames,normalizedCompany} from './company-match';
 import {tagOptions,normTag} from './candidate-tags';
 import {employeeBands,revenueBands} from './company-directory';
 import {requireThat,safeLink,text} from './domain';
@@ -13,16 +14,16 @@ export function planCompanyImport(existing:any[],input:any[],overwrite=false):Re
  const staged=existing.map(x=>({...x})),changes=new Map<string,any>();
  for(let index=0;index<input.length;index++){
   const row=cleanCompany(input[index],staged.map(c=>({...c,kind:'company'})));
-  const matches=staged.filter(c=>companyKey(c.name)===companyKey(row.name)||row.website&&domain(c.website)===domain(row.website)||row.linkedin&&c.linkedin===row.linkedin);
+  const matches=staged.filter(c=>companyNames(c).includes(normalizedCompany(row.name))||row.website&&domain(c.website)===domain(row.website)||row.linkedin&&c.linkedin===row.linkedin);
   requireThat(matches.length<=1,`Row ${index+1}: identifiers match different companies. Correct this row before importing.`);
   let c=matches[0];
   if(c){
    for(const k of ['website','linkedin'])requireThat(!row[k]||!c[k]||(k==='website'?domain(row[k])===domain(c[k]):row[k]===c[k]),`Row ${index+1}: ${row.name} has a conflicting ${k}. Resolve its identity in the company profile first.`);
-   const next={...c};for(const k of tagFields)next[k]=mergeTags(c[k],row[k]);
+   const next={...c,aliases:mergeTags(c.aliases,row.aliases,companyKey(c.name)!==companyKey(row.name)?[row.name]:[])};for(const k of tagFields)next[k]=mergeTags(c[k],row[k]);
    for(const k of scalarFields)if(row[k]&&(overwrite||!c[k]))next[k]=row[k];
    staged[staged.indexOf(c)]=next;c=next;
   }else {c={...row,id:'new:'+index,version:0};staged.push(c);}
   changes.set(c.id,c);
  }
- return [...changes.values()].map(c=>({existingId:c.version?c.id:undefined,version:c.version,...Object.fromEntries(['name',...tagFields,...scalarFields].map(k=>[k,c[k]|| (tagFields.includes(k)?[]:'')]))}));
+ return [...changes.values()].map(c=>({existingId:c.version?c.id:undefined,version:c.version,...Object.fromEntries(['name','aliases',...tagFields,...scalarFields].map(k=>[k,c[k]|| (tagFields.includes(k)?[]:'')]))}));
 }
