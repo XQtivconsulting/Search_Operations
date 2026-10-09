@@ -213,7 +213,7 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
    requireThat(hasPermission(a,'reviews.direct'),'Direct draft approval permission required.',403);
    requireThat(search.partner_id===a.id,'Only the assigned search partner can approve this draft.',403);
    const reviewer=member(a.id);
-   requireThat(old.status==='Draft','Only draft mappings can be approved directly.',409);
+   requireThat(['Draft','Needs information'].includes(old.status),'Only draft or returned mappings can be approved directly.',409);
    requireThat(text(b.notes),'Explain why team review is being skipped.');
    requireThat(text(old.rationale),'Add a fit rationale before approving.');
    const strategyRef=find('strategy',role),strategy=strategyRef?get(db,strategyRef.id):null;

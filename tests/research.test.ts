@@ -728,6 +728,22 @@ test('direct draft approval requires explicit permission and assigned partner; p
   const approved=await f.rec(id);assert.equal(approved.status,'Approved');assert.equal(approved.mapper_id,draft.mapper_id);assert.equal(approved.staff_id,draft.staff_id);assert.equal(approved.created_at,draft.created_at);assert.equal(approved.partner_reviewed_by,partner.id);assert.equal(approved.team_review_skipped,true);assert.equal(approved.peer_decision,null);
   const state=await f.state();assert.deepEqual([state.entries[0].mapped,state.entries[0].peer,state.entries[0].partner],[1,0,1]);assert.equal(state.research.records.filter(r=>r.kind==='engagement'&&r.mapping_id===id).length,1);
   assert.ok(state.research.events.some(e=>e.action==='mapping-approve-draft'&&e.actor===partner.id&&e.data.after.team_review_skipped));
-  await assert.rejects(f.run(direct,{...body,version:approved.version}),/Only draft/);
+  await assert.rejects(f.run(direct,{...body,version:approved.version}),/Only draft or returned/);
+ }finally{f.db.close();}
+});
+
+
+test('assigned partner can resolve a returned mapping with direct approval while retaining earlier review history',async()=>{
+ const f=fixture();try{
+ const t=await setup(f),id=await mapping(f,t);
+ await f.run(mapper,{...await f.rec(id),action:'mapping-submit'});
+ await f.run(peer,{...await f.rec(id),action:'mapping-review',decision:'Needs information',notes:'Verify leadership scope'});
+ const returned=await f.rec(id),direct={...partner,permissions:['reviews.direct']};
+ await assert.rejects(f.run(direct,{...returned,action:'mapping-approve-draft',notes:''}),/Explain why/);
+ await f.run(direct,{...returned,action:'mapping-approve-draft',notes:'Verified leadership scope with candidate'});
+ const approved=await f.rec(id),state=await f.state();assert.equal(approved.status,'Approved');assert.equal(approved.mapper_id,mapper.id);assert.equal(approved.work_date,returned.work_date);assert.equal(approved.partner_reviewed_by,partner.id);
+ assert.ok(state.research.events.some(e=>e.action==='mapping-review'&&e.data.notes==='Verify leadership scope'));
+ assert.ok(state.research.events.some(e=>e.action==='mapping-approve-draft'&&e.data.before.status==='Needs information'));
+ assert.equal(state.research.records.filter(r=>r.kind==='engagement'&&r.mapping_id===id).length,1);
  }finally{f.db.close();}
 });

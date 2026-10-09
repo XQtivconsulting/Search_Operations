@@ -45,7 +45,7 @@ export const permissionGroups=[
  define('reviews.submit','Reviews','Send to team review','Submit sourcing work, preserving candidate attribution.',['researcher']),
  define('reviews.team','Reviews','Team review and send to partner','Review candidates in your sourcing team or assigned search.',['admin','researcher','partner']),
  define('reviews.partner','Reviews','Complete partner review','Approve or return candidates as the assigned search partner.',['admin','partner']),
- define('reviews.direct','Reviews','Approve directly from draft','Assigned search partner may approve a draft without team review.',[]),
+ define('reviews.direct','Reviews','Approve drafts and returned mappings directly','Assigned search partner may approve drafts or mappings needing information without another team review.',[]),
  define('reviews.manage','Reviews','Manage reviews','Reassign reviews or reopen decided mappings with a reason.',['admin','planner','partner']),
  define('planning.view','Planning & allocation','Read planning and sourcing activity','Read decisions, allocations and sourcing activity data. Page visibility is configured separately.'),
  define('planning.decisions','Planning & allocation','Make sourcing decisions','Set weekly Start, Continue, Pause and other decisions.',['admin','planner']),
