@@ -67,3 +67,15 @@ test('geography uses country names for storage/filtering and compact codes for d
  assert.equal(directoryRows([c],'minimum 500k',{'tag:geography':'["Germany"]'},'tag:geography',false,new Map(),index,[c]).length,1);
  assert.equal(c.tag_values.compensation.length,0);
 });
+
+
+test('candidate name scope ignores mentions in notes and matches full names before pagination',()=>{
+ const cs=[{id:'other',name:'Example Person',first_name:'Example',last_name:'Person'},{id:'imported',name:'Casey Synthetic',first_name:'Casey',last_name:'Synthetic'}];
+ const index=new Map([['other','Mapped by Casey']]);
+ const find=(q:string,scope:'name'|'all')=>directoryRows(cs,q,{},'first_name',false,new Map(),index,[],scope).map(c=>c.id);
+ assert.deepEqual(find('casey','name'),['imported']);
+ assert.deepEqual(find(' Casey  Synthetic ','name'),['imported']);
+ assert.deepEqual(find('synthetic','name'),['imported']);
+ assert.deepEqual(find('casey','all'),['imported','other']);
+ assert.deepEqual(find('','name'),['imported','other']);
+});

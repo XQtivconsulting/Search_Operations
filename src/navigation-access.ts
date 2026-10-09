@@ -3,6 +3,7 @@ export const navigationPages:Record<string,{id:string;group?:string;features:str
  'My Work':{id:'nav.work',features:['search.view']},
  'Candidates':{id:'nav.candidates',features:['candidates.view']},
  'Companies':{id:'nav.companies',features:['companies.view']},
+ 'Browser extension':{id:'nav.search',group:'nav.sourcing',features:['search.view']},
  'Search repository':{id:'nav.search',group:'nav.sourcing',features:['search.view']},
  'Weekly plan':{id:'nav.plan',group:'nav.sourcing',features:['planning.view']},
  'Delivery Monitor':{id:'nav.monitor',group:'nav.sourcing',features:['planning.view']},

@@ -1,7 +1,7 @@
 # XRP Profile Mapper
 
 ## Install and use
-Download `/downloads/xrp-profile-mapper.zip` from the deployed app or Integrations → Profile Mapper. Unzip, open `chrome://extensions` (or `edge://extensions`), enable Developer mode and Load unpacked. Installation steps are in the package README.
+Download `/downloads/xrp-profile-mapper.zip` from Sourcing → Browser extension beside Search repository, or Integrations → Profile Mapper. Both entries share download and installation instructions. The navigation entry uses the same access rules as Search repository; imports still enforce the member’s existing permissions. Unzip, open `chrome://extensions` (or `edge://extensions`), enable Developer mode and Load unpacked. Installation steps are in the package README.
 
 Keep an XRP tab signed in. On a LinkedIn profile, open the extension, Connect to XRP, capture, edit the extracted details, choose an assigned open search or directory only, review matches and import. The popup displays the connected identity. New mappings are Draft. An existing candidate is reused without overwriting its fields; an existing mapping is returned rather than duplicated. The result opens the candidate in XRP, subject to page visibility permissions.
 

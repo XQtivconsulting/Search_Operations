@@ -1,3 +1,4 @@
+import {BrowserExtension} from './BrowserExtension';
 import {canViewPage} from './navigation-access';
 import './sourcing-monitor.css';
 import {apiResponse} from './api-response';
@@ -28,7 +29,7 @@ import {AccountSettings} from './AccountSettings';
 import React, { useEffect, useState, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import {
-  List,
+  List, PuzzlePiece,
   IdentificationCard, Buildings, Gauge, SquaresFour, ListChecks, Chats, Database, ShieldCheck, Plugs, SlidersHorizontal,
   PushPin,
   CaretDoubleLeft,
@@ -115,7 +116,7 @@ function App() {
   useEffect(()=>{if(!navPinned)setNavExpanded(false);},[page,navPinned]);
   const toggleNavPin=()=>{const next=!navPinned;setNavPinned(next);setNavExpanded(next);try{localStorage.setItem('xqtiv.navigationPinned',String(next));}catch{}};
   const [collapsedModules,setCollapsedModules]=useState<Record<string,boolean>>({Organization:true});
-  useEffect(()=>{if(!page)return;const group=['Search repository','Weekly plan','Delivery Monitor','Performance'].includes(page)?'Sourcing':['Daily Work','Pipeline','Search assignments','Interview tracker'].includes(page)?'Engagement':['Candidates','Companies'].includes(page)?'Talent assets':page==='My Work'?'Work':'Organization';setCollapsedModules(previous=>({...previous,[group]:false}));},[page]);
+  useEffect(()=>{if(!page)return;const group=['Browser extension','Search repository','Weekly plan','Delivery Monitor','Performance'].includes(page)?'Sourcing':['Daily Work','Pipeline','Search assignments','Interview tracker'].includes(page)?'Engagement':['Candidates','Companies'].includes(page)?'Talent assets':page==='My Work'?'Work':'Organization';setCollapsedModules(previous=>({...previous,[group]:false}));},[page]);
   const [engagementStart,setEngagementStart]=useState({role:'',mapping:'',stage:''});
   const [interviewRole,setInterviewRole]=useState('');
   const [viewStates,setViewStates]=useState<Record<string,Row>>({});
@@ -161,6 +162,16 @@ function App() {
     window.addEventListener('xqtiv-account-changed',changed);window.addEventListener('focus',focus);
     return()=>{window.removeEventListener('xqtiv-account-changed',changed);window.removeEventListener('focus',focus);};
   },[]);
+  useEffect(()=>{
+    let refreshing=false;
+    const refresh=async()=>{
+      if(!expectedUser||sheetDirty||modal||document.visibilityState==='hidden'||refreshing)return;
+      refreshing=true;try{await load();}finally{refreshing=false;}
+    };
+    window.addEventListener('focus',refresh);
+    document.addEventListener('visibilitychange',refresh);
+    return()=>{window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh);};
+  },[sheetDirty,modal]);
   useEffect(() => {
     if (invite) {
       api('invitation',{token:invite}).then(info=>{
@@ -312,6 +323,7 @@ function App() {
     ['Candidates',IdentificationCard,'Talent assets'],
     ['Companies',Buildings,'Talent assets'],
     ['Search repository',MagnifyingGlass,'Sourcing'],
+    ['Browser extension',PuzzlePiece,'Sourcing'],
     ['Weekly plan',CalendarBlank,'Sourcing'],
     ['Delivery Monitor',Gauge,'Sourcing'],
     ['Performance',ChartBar,'Sourcing'],
@@ -449,7 +461,7 @@ function App() {
             {error}
           </div>
         )}
-        {!["Sourcing settings","Searches","Account settings","Search repository","My Work","Delivery Monitor","Performance","Companies","Teams","Candidates","People & access","Engagement","Pipeline","Daily Work","Search assignments","Interview tracker","Engagement Config","Backups & exports"].includes(page)  && page !== "Integrations" && page !== "Weekly plan" && (
+        {!["Browser extension","Sourcing settings","Searches","Account settings","Search repository","My Work","Delivery Monitor","Performance","Companies","Teams","Candidates","People & access","Engagement","Pipeline","Daily Work","Search assignments","Interview tracker","Engagement Config","Backups & exports"].includes(page)  && page !== "Integrations" && page !== "Weekly plan" && (
           <div className="filters">
             <label>
               From
@@ -584,6 +596,7 @@ function App() {
         {page==='Engagement Config'&&hasPermission(actor,'engagement.config')&&<EngagementAdmin data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page==='My Work'&&hasRole(data.actor,'engagement')&&<Engagement mine data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={(id:string)=>{setCandidateId(id);setPage('Candidates');}}/>}
         {page==='My Work'&&(!hasRole(data.actor,'engagement')||hasRole(data.actor,'researcher')||hasRole(data.actor,'partner')||hasRole(data.actor,'super_admin'))&&<MyWork data={data} api={api} reload={load} onDirty={setSheetDirty} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} onOpen={(id,tab)=>{setSelected(id);setRepoTab(tab);setPage("Search repository");}}/>}
+        {page==='Browser extension'&&<BrowserExtension/>}
         {page==='Search repository'&&<ResearchPanel initialState={repoState} onStateChange={setRepoState} onCreateSearch={()=>open({kind:"search"})} onTabChange={setRepoTab} onReturn={mappingStart&&navigation.back?()=>navigation.go('back'):undefined} returnLabel={navigation.back?'Back to '+visitLabel(navigation.back):undefined} initialMapping={mappingStart} onEditPartner={s=>open({kind:"search-owner",...s})} onRoleChange={setSelected} onCandidate={id=>{setCandidateId(id);setPage("Candidates");}} key={page+repoRestore} data={data} api={api} reload={load} view={page} initialRole={page==='Search repository'?selected:''} initialTab={repoTab} onDirty={setSheetDirty} onCompanies={id=>{setCompanySearch(id);setPage("Companies");}}/>}
         {page === 'Companies'&&<CompanyUniverse data={data} api={api} reload={load} onDirty={setSheetDirty} initialRole={companySearch} onOpen={id=>{setSelected(id);setRepoTab("Target companies");setPage("Search repository");}}/>}
 

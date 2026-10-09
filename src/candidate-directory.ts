@@ -12,7 +12,7 @@ export const candidateTagColumns=tagCategories.map(c=>['tag:'+c.key,c.label] as 
 export function candidateTagText(c:Candidate,key:string){return [...(c.tag_values?.[key]||[])].map((v:string)=>key==='geography'?geographyFullName(v):v).sort((a:string,b:string)=>a.localeCompare(b,undefined,{sensitivity:'base',numeric:true})).join(', ');}
 const text = (value: unknown) => String(value || '').trim().toLocaleLowerCase();
 export function candidateTagDisplay(c:Candidate,key:string){return key==='geography'?[...new Set((c.tag_values?.geography||[]).map(geographyCode))].sort().join(', '):candidateTagText(c,key);}
-export function directoryRows(candidates: Candidate[], query: string, filters: Record<string,string>, sort: string, descending: boolean, roleCounts: Map<string,number>, index: Map<string,string>=new Map(), records:Candidate[]=[]) {
+export function directoryRows(candidates: Candidate[], query: string, filters: Record<string,string>, sort: string, descending: boolean, roleCounts: Map<string,number>, index: Map<string,string>=new Map(), records:Candidate[]=[],scope:'name'|'all'='all') {
  const smartQuery=parseCandidateQuery(query,records);
  const activeFilters=Object.entries(filters).filter(([,filter])=>filter).map(([key,filter])=>[key,key==='searches'||key.startsWith('tag:')?JSON.parse(filter):filter] as const);
  const companies=new Map(records.filter(r=>r.kind==='company').map(r=>[r.id,r]));
@@ -22,7 +22,7 @@ export function directoryRows(candidates: Candidate[], query: string, filters: R
  const value = (c: Candidate, key: string) => key.startsWith('tag:')?candidateTagText(c,key.slice(4)):key === 'roles' ? roleCounts.get(c.id) || 0 : key === 'first_name' ? c.first_name || c.name || '' : c[key] || '';
  return candidates.filter(c => {
   const searchable = (index.get(c.id)||'')+' '+text([c.name,c.first_name,c.last_name,c.company,c.title,c.url,c.email,c.phone,...Object.values(c.tag_values||{}).flat(),c.compensation_details].join(' '));
-  return matchesCandidateQuery(c,searchable,smartQuery) && activeFilters.every(([key,filter]) => {
+  return (scope==='name'?matchesFilter([c.name,c.first_name,c.last_name].filter(Boolean).join(' '),query):matchesCandidateQuery(c,searchable,smartQuery)) && activeFilters.every(([key,filter]) => {
    if(key==='age')return matchesAge(c.age,filter);
    if(key==='gender')return (c.gender||'Not recorded')===filter;
    if(key==='unmapped')return !(roleCounts.get(c.id)||0);
