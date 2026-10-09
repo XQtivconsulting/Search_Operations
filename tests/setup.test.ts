@@ -121,7 +121,7 @@ test('original administrator is retained as protected owner and accounts are not
  assert.equal(db.prepare('SELECT COUNT(*) n FROM workspace_owners').get()?.n,1);assert.equal(db.prepare('SELECT COUNT(*) n FROM member_events').get()?.n,1);
  assert.equal(new Set(one.map(m=>m.email)).size,3);db.close();
 });
-test('super admin can combine roles, admins can manage ordinary roles, last owner and staff links are protected',async()=>{
+test('only super admin can change assigned roles, last owner and staff links are protected',async()=>{
  const {db,identity}=peopleFixture(),all=await identity.members('test');const owner=all.find(m=>m.id==='owner')!,admin=all.find(m=>m.id==='admin2')!,reader=all.find(m=>m.id==='reader')!;
  await identity.updateMember(owner as any,{...owner,roles:['super_admin','admin','partner','researcher'],staff_id:owner.staff_id});
  let current=(await identity.members('test')).find(m=>m.id==='owner')!;assert.deepEqual(current.roles,['super_admin','admin','partner','researcher']);assert.equal(current.staff_id,'person:owner');
@@ -129,10 +129,11 @@ test('super admin can combine roles, admins can manage ordinary roles, last owne
  await assert.rejects(identity.updateMember(admin as any,{...current,name:'Takeover',roles:['admin']}),/Only a super/);
  await assert.rejects(identity.updateMember(admin as any,{...reader,roles:['super_admin']}),/Only a super/);
  await assert.rejects(identity.revoke('test','owner','admin2'),/Only a super/);
- await identity.updateMember(admin as any,{...reader,name:'Updated Person',roles:['research_lead','partner']});
+ await assert.rejects(identity.updateMember(admin as any,{...reader,roles:['partner']}),/Only a super admin/);
+ await identity.updateMember(owner as any,{...reader,name:'Updated Person',roles:['research_lead','partner']});
  const updated=(await identity.members('test')).find(m=>m.id==='reader')!;assert.equal(updated.name,'Updated Person');assert.deepEqual(updated.roles,['research_lead','partner']);
  await assert.rejects(identity.updateMember(admin as any,{...reader,roles:['partner']}),/changed/);
- await identity.updateMember(admin as any,{...updated,roles:['researcher'],staff_id:updated.staff_id});assert.equal((await identity.members('test')).find(m=>m.id==='reader')?.staff_id,'person:reader');
+ await identity.updateMember(owner as any,{...updated,roles:['researcher'],staff_id:updated.staff_id});assert.equal((await identity.members('test')).find(m=>m.id==='reader')?.staff_id,'person:reader');
  await assert.rejects(identity.updateMember(owner as any,{...current,staff_id:'other-staff'}),/cannot be replaced/);
  await assert.rejects(identity.updateMember({...owner,tenant:'foreign'} as any,{...current}),/permission/);db.close();
 });
@@ -204,34 +205,34 @@ test('full reset endpoint checks original owner and email before workspace delet
  assert.equal(response.status,200);assert.equal((await response.json() as any).ok,true);assert.equal(resets,1);assert.equal((await identity.members('test')).length,1);assert.ok(await identity.authenticate(ownerSession.token,'test'));db.close();
 });
 
-test('administrators manage tenant-scoped role templates with immediate session changes and protected owner',async()=>{
+test('super admins manage tenant-scoped role templates with immediate session changes and protected owner',async()=>{
  const {db,identity}=peopleFixture(),{hasRole,canPlan}=await import('../src/domain');
  try{
   const all=await identity.members('test'),owner=all.find(m=>m.id==='owner')!,admin=all.find(m=>m.id==='admin2')!,reader=all.find(m=>m.id==='reader')!;
   await assert.rejects(identity.rolePolicy(reader as any,{action:'save',name:'Escalation',permissions:['roles.manage','users.access']}),/permission/);
   await assert.rejects(identity.rolePolicy({...admin,tenant:'foreign'} as any,{action:'save',name:'Cross tenant',permissions:['roles.manage','users.access']}),/permission/);
-  const created=await identity.rolePolicy(admin as any,{action:'save',name:'Custom associate',permissions:['reviews.submit','engagement.work']});
+  const created=await identity.rolePolicy(owner as any,{action:'save',name:'Custom associate',permissions:['reviews.submit','engagement.work']});
   let catalog=await identity.roleCatalog(admin as any),role=catalog.roles.find(r=>r.id===created.id)!;
-  await identity.updateMember(admin as any,{...reader,roles:[created.id]});
+  await identity.updateMember(owner as any,{...reader,roles:[created.id]});
   const session=await identity.session('reader');let actor=await identity.authenticate(session.token,'test');
   assert.equal(actor?.staffId,'person:reader');assert.equal(hasRole(actor!,'researcher'),true);assert.equal(hasRole(actor!,'engagement'),true);assert.equal(canPlan(actor!),false);
-  await assert.rejects(identity.rolePolicy(admin as any,{...role,action:'delete'}),/Reassign/);
-  await identity.rolePolicy(admin as any,{...role,action:'save',permissions:['planning.allocate']});
+  await assert.rejects(identity.rolePolicy(owner as any,{...role,action:'delete'}),/Reassign/);
+  await identity.rolePolicy(owner as any,{...role,action:'save',permissions:['planning.allocate']});
   actor=await identity.authenticate(session.token,'test');assert.equal(hasRole(actor!,'researcher'),false);assert.equal(canPlan(actor!),true);assert.equal(actor?.staffId,'person:reader');
-  await assert.rejects(identity.rolePolicy(admin as any,{...role,action:'save',permissions:['roles.manage','users.access']}),/changed/);
-  await assert.rejects(identity.rolePolicy(admin as any,{action:'save',name:'Bad',permissions:['super_admin']}),/recognized/);
-  await assert.rejects(identity.rolePolicy(admin as any,{action:'delete',id:'super_admin'}),/protected/);
+  await assert.rejects(identity.rolePolicy(owner as any,{...role,action:'save',permissions:['roles.manage','users.access']}),/changed/);
+  await assert.rejects(identity.rolePolicy(owner as any,{action:'save',name:'Bad',permissions:['super_admin']}),/recognized/);
+  await assert.rejects(identity.rolePolicy(owner as any,{action:'delete',id:'super_admin'}),/protected/);
   await assert.rejects(identity.updateMember(admin as any,{...owner,roles:[created.id]}),/Only a super/);
   const other=await identity.invite('other-tenant@example.com','Other','foreign','researcher',null);
   await assert.rejects(identity.validRoles('foreign',[created.id]),/valid workspace roles/);
   const latest=(await identity.members('test')).find(m=>m.id==='reader')!;
-  await identity.updateMember(admin as any,{...latest,roles:['researcher']});
+  await identity.updateMember(owner as any,{...latest,roles:['researcher']});
   role=(await identity.roleCatalog(admin as any)).roles.find(r=>r.id===created.id)!;
   const invite=await identity.invite('custom@example.com','Custom','test',created.id,null);
-  await assert.rejects(identity.rolePolicy(admin as any,{...role,action:'delete'}),/Reassign/);
+  await assert.rejects(identity.rolePolicy(owner as any,{...role,action:'delete'}),/Reassign/);
   const pending=(await identity.pendingInvitations('test')).find(i=>i.email==='custom@example.com')!;
   await identity.cancelInvitation(admin as any,pending.id);
-  await identity.rolePolicy(admin as any,{...role,action:'delete'});
+  await identity.rolePolicy(owner as any,{...role,action:'delete'});
   assert.equal((await identity.roleCatalog(admin as any)).roles.some(r=>r.id===created.id),false);
   assert.ok(db.prepare("SELECT COUNT(*) n FROM member_events WHERE user_id=?").get('role:'+created.id)!.n);
   assert.equal(hasRole((await identity.members('test')).find(m=>m.id==='owner')!,'super_admin'),true);
@@ -240,12 +241,12 @@ test('administrators manage tenant-scoped role templates with immediate session 
 test('changing a role to sourcing provisions stable identities for existing members',async()=>{
  const {db,identity}=peopleFixture();
  try{
-  const people=await identity.members('test'),admin=people.find(m=>m.id==='admin2')!,reader=people.find(m=>m.id==='reader')!;
-  const created=await identity.rolePolicy(admin as any,{action:'save',name:'Evolving role',permissions:[]});
-  await identity.updateMember(admin as any,{...reader,roles:[created.id]});
+  const people=await identity.members('test'),admin=people.find(m=>m.id==='admin2')!,owner=people.find(m=>m.id==='owner')!,reader=people.find(m=>m.id==='reader')!;
+  const created=await identity.rolePolicy(owner as any,{action:'save',name:'Evolving role',permissions:[]});
+  await identity.updateMember(owner as any,{...reader,roles:[created.id]});
   assert.equal((await identity.members('test')).find(m=>m.id==='reader')?.staff_id,'person:reader');
   const role=(await identity.roleCatalog(admin as any)).roles.find(r=>r.id===created.id)!;
-  await identity.rolePolicy(admin as any,{...role,action:'save',permissions:['reviews.submit']});
+  await identity.rolePolicy(owner as any,{...role,action:'save',permissions:['reviews.submit']});
   assert.equal((await identity.members('test')).find(m=>m.id==='reader')?.staff_id,'person:reader');
  }finally{db.close();}
 });
@@ -290,4 +291,20 @@ test('member roles and permissions resolve only from the current master, includi
  await identity.updateMember(owner as any,{id:'reader',version:person.version,name:person.name,status:'active',roles:[custom.id]});
  person=(await identity.members('test')).find(m=>m.id==='reader')!;assert.deepEqual(person.roles,[custom.id]);assert.ok(person.permissions.includes('planning.allocate'));
  await assert.rejects(identity.updateMember(owner as any,{id:'reader',version:person.version,roles:['planner']}),/valid workspace roles/);db.close();
+});
+
+
+test('permission grid saves atomically, rejects delegated admins and stale rows',async()=>{
+ const {db,identity}=peopleFixture();try{
+  const people=await identity.members('test'),owner=people.find(m=>m.id==='owner')!,admin=people.find(m=>m.id==='admin2')!;
+  await assert.rejects(identity.rolePolicy({...admin,roles:['super_admin']} as any,{action:'save',name:'Blocked',permissions:[]}),/Super Admin permission/);
+  const catalog=await identity.roleCatalog(owner as any),one=catalog.roles[0],two=catalog.roles[1];
+  const changes=[{...one,permissions:['candidates.view']},{...two,permissions:['companies.view']}];
+  const before=db.prepare('SELECT COUNT(*) n FROM member_events').get()!.n;
+  await assert.rejects(identity.rolePolicy(owner as any,{action:'batch',roles:[changes[0],{...changes[1],version:-1}]}),/changed/);
+  const unchanged=await identity.roleCatalog(owner as any);assert.deepEqual(unchanged.roles.find(r=>r.id===one.id)?.permissions,one.permissions);assert.equal(db.prepare('SELECT COUNT(*) n FROM member_events').get()!.n,before);
+  await identity.rolePolicy(owner as any,{action:'batch',roles:changes});
+  const saved=await identity.roleCatalog(owner as any);for(const change of changes){const role=saved.roles.find(r=>r.id===change.id)!;assert.deepEqual(role.permissions,change.permissions);assert.equal(role.version,change.version+1);}
+  await assert.rejects(identity.rolePolicy(admin as any,{action:'batch',roles:changes}),/Super Admin permission/);
+ }finally{db.close();}
 });

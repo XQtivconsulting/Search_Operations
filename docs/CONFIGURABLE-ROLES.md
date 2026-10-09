@@ -85,3 +85,11 @@ Roles & permissions starts with Navigation visibility. Independent saved control
 A page requires its visibility grant, its parent module grant where applicable, and its existing data/action access. Visibility grants do not grant data, editing, import or administrative operations. Sidebar and page rendering share the same check, including browser history and internal links. Account settings remain available. Super Admin retains protected access. Navigation grants are never inferred from action permissions after migration, so administrators can explicitly hide a page while preserving actions used elsewhere.
 
 Existing tenant role policies receive a one-time, versioned/audited migration preserving prior page availability based on their effective permissions. No new editing/import authority is added. Later visibility revocations remain saved. New role templates include their corresponding visibility grants; a custom role starts empty. Tests cover independent monitor/performance access, parent module gates, feature permission requirements, unknown-page denial, migration idempotence, revocation and tenant isolation. Existing server authorization and category filtering remain in force.
+
+## Inline permission editing — 9 October 2026
+
+Super Admins edit permission checkboxes directly in the comparison grid and save all changed roles together. Cancel restores the loaded values. Required view permissions remain checked while dependent actions are enabled. Role details use the pencil; permission changes do not require a popup. Super Admin is protected.
+
+The server resolves current tenant membership and requires an actual Super Admin for role policy mutations and changes to existing members’ assigned roles. Delegated roles.manage permission is insufficient. Batch saves use one transaction, check every role version, and roll back all edits and audits if any role is stale. Ordinary account profile/status administration and invitations retain their existing permissions.
+
+Verification uses synthetic memberships and checks delegated-admin denial, forged actor roles, atomic stale-batch rollback, successful batch versions, and existing role protections.

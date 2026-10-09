@@ -52,11 +52,16 @@ export class Identity extends DurableObject {
     return {roles:roleDefinitions(this,a.tenant).map(r=>({...r,...roleUsage(this,a.tenant,r.id)})),superAdminUsers:roleUsage(this,a.tenant,'super_admin').users};
   }
   async validRoles(tenant:string,ids:unknown){validateAssignedRoles(this,tenant,ids);return true;}
-  async rolePolicy(a:Actor,b:any){
+  async rolePolicy(a:Actor,b:any):Promise<any>{
     this.ensureOwners();
     return this.ctx.storage.transactionSync(()=>{
       const row=this.rows('SELECT u.id,m.* FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.tenant=? AND m.user_id=?',a.tenant,a.id)[0];
-      requireThat(row?.status==='active'&&hasPermission(this.details(row),'roles.manage'),'Administrator permission required.',403);
+      requireThat(row?.status==='active'&&this.details(row).roles.includes('super_admin'),'Super Admin permission required.',403);
+      if(b.action==='batch'){
+        requireThat(Array.isArray(b.roles)&&b.roles.length>0&&b.roles.length<=100,'Choose roles to save.');
+        requireThat(new Set(b.roles.map((r:any)=>r.id)).size===b.roles.length&&b.roles.every((r:any)=>typeof r.id==='string'),'Duplicate or missing role.');
+        return {saved:b.roles.map((r:any)=>mutateRolePolicy(this,a.tenant,a.id,{...r,action:'save'}))};
+      }
       return mutateRolePolicy(this,a.tenant,a.id,b);
     });
   }
@@ -77,6 +82,7 @@ export class Identity extends DurableObject {
       validateAssignedRoles(this,a.tenant,nextRoles);
       requireThat(nextRoles.every(r=>!retiredRoleIds.includes(r)||old.roles.includes(r)),'Retired roles cannot be newly assigned.');
       requireThat(hasRole(authority,'super_admin')||(!hasRole(old,'super_admin')&&!nextRoles.includes('super_admin')),'Only a super admin can change a super admin account.',403);
+      requireThat(authority.roles.includes('super_admin')||(nextRoles.length===old.roles.length&&nextRoles.every(r=>old.roles.includes(r))),'Only a super admin can change assigned roles.',403);
       const status=b.status||old.status;requireThat(['active','revoked'].includes(status),'Choose active or revoked access.');
       requireThat(b.id!==a.id||status==='active','You cannot revoke your own access.');
       if(hasRole(old,'super_admin')&&(!nextRoles.includes('super_admin')||status!=='active')) {

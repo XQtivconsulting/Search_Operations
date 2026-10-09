@@ -43,3 +43,6 @@
 .app .sourcing-team-management>.panel{padding:12px 0 0;border:0;box-shadow:none;margin:0}
 .app .people-teams-workspace .team-directory-toolbar{flex-wrap:wrap;align-items:flex-end;gap:12px}
 .app .people-teams-workspace .team-directory-toolbar>label{margin:0;min-width:150px;flex:1}
+
+.app .roles-panel .role-permission-grid input[type="checkbox"]{width:17px;height:17px;min-height:0;margin:3px;vertical-align:middle;accent-color:#235c9f;cursor:pointer}
+.app .roles-panel .role-permission-grid input[type="checkbox"]:disabled{cursor:default}
