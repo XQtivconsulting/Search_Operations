@@ -1,4 +1,4 @@
-XRP Profile Mapper 2.0.3
+XRP Profile Mapper 2.0.4
 
 Install/update in Chrome or Edge:
 Unzip into a folder. Open chrome://extensions or edge://extensions, enable Developer mode and Load unpacked. For updates replace the files in the same folder, click Reload, and refresh LinkedIn and XRP.
@@ -19,3 +19,5 @@ The extension uses the current XRP session without reading/storing cookies, pass
 Extraction is best-effort. Company capture remains unresolved on some reported layouts. Enter missing values manually until resolved. No full work history is imported. Location is unverified text. The current profile draft is stored locally for up to 24 hours and can be cleared. No bulk crawler or telemetry is included.
 
 If a connection times out, open/refresh XRP and reconnect. If an import response times out, retry the same candidate/search; duplicate safeguards reuse existing records. This is an internal unpacked extension, not a Web Store release.
+
+The default view shows candidate name, destination, duplicate status and Import. Captured fields stay collapsed under Profile details; expand to correct them. Missing required name/URL opens details automatically.

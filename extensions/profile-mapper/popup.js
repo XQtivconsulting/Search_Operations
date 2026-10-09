@@ -6,8 +6,9 @@ if(detached){document.body.classList.add('detached');$('detach').hidden=true;if(
 const fields={firstName:'First name',lastName:'Last name',linkedinUrl:'LinkedIn URL',currentTitle:'Current title',company:'Company',location:'Location',email:'Email',phone:'Phone'};
 let context=null,tabId=null,preview=null,busy=false,previewTimer=null,revision=0;
 async function bounded(promise,ms,message){let timer;try{return await Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error(message)),ms);})]);}finally{clearTimeout(timer);}}
-for(const [id,label] of Object.entries(fields)){const l=document.createElement('label'),input=document.createElement('input');l.textContent=label;input.id=id;input.maxLength=id==='linkedinUrl'?1000:300;input.required=['firstName','lastName','linkedinUrl'].includes(id);if(id==='email')input.type='email';l.append(input);$(id==='email'||id==='phone'?'contacts':'fields').append(l);input.addEventListener('input',()=>{invalidate();persist();schedulePreview();});}
+for(const [id,label] of Object.entries(fields)){const l=document.createElement('label'),input=document.createElement('input');l.textContent=label;input.id=id;input.maxLength=id==='linkedinUrl'?1000:300;input.required=['firstName','lastName','linkedinUrl'].includes(id);if(id==='email')input.type='email';l.append(input);$(id==='email'||id==='phone'?'contacts':'fields').append(l);input.addEventListener('input',()=>{invalidate();updateProfileSummary();persist();schedulePreview();});}
 const values=()=>Object.fromEntries(Object.keys(fields).map(k=>[k,$(k).value.trim()]));
+function updateProfileSummary(){$('candidateSummary').textContent=[ $('firstName').value,$('lastName').value].filter(Boolean).join(' ')||'No profile captured';}
 const report=t=>$('status').textContent=t;
 const invalidate=()=>{revision++;preview=null;$('review').hidden=true;$('open').hidden=true;};
 async function persist(){await chrome.storage.local.set({profileDraft:{candidate:values(),savedAt:Date.now()}});}
@@ -72,11 +73,11 @@ $('capture').onclick=()=>run(async()=>{
  const [tab]=await chrome.tabs.query(detached&&Number.isInteger(sourceWindow)&&sourceWindow>0?{active:true,windowId:sourceWindow}:{active:true,currentWindow:true});if(!/^https:\/\/(www\.)?linkedin\.com\/in\//i.test(tab?.url||''))throw Error('Open an individual LinkedIn profile first.');
  report('Reading profile…');await chrome.scripting.executeScript({target:{tabId:tab.id},files:['content.js']});const p=await chrome.tabs.sendMessage(tab.id,{type:'EXTRACT_PROFILE_V128'});if(!p||p.error)throw Error(p?.error||'Could not read this profile.');
  const parts=(p.name||'').trim().split(/\s+/),candidate={...p,firstName:parts.shift()||'',lastName:parts.join(' '),email:'',phone:''};
- for(const k of Object.keys(fields))$(k).value=candidate[k]||'';invalidate();await persist();const missing=['currentTitle','company'].filter(k=>!candidate[k]).map(k=>fields[k]);report(missing.length?missing.join(' and ')+' not found. Expand Experience and capture again, or enter manually.':'');await checkMatches();
+ for(const k of Object.keys(fields))$(k).value=candidate[k]||'';updateProfileSummary();$('profileDetails').open=false;invalidate();await persist();const missing=['currentTitle','company'].filter(k=>!candidate[k]).map(k=>fields[k]);report(missing.length?missing.join(' and ')+' not captured. Edit Profile details or expand LinkedIn Experience and capture again.':'');await checkMatches();
 });
 function schedulePreview(){clearTimeout(previewTimer);previewTimer=setTimeout(()=>run(checkMatches),450);}
 async function checkMatches(){
- const candidate=values();if(!candidate.firstName||!candidate.lastName||!candidate.linkedinUrl)return;
+ const candidate=values();if(!candidate.firstName||!candidate.lastName||!candidate.linkedinUrl){if(Object.values(candidate).some(Boolean)){$('profileDetails').open=true;report('Complete the name and LinkedIn URL in Profile details.');}return;}
  if(!context)await connect();
  let target;try{target=destination();}catch{target={searchId:'',label:'Choose a search to import'};}
  const currentRevision=revision,payload={candidate,searchId:target.searchId};
@@ -97,6 +98,6 @@ $('import').onclick=()=>run(async()=>{
  const r=await api('commit',{...preview.payload,candidateId:$('candidateMatch').value,companyId:$('companyMatch').value,confirmNewCandidate:$('newCandidate').checked,confirmNewCompany:$('newCompany').checked});
  report(r.status+' · '+preview.target.label);invalidate();$('open').href=ORIGIN+'/?candidate='+encodeURIComponent(r.candidateId);$('open').hidden=false;
 });
-$('clear').onclick=()=>run(async()=>{for(const k of Object.keys(fields))$(k).value='';invalidate();await chrome.storage.local.remove('profileDraft');report('Profile cleared.');});
+$('clear').onclick=()=>run(async()=>{for(const k of Object.keys(fields))$(k).value='';updateProfileSummary();$('profileDetails').open=false;invalidate();await chrome.storage.local.remove('profileDraft');report('Profile cleared.');});
 destinationChanged();
-(async()=>{try{await chrome.storage.local.setAccessLevel({accessLevel:'TRUSTED_CONTEXTS'});const {profileDraft}=await chrome.storage.local.get('profileDraft');if(profileDraft&&Date.now()-profileDraft.savedAt<86400000)for(const k of Object.keys(fields))$(k).value=profileDraft.candidate[k]||'';else await chrome.storage.local.remove('profileDraft');}catch{report('Could not restore the saved profile. You can still capture and connect.');}})();
+(async()=>{try{await chrome.storage.local.setAccessLevel({accessLevel:'TRUSTED_CONTEXTS'});const {profileDraft}=await chrome.storage.local.get('profileDraft');if(profileDraft&&Date.now()-profileDraft.savedAt<86400000)for(const k of Object.keys(fields))$(k).value=profileDraft.candidate[k]||'';else await chrome.storage.local.remove('profileDraft');updateProfileSummary();}catch{report('Could not restore the saved profile. You can still capture and connect.');}})();

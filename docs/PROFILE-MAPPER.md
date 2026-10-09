@@ -45,3 +45,6 @@ Capture also parses visible Experience text when stable DOM selectors fail, incl
 Search results are clickable immediately under the query; matching uses trimmed case-insensitive tokens. Editing the query clears the previous selection. No-match, disconnected and no-authorized-search states are explicit. Permissions and open-search eligibility are unchanged. Profile fields use two columns, contact details collapse, and match results appear below the form automatically.
 
 Capture triggers a read-only duplicate/company preview automatically, including when no search has been chosen yet. Field edits debounce a refreshed preview; destination selection refreshes its scope. Final Import still requires a valid explicit destination and duplicate confirmations. No business write occurs during automatic preview.
+
+## 2.0.4 focused import
+Captured fields are collapsed under Profile details by default. The candidate name remains visible; capture, destination, match status and Import form the main workflow. Missing required identity fields open the details automatically. No new save or permission behavior is introduced.
