@@ -12,6 +12,10 @@ function decision(v:unknown,team=false){const s=norm(v);if(!s||['pending','not r
 export function planHistoricalMappings(rows:R[],searches:R[],records:R[],members:R[],staff:R[],locations:ImportLocationMatches={}):R[]{
  requireThat(Array.isArray(rows)&&rows.length>0&&rows.length<=500,'Import 1–500 mappings.');
  const candidates=records.filter(r=>r.kind==='candidate'),seen=new Map<string,string>(),filePeople=new Map<string,R>(),fileEmails=new Map<string,string>();
+ const urls=new Map<string,R[]>(),emails=new Map<string,R[]>(),names=new Map<string,R[]>(),companies=new Map<string,R[]>(),mappings=new Map<string,R>();
+ const add=(map:Map<string,R[]>,key:string,value:R)=>{if(key)map.set(key,[...(map.get(key)||[]),value]);};
+ for(const c of candidates){add(urls,linkedinKey(c.url),c);add(emails,norm(c.email),c);add(names,norm(c.name),c);}
+ for(const r of records){if(r.kind==='company')for(const key of new Set(companyNames(r)))add(companies,key,r);if(r.kind==='mapping'&&!mappings.has(r.role_id+':'+r.candidate_id))mappings.set(r.role_id+':'+r.candidate_id,r);}
  const named=(label:string,list:R[])=>list.filter(p=>norm(p.name)===norm(label)||p.email&&norm(p.email)===norm(label)||p.id===label);
  return rows.map((raw,index)=>{const out:R={row:raw.row||index+2,search_number:raw.search_number,name:[raw.first_name,raw.last_name].filter(Boolean).join(' ')||raw.name||'',warnings:[],options:[]};try{
   if(Object.values(raw).some(v=>str(v).length>20000))throw Error('Cell exceeds 20,000 characters.');
@@ -30,12 +34,12 @@ export function planHistoricalMappings(rows:R[],searches:R[],records:R[],members
   }
   out.normalized_location=out.needs_location?'':location;
   const company=str(raw.company);if(company.length>200)throw Error('Company name exceeds 200 characters.');
-  const companyMatches=company?records.filter(c=>c.kind==='company'&&companyNames(c).includes(normalizedCompany(company))):[];if(companyMatches.length>1)throw Error('Company name matches multiple master records. Resolve the company aliases before importing.');
+  const companyMatches=company?(companies.get(normalizedCompany(company))||[]):[];if(companyMatches.length>1)throw Error('Company name matches multiple master records. Resolve the company aliases before importing.');
   out.company_result=company?(companyMatches.length?'Reuse company':'Create company'):'';out.company_name=company;
   const profile={first_name,last_name,name:[first_name,last_name].filter(Boolean).join(' '),url,email,company:str(raw.company),title:str(raw.title),location};
-  const exact=candidates.filter(c=>linkedinKey(c.url)===url||email&&norm(c.email)===norm(email));
+  const exact=[...new Map([...(urls.get(url)||[]),...(emails.get(norm(email))||[])].map(c=>[c.id,c])).values()];
   if(exact.length>1)throw Error('Conflicting existing candidate identities. Resolve duplicates before import.');
-  const suggestions=exact.length?exact:candidates.filter(c=>norm(c.name)===norm(profile.name));
+  const suggestions=exact.length?exact:(names.get(norm(profile.name))||[]);
   out.options=suggestions.map(c=>({id:c.id,name:c.name,company:c.company,url:c.url}));
   let candidate:R|undefined=exact[0];
   if(raw.choice?.startsWith('reuse:')){candidate=candidates.find(c=>c.id===raw.choice.slice(6));if(!candidate||!suggestions.some(c=>c.id===candidate?.id))throw Error('Candidate match changed. Preview again.');if(linkedinKey(candidate.url)&&linkedinKey(candidate.url)!==url)throw Error('LinkedIn differs from selected candidate. Correct the file or resolve the identity first.');}
@@ -51,7 +55,7 @@ export function planHistoricalMappings(rows:R[],searches:R[],records:R[],members
   const teamReviewer=reviewer(tr),partnerReviewer=reviewer(pr);
   const status=pm==='Approve'?'Approved':pm==='Reject'?'Rejected':pm==='Needs information'?'Needs information':tm==='Reject'?'Rejected':tm==='Needs information'?'Needs information':'Partner review';
   const data={...profile,company_id:companyMatches[0]?.id||'',location_verified:!!location&&!out.needs_location,source_location:str(raw.location),mapped_by,mapped_on,notes:str(raw.notes),team_decision:tm,team_reviewer:tr,team_reviewer_id:teamReviewer,team_review_date:td,partner_decision:pm,partner_reviewer:pr,partner_reviewer_id:partnerReviewer,partner_review_date:pd,status,staff_id:staffId,mapper_id:mapper?.id||''};
-  const identity=candidate?.id||url,key=search.id+':'+identity,existing=records.find(r=>r.kind==='mapping'&&r.role_id===search.id&&r.candidate_id===candidate?.id),fingerprint=JSON.stringify(data);
+  const identity=candidate?.id||url,key=search.id+':'+identity,existing=(candidate?mappings.get(search.id+':'+candidate.id):undefined),fingerprint=JSON.stringify(data);
   if(seen.has(key)&&seen.get(key)!==fingerprint)throw Error('Conflicting rows for the same candidate and search. Keep one final historical record.');
   const enrich=existing&&['SharePoint','RecruitCRM'].includes(existing?.source)&&existing.status==='Imported'&&!existing.staff_id&&!existing.mapper_id&&!existing.mapper_name&&!existing.work_date&&!existing.submitted_at&&!existing.partner_decision&&!existing.peer_decision;
   if(enrich)out.warnings.push('Adds sourcing history to the existing imported search link.');
@@ -79,7 +83,7 @@ export function planHistoricalMappings(rows:R[],searches:R[],records:R[],members
 }
 export function importHistoricalMappings(db:any,a:any,b:R,members:R[]){
  requireThat(hasPermission(a,'integrations.manage'),'Manage integrations permission required.',403);
- const records=db.rows('SELECT * FROM research_records').map((r:R)=>({...JSON.parse(r.data),id:r.id,kind:r.kind,role_id:r.role_id,version:r.version})),searches=db.rows('SELECT * FROM searches'),staff=db.rows('SELECT * FROM staff');
+ const records=db.rows("SELECT * FROM research_records WHERE kind IN ('candidate','company','mapping')").map((r:R)=>({...JSON.parse(r.data),id:r.id,kind:r.kind,role_id:r.role_id,version:r.version})),searches=db.rows('SELECT * FROM searches'),staff=db.rows('SELECT * FROM staff');
  const manual=db.rows('SELECT e.*,a.search_id,a.work_date FROM entries e JOIN assignments a ON a.id=e.assignment_id WHERE COALESCE(e.mapped,0)>0 OR COALESCE(e.peer,0)>0 OR COALESCE(e.partner,0)>0');
  const plan=planHistoricalMappings(b.rows,searches,records,members,staff,b.location_matches||{});
  for(const p of plan)if((p.result==='Create mapping'||p.result==='Update attribution')&&manual.some((e:R)=>e.search_id===p.role_id&&e.work_date===p.data.mapped_on&&(!p.data.staff_id||e.staff_id===p.data.staff_id))){p.result='Error';p.error='Recorded aggregate output overlaps this mapping date and researcher. Reconcile those counts before importing individual history.';}

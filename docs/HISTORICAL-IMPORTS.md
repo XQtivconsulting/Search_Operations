@@ -67,3 +67,13 @@ Processing applies at most ten eligible rows per request. Each chunk's business 
 Verification added: synthetic lost-response replay with no duplicate audit events; 13 mappings over two chunks plus a retained invalid row; stale-tab rejection; owner and permission isolation; injected storage failure rolls back mappings and progress together. These checks do not establish the cause of the previously observed production HTTP 503 or constitute a production load test.
 
 Actual local verification for this change: TypeScript passed, all 391 tests passed, and the Vite production build passed (existing bundle-size advisory remains). Production deployment and authenticated UI verification are separate checks.
+
+### Import response-time correction
+
+Saving a new batch or changing a row no longer runs location catalog searches for the whole file. Original location text is retained with a warning; Find location searches only the requested location. Previously verified location choices stay attached to the saved batch. A failed save/process keeps the last confirmed preview visible, marks it stale and disables import until saved progress is reloaded.
+
+Candidate, company and mapping matching now use per-preview indexes. Only candidate/company/mapping records are read for import planning; unrelated research documents and activities are excluded. Batch listings read counts rather than decoding all uploaded workbooks, and saves no longer plan the same workbook twice.
+
+A local synthetic planner benchmark with 263 rows, 10,000 candidates and 5,000 unrelated records measured 3,443 ms before and 41 ms after, with no row errors. This measures planning alone, not production end-to-end latency. The production 503 cause remains unconfirmed because runtime log access was unavailable. Worker observability and structured import timing logs are enabled; logs contain request ID, operation, HTTP status and duration, not source rows or candidate details.
+
+Actual verification: TypeScript, all 392 tests and the production build passed. The new HTTP regression uses 263 rows and asserts that save, skip and resume make zero location-service requests, explicit lookup is scoped, verified selections persist, and injected client location matches are not trusted.

@@ -38,6 +38,8 @@ const geographyCatalogCache=new Map<string,any>();
 export default {
   async fetch(req: Request, env: Env) {
     const url = new URL(req.url);
+    const started=Date.now(),requestId=req.headers.get("cf-ray")||crypto.randomUUID();
+    let importOperation="";
     let res: Response;
     try {
       if (!url.pathname.startsWith("/api/")) res = await env.ASSETS.fetch(req);
@@ -268,14 +270,19 @@ export default {
             // Never trust a caller-supplied list of verified locations.
             delete body.verified_geographies;
             delete body.location_matches;
+            if(body.action==='historical-mapping-batch')importOperation=['list','get','save','process'].includes(body.op)?body.op:'unknown';
             if(body.action==='historical-mapping-import'||body.action==='historical-mapping-batch'&&body.op==='save'){
               requireThat(hasPermission(a,'integrations.manage'),'Manage integrations permission required.',403);
-              body.location_matches=await mappingLocationMatches(body.rows,async key=>{
+              requireThat(Array.isArray(body.rows)&&body.rows.length>0&&body.rows.length<=500,'Import 1–500 mappings.');
+              const lookupRows=body.action==='historical-mapping-batch'
+                ?(Array.isArray(body.rows)?body.rows.filter((r:any)=>typeof body.location_lookup==='string'&&body.location_lookup&&(r.location_query||r.location)===body.location_lookup):[])
+                :body.rows;
+              body.location_matches=lookupRows.length?await mappingLocationMatches(lookupRows,async key=>{
                 requireThat(/^(index|[a-f0-9]+-[a-f0-9]+)$/.test(key),'Invalid location catalog key.');
                 const response=await env.ASSETS.fetch(new Request(new URL('/geography/'+key+'.json',url.origin)));
                 requireThat(response.ok&&response.headers.get('Content-Type')?.includes('application/json'),'Location catalog unavailable.',503);
                 return response.json();
-              });
+              }):{};
             }
             if(['candidate-tags','candidate-summary-publish'].includes(body.action))body.verified_geographies=await verifyGeographies(body.geography_choices,rawCookie,a.tenant);
             delete body.geography_choices;
@@ -387,7 +394,9 @@ export default {
         e.status ?? 500,
       );
     }
+    if(importOperation)console.log(JSON.stringify({event:'mapping-import-request',request_id:requestId,operation:importOperation,status:res.status,duration_ms:Date.now()-started}));
     const headers = new Headers(res.headers);
+    if(importOperation){headers.set('X-Request-ID',requestId);headers.set('Server-Timing',`import;dur=${Date.now()-started}`);}
     headers.set("X-Content-Type-Options", "nosniff");
     if(url.protocol==='https:')headers.set("Strict-Transport-Security","max-age=31536000");
     headers.set("Referrer-Policy", "no-referrer");

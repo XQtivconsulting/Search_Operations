@@ -212,3 +212,20 @@ test('failed chunk rolls back mappings and batch ledger together',async()=>{
  const saved:any=await f.run({action,op:'get',id});assert.equal(saved.outcomes.length,0);assert.equal(saved.version,b.version);
  f.db.close();
 });
+
+test('263-row batch saves, skips and resumes without optional location service; explicit lookup stays verified',async()=>{
+ const f=fixture(),{default:worker}=await import('../src/worker');let assetCalls=0;
+ const env:any={IDENTITY:{getByName:()=>({authenticate:async()=>admin,members:async()=>members})},WORKSPACE:{getByName:()=>f.w},ASSETS:{fetch:async(req:Request)=>{assetCalls++;return Response.json(new URL(req.url).pathname.endsWith('/index.json')?{states:[],shards:['64-61']}:[['Dallas, Texas, United States','dallas texas united states tx us','dallas','city']]);}}};
+ const send=async(body:any)=>{const res=await worker.fetch(new Request('https://app.example.com/api/research',{method:'POST',headers:{Origin:'https://app.example.com'},body:JSON.stringify({action:'historical-mapping-batch',id:'http-batch',...body})}),env);assert.equal(res.status,200,JSON.stringify(await res.clone().json()));assert.ok(res.headers.get('Server-Timing'));return await res.json() as any;};
+ const rows=Array.from({length:263},(_,i)=>({...mappingRow,row:i+2,url:`https://linkedin.com/in/http-batch-${i}`,location:`Unknown place ${i}`}));
+ let b=await send({op:'save',version:0,request_id:'save',rows,location_matches:{'Unknown place 0':{options:['Fake verified location']}}});
+ assert.equal(assetCalls,0);assert.equal(b.plan.length,263);assert.equal(b.plan[0].data.location_verified,false);
+ b=await send({op:'save',version:b.version,request_id:'skip',rows:b.rows.map((r:any)=>r.row===2?{...r,choice:'skip'}:r)});
+ assert.equal(assetCalls,0);assert.equal(b.plan[0].result,'Skip');
+ b=await send({op:'get'});assert.equal(assetCalls,0);assert.equal(b.rows[0].choice,'skip');
+ b=await send({op:'save',version:b.version,request_id:'lookup',location_lookup:'Dallas TX',rows:b.rows.map((r:any)=>r.row===3?{...r,location_query:'Dallas TX'}:r)});
+ assert.equal(assetCalls,2);assert.equal(b.plan[1].data.location,'Dallas, Texas, United States');
+ b=await send({op:'save',version:b.version,request_id:'select',rows:b.rows.map((r:any)=>r.row===3?{...r,location_choice:'Dallas, Texas, United States'}:r)});
+ assert.equal(assetCalls,2);assert.equal(b.plan[1].data.location_verified,true);
+ f.db.close();
+});
