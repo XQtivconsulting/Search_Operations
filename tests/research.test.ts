@@ -714,3 +714,20 @@ test('company merge preserves mappings and reviews, coalesces targets, rejects u
  const f=fixture();const a=await f.run(admin,{action:'company-master',name:'HCL Tech',website:'https://example.test',industries:['IT']}),b=await f.run(admin,{action:'company-master',name:'HCLTech',website:'https://other.test',industries:['Consulting']});const ta=await f.run(admin,{action:'company-save',role_id:'r',company_id:a.id}),tb=await f.run(admin,{action:'company-save',role_id:'r',company_id:b.id});const c=await f.run(admin,{action:'candidate-save',first_name:'Merge',last_name:'Test',company:'HCLTech',url:'https://linkedin.com/in/merge-synthetic'});f.db.prepare('INSERT INTO research_records VALUES(?,?,?,?,?,1)').run('merge-mapping','mapping','r','r:'+c.id,JSON.stringify({company:'HCLTech',company_id:b.id,target_id:tb.id,candidate_id:c.id,status:'Approved',reviews:[{decision:'Approve'}]}));const body={action:'company-merge',keep_id:a.id,source_id:b.id};await assert.rejects(f.run(mapper,{...body,preview:true}),/permission/i);const preview=await f.run(admin,{...body,preview:true});assert.equal(preview.targetConflicts.length,1);assert.equal(preview.conflicts.length,1);await assert.rejects(f.run(admin,{...body,signature:'stale'}),/changed/);assert.ok(await f.rec(b.id));await f.run(admin,{...body,signature:preview.signature});assert.equal(await f.rec(b.id),undefined);assert.equal(await f.rec(tb.id),undefined);assert.equal((await f.rec(c.id)).company_id,a.id);const m=await f.rec('merge-mapping');assert.equal(m.target_id,ta.id);assert.equal(m.company,'HCLTech');assert.equal(m.status,'Approved');assert.deepEqual(m.reviews,[{decision:'Approve'}]);const keep=await f.rec(a.id);assert.ok(keep.aliases.includes('HCLTech'));assert.equal(keep.website,'https://example.test/');assert.equal(keep.merged_profiles[0].name,'HCLTech');assert.equal((await f.state()).research.events.filter(e=>e.action==='company-merge-source').length,1);await assert.rejects(f.run(admin,{...body,signature:preview.signature}),/different/);f.db.close();
 });
 test('company suggestions detect spacing and punctuation variants without automatic exact matching',async()=>{const {suggestedCompanies,exactCompany}=await import('../src/company-match');const companies=[{name:'HCL Tech'},{name:'Other'}];assert.equal(suggestedCompanies(companies,'HCLtech')[0].name,'HCL Tech');assert.equal(suggestedCompanies(companies,'HCL-Tech')[0].name,'HCL Tech');assert.equal(exactCompany(companies,'HCLtech'),undefined);});
+
+test('direct draft approval requires explicit permission and assigned partner; preserves attribution and skips team credit',async()=>{
+ const f=fixture();try{
+  const t=await setup(f),id=await mapping(f,t),draft=await f.rec(id);
+  const direct={...partner,permissions:['reviews.direct']};
+  const body={id,version:draft.version,action:'mapping-approve-draft',notes:'Partner assessed the evidence directly'};
+  await assert.rejects(f.run({...partner,permissions:['reviews.partner']},body),/Permission required/);
+  await assert.rejects(f.run({...mapper,permissions:['reviews.direct']},body),/assigned search partner/);
+  await assert.rejects(f.run(direct,{...body,notes:''}),/Explain why/);
+  await assert.rejects(f.run(direct,{...body,version:99}),/changed/);
+  await f.run(direct,body);
+  const approved=await f.rec(id);assert.equal(approved.status,'Approved');assert.equal(approved.mapper_id,draft.mapper_id);assert.equal(approved.staff_id,draft.staff_id);assert.equal(approved.created_at,draft.created_at);assert.equal(approved.partner_reviewed_by,partner.id);assert.equal(approved.team_review_skipped,true);assert.equal(approved.peer_decision,null);
+  const state=await f.state();assert.deepEqual([state.entries[0].mapped,state.entries[0].peer,state.entries[0].partner],[1,0,1]);assert.equal(state.research.records.filter(r=>r.kind==='engagement'&&r.mapping_id===id).length,1);
+  assert.ok(state.research.events.some(e=>e.action==='mapping-approve-draft'&&e.actor===partner.id&&e.data.after.team_review_skipped));
+  await assert.rejects(f.run(direct,{...body,version:approved.version}),/Only draft/);
+ }finally{f.db.close();}
+});

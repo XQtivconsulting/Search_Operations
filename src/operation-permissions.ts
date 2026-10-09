@@ -15,6 +15,7 @@ const researchPermissions:Record<string,string>={
  'target-assign':'search.targets','target-coverage':'search.targets','target-wave':'search.targets','target-assign-batch':'search.targets','target-waves':'search.targets','company-batch':'search.targets','company-save':'search.targets',
  'company-claim':'candidates.add','company-progress':'candidates.add',
  'mapping-add':'candidates.add','mapping-link':'candidates.add','mapping-inline':'candidates.add','candidate-assign':'candidates.add',
+ 'mapping-approve-draft':'reviews.direct',
  'mapping-edit':'candidates.fit','mapping-submit':'reviews.submit','mapping-reassign':'reviews.manage','mapping-reopen':'reviews.manage',
  'candidate-import':'candidates.import','candidate-archive':'candidates.delete',
  'candidate-file-save':'candidates.edit','candidate-file-list':'candidates.view','candidate-file-read':'candidates.view',

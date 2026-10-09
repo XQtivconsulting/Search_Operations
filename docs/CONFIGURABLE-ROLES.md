@@ -93,3 +93,7 @@ Super Admins edit permission checkboxes directly in the comparison grid and save
 The server resolves current tenant membership and requires an actual Super Admin for role policy mutations and changes to existing members’ assigned roles. Delegated roles.manage permission is insufficient. Batch saves use one transaction, check every role version, and roll back all edits and audits if any role is stale. Ordinary account profile/status administration and invitations retain their existing permissions.
 
 Verification uses synthetic memberships and checks delegated-admin denial, forged actor roles, atomic stale-batch rollback, successful batch versions, and existing role protections.
+
+## Direct draft approval
+
+The explicit `reviews.direct` permission (Approve directly from draft) is opt-in for configured roles. Super Admin retains all permissions. Only the assigned search partner may use it, even with Super Admin access. The mapping action requires Draft status, a ready strategy, valid fit evidence/rationale, a bypass reason, and the current version. It preserves mapping attribution/date, records the partner and team-review skip in the audit, and hands the approved candidate to engagement. It does not fabricate a team approval. The normal two-stage flow remains unchanged.

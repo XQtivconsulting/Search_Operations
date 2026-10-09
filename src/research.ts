@@ -205,10 +205,25 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
    const mid=save('mapping',role,role+':'+cid,mapped);db.audit(a,b.action,mid,null,mapped);ids.push(mid);
    db.rows('INSERT INTO research_events VALUES(?,?,?,?,?,?)',crypto.randomUUID(),mid,a.id,b.action,JSON.stringify({before:null,after:mapped}),iso());
   }return {ids};
- } else if(['mapping-edit','mapping-submit','mapping-review','mapping-reassign','mapping-reopen'].includes(b.action)) {
+ } else if(['mapping-edit','mapping-submit','mapping-review','mapping-approve-draft','mapping-reassign','mapping-reopen'].includes(b.action)) {
   requireThat(old?.kind==='mapping','Mapping not found.');kind='mapping';key=role+':'+old.candidate_id;next={...old};
   if(b.action==='mapping-edit'){requireThat(find('strategy',role),'Create a search strategy before editing fit rationale.');requireThat(old.mapper_id===a.id&&['Draft','Needs information'].includes(old.status),'Only the mapper can edit a draft or returned mapping.',403);requireThat(text(b.rationale),'Enter a fit rationale.');next.rationale=text(b.rationale,5000);const strategy=find('strategy',role);const criteria=strategy?get(db,strategy.id).active_criteria||[]:[];next.evidence=cleanEvidence(b.evidence||old.evidence,criteria);next.criteria_snapshot=criteria;}
-  if(b.action==='mapping-submit'){researcher(a.id);requireThat(text(old.rationale),'Add a fit rationale before submitting.');requireThat(old.mapper_id===a.id&&['Draft','Needs information','Hold'].includes(old.status),'This mapping cannot be submitted by you.',403);next.reviewer_id='';next.reviewer_override=false;next.peer_reviewed_by=null;next.peer_reviewed_name=null;next.peer_reviewed_at=null;const p=member(search.partner_id);requireThat(canPartnerReview(p),'Assign an engagement partner to this role.');const strategy=find('strategy',role);const cutover=strategy?get(db,strategy.id).cutover:null;const criteria=strategy?get(db,strategy.id).active_criteria||[]:[];next.evidence=cleanEvidence(old.evidence,criteria,true);next.criteria_snapshot=criteria;const readiness=submissionReadiness(strategy?get(db,strategy.id):null);requireThat(!readiness,readiness);next.strategy_revision=strategy?get(db,strategy.id).revision:null;next.status='Peer review';next.submitted_at=old.submitted_at||iso();next.stage_at=iso();next.work_date=old.work_date||new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'}).format(new Date());next.peer_decision=null;next.partner_decision=null;next.cycle=(old.cycle||0)+1;}
+  if(b.action==='mapping-submit'){researcher(a.id);requireThat(text(old.rationale),'Add a fit rationale before submitting.');requireThat(old.mapper_id===a.id&&['Draft','Needs information','Hold'].includes(old.status),'This mapping cannot be submitted by you.',403);next.reviewer_id='';next.reviewer_override=false;next.peer_reviewed_by=null;next.peer_reviewed_name=null;next.peer_reviewed_at=null;const p=member(search.partner_id);requireThat(canPartnerReview(p),'Assign an engagement partner to this role.');const strategy=find('strategy',role);const cutover=strategy?get(db,strategy.id).cutover:null;const criteria=strategy?get(db,strategy.id).active_criteria||[]:[];next.evidence=cleanEvidence(old.evidence,criteria,true);next.criteria_snapshot=criteria;const readiness=submissionReadiness(strategy?get(db,strategy.id):null);requireThat(!readiness,readiness);next.strategy_revision=strategy?get(db,strategy.id).revision:null;next.status='Peer review';next.submitted_at=old.submitted_at||iso();next.stage_at=iso();next.work_date=old.work_date||new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'}).format(new Date());next.peer_decision=null;next.partner_decision=null;next.team_review_skipped=false;next.team_review_skip_reason=null;next.cycle=(old.cycle||0)+1;}
+  if(b.action==='mapping-approve-draft') {
+   requireThat(hasPermission(a,'reviews.direct'),'Direct draft approval permission required.',403);
+   requireThat(search.partner_id===a.id,'Only the assigned search partner can approve this draft.',403);
+   const reviewer=member(a.id);
+   requireThat(old.status==='Draft','Only draft mappings can be approved directly.',409);
+   requireThat(text(b.notes),'Explain why team review is being skipped.');
+   requireThat(text(old.rationale),'Add a fit rationale before approving.');
+   const strategyRef=find('strategy',role),strategy=strategyRef?get(db,strategyRef.id):null;
+   const readiness=submissionReadiness(strategy);requireThat(!readiness,readiness);
+   const criteria=strategy?.active_criteria||[];
+   next.evidence=cleanEvidence(old.evidence,criteria,true);next.criteria_snapshot=criteria;next.strategy_revision=strategy?.revision;
+   next.status='Approved';next.partner_decision='Approve';next.partner_reviewed_by=a.id;next.partner_reviewed_name=reviewer.name;next.partner_reviewed_at=iso();
+   next.team_review_skipped=true;next.team_review_skip_reason=text(b.notes,5000);next.peer_decision=null;next.peer_reviewed_by=null;next.peer_reviewed_name=null;next.peer_reviewed_at=null;
+   next.submitted_at=old.submitted_at||iso();next.stage_at=iso();next.work_date=old.work_date||new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'}).format(new Date());next.cycle=(old.cycle||0)+1;next.last_feedback=text(b.notes,5000);
+  }
   if(b.action==='mapping-review') {
    const stage=old.status==='Peer review'?'peer':old.status==='Partner review'?'partner':'';requireThat(stage,'This mapping is not awaiting review.',409);
    if(stage==='peer'){
