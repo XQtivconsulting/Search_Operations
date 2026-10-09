@@ -1,15 +1,26 @@
-import {permissionIds,retiredRoleIds,roleTemplates,effectiveAccessRoles,effectivePermissions} from './access-policy';
+import {initialNavigationPermissions,permissionIds,retiredRoleIds,roleTemplates,effectiveAccessRoles,effectivePermissions} from './access-policy';
 import type {RoleDefinition} from './access-policy';
 import {requireThat,text} from './domain';
 type DB={rows:(q:string,...p:any[])=>any[]};
 export const rolePolicySchema=`CREATE TABLE IF NOT EXISTS access_roles(tenant TEXT NOT NULL,id TEXT NOT NULL,name TEXT NOT NULL,description TEXT NOT NULL,permissions TEXT NOT NULL,version INTEGER NOT NULL,updated_at TEXT NOT NULL,PRIMARY KEY(tenant,id));
-CREATE TABLE IF NOT EXISTS access_role_init(tenant TEXT PRIMARY KEY);`;
+CREATE TABLE IF NOT EXISTS access_role_init(tenant TEXT PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS access_navigation_init(tenant TEXT PRIMARY KEY);`;
 export function roleDefinitions(db:DB,tenant:string):RoleDefinition[]{
  if(!db.rows('SELECT tenant FROM access_role_init WHERE tenant=?',tenant).length){
   for(const r of roleTemplates)db.rows('INSERT OR IGNORE INTO access_roles VALUES(?,?,?,?,?,?,?)',tenant,r.id,r.id==='researcher'?'Researcher':r.name,r.description,JSON.stringify(r.permissions),1,new Date().toISOString());
   db.rows('INSERT INTO access_role_init VALUES(?)',tenant);
  }
  for(const id of retiredRoleIds){const old=db.rows('SELECT * FROM access_roles WHERE tenant=? AND id=?',tenant,id)[0];if(old){db.rows('DELETE FROM access_roles WHERE tenant=? AND id=?',tenant,id);db.rows('INSERT INTO member_events VALUES(?,?,?,?,?,?,?)',crypto.randomUUID(),tenant,'system:role-retirement','role:'+id,JSON.stringify(old),JSON.stringify({deleted:true,reason:'Retired role removed; assignments resolve only against role master'}),new Date().toISOString());}}
+ if(!db.rows('SELECT tenant FROM access_navigation_init WHERE tenant=?',tenant).length){
+  for(const old of db.rows('SELECT * FROM access_roles WHERE tenant=?',tenant)){
+   const permissions=JSON.parse(old.permissions),grants=effectivePermissions([old.id],[{...old,permissions}]);
+   const next=[...new Set([...permissions,...initialNavigationPermissions(grants)])];
+   if(next.length===permissions.length)continue;
+   db.rows('UPDATE access_roles SET permissions=?,version=version+1,updated_at=? WHERE tenant=? AND id=?',JSON.stringify(next),new Date().toISOString(),tenant,old.id);
+   db.rows('INSERT INTO member_events VALUES(?,?,?,?,?,?,?)',crypto.randomUUID(),tenant,'system:navigation-visibility','role:'+old.id,JSON.stringify({permissions}),JSON.stringify({permissions:next}),new Date().toISOString());
+  }
+  db.rows('INSERT INTO access_navigation_init VALUES(?)',tenant);
+ }
  return db.rows('SELECT * FROM access_roles WHERE tenant=? ORDER BY name',tenant).map(r=>({...r,retired:retiredRoleIds.includes(r.id),permissions:JSON.parse(r.permissions)}));
 }
 export function validateAssignedRoles(db:DB,tenant:string,ids:unknown):asserts ids is string[]{

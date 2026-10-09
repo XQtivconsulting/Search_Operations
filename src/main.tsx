@@ -1,3 +1,4 @@
+import {canViewPage} from './navigation-access';
 import './sourcing-monitor.css';
 import {apiResponse} from './api-response';
 const SourcingSettings=lazy(()=>import('./SourcingSettings').then(m=>({default:m.SourcingSettings})));
@@ -137,7 +138,7 @@ function App() {
     try {
       const next=await api('state');expectedUser=next.actor.id;
       setMemberships((await api('workspaces')).memberships||[]);
-      setPage(current=>current||(((hasRole(next.actor,'researcher')||hasRole(next.actor,'engagement'))&&!['admin','planner','partner','founder'].some(r=>hasRole(next.actor,r as any)))?'My Work':'Delivery Monitor'));
+      setPage(current=>current||[...(hasPermission(next.actor,'planning.monitor')||hasPermission(next.actor,'reviews.partner')?['Delivery Monitor']:[]),'My Work','Delivery Monitor','Pipeline','Candidates','Companies','Search repository','Weekly plan','Performance','Interview tracker','Teams','Integrations','Backups & exports','Account settings'].find(name=>canViewPage(next.actor,name))||'Account settings');
       // Operational totals come only from candidate mappings. Historical aggregates remain in storage.
       setData({...next,entries:next.entries.map((e:Row)=>e.source==='candidates'?e:{...e,mapped:null,peer:null,partner:null,peer_at:null,partner_at:null,flag:null,automated:true,notes:''})});
       setError("");
@@ -298,7 +299,7 @@ function App() {
       .includes(search.toLowerCase()),
   );
   const queue=(data.research?.records||[]).filter((m:Row)=>m.kind==='mapping'&&['Peer review','Partner review'].includes(m.status));
-  const pagePermission:Record<string,string>={'My Work':'search.view','Candidates':'candidates.view','Companies':'companies.view','Search repository':'search.view','Weekly plan':'planning.view','Delivery Monitor':'planning.view','Performance':'reports.view','Pipeline':'engagement.view','Daily Work':'engagement.view','Interview tracker':'engagement.view','Teams':'planning.view'};
+
   const nav: [string, React.ElementType,string][] = [
     ['My Work',ClipboardText,'Work'],
     ['Candidates',IdentificationCard,'Talent assets'],
@@ -377,7 +378,7 @@ function App() {
           <img src="/brand/xqtiv-logo.svg" alt="XQtiv"/><span>Search Operations</span>
         </div>
         <NavigationTooltip collapsed={!navExpanded}/><nav id="application-navigation" aria-label="Main navigation">
-          {Array.from(new Set(nav.filter(item=>!pagePermission[item[0]]||hasPermission(actor,pagePermission[item[0]])||item[0]==='Teams'&&hasPermission(actor,'users.view')).map(item=>item[2]))).map(group=><section className="nav-module" key={group}><button className="nav-module-toggle" aria-expanded={!collapsedModules[group]} aria-controls={'nav-'+group.replaceAll(' ','-')} onClick={()=>setCollapsedModules(previous=>({...previous,[group]:!previous[group]}))}><span>{navigationLabel(group)}</span><span aria-hidden="true">{collapsedModules[group]?'▸':'▾'}</span></button><div id={'nav-'+group.replaceAll(' ','-')} hidden={navExpanded&&!!collapsedModules[group]}>{nav.filter(item=>item[2]===group&&(!pagePermission[item[0]]||hasPermission(actor,pagePermission[item[0]])||item[0]==='Teams'&&hasPermission(actor,'users.view'))).map(([label,Icon])=>(<React.Fragment key={label}>
+          {Array.from(new Set(nav.filter(item=>canViewPage(actor,item[0])).map(item=>item[2]))).map(group=><section className="nav-module" key={group}><button className="nav-module-toggle" aria-expanded={!collapsedModules[group]} aria-controls={'nav-'+group.replaceAll(' ','-')} onClick={()=>setCollapsedModules(previous=>({...previous,[group]:!previous[group]}))}><span>{navigationLabel(group)}</span><span aria-hidden="true">{collapsedModules[group]?'▸':'▾'}</span></button><div id={'nav-'+group.replaceAll(' ','-')} hidden={navExpanded&&!!collapsedModules[group]}>{nav.filter(item=>item[2]===group&&(canViewPage(actor,item[0]))).map(([label,Icon])=>(<React.Fragment key={label}>
             <button
               key={label}
               aria-label={navigationLabel(label)} title={!navExpanded?navigationLabel(label):undefined} aria-current={page===label?"page":undefined}
@@ -425,6 +426,7 @@ function App() {
         </div>
       </aside>
       <main className={"main"+(["Search repository","Companies","Candidates","Delivery Monitor","Performance","Engagement","Pipeline","Daily Work","Search assignments","Interview tracker","Engagement Config","Backups & exports"].includes(page)?" compact-workspace":"")}><Suspense fallback={<p role="status" className="muted">Loading screen…</p>}><ViewStateProvider key={page+repoRestore} state={viewStates[page]||{}} change={patch=>setViewStates(previous=>({...previous,[page]:{...previous[page],...patch}}))}>
+        {!canViewPage(actor,page)?<section className="panel"><h2>Page unavailable</h2><p>Your role does not have access to this page.</p><button onClick={()=>setPage(nav.find(([name])=>canViewPage(actor,name))?.[0]||'Account settings')}>Open available page</button></section>:<>
         {!(page === "Candidates" && candidateId) && <header>
           <div>
             <h1>{page === "Search repository" && sBy[selected] ? sBy[selected].title : page==='Pipeline'?'Engagement':navigationLabel(page)}</h1>
@@ -588,6 +590,7 @@ function App() {
         <footer>
           <button onClick={() => load()}>Refresh data</button>
         </footer>
+      </>}
       </ViewStateProvider></Suspense></main>
       {modal && (
         <div

@@ -2,8 +2,27 @@ type AccessSubject={role?:unknown;roles?:unknown;permissions?:unknown;accessRole
 const allRoles=['admin','planner','partner','researcher','engagement','data_quality','founder'];
 const editRoles=['admin','planner','partner','researcher','engagement','data_quality'];
 const define=(id:string,group:string,label:string,description:string,legacy:string[]=allRoles)=>({id,group,label,description,legacy});
+export const navigationVisibility=[
+ ['nav.work','Show My Work'],['nav.candidates','Show Candidates'],['nav.companies','Show Companies'],
+ ['nav.sourcing','Show Sourcing module'],['nav.search','Show Search repository'],['nav.plan','Show Weekly plan'],['nav.monitor','Show Sourcing Monitor'],['nav.performance','Show Sourcing Performance'],
+ ['nav.engagement','Show Engagement'],['nav.interviews','Show Interview tracker'],['nav.admin','Show Admin module'],['nav.access','Show Access Management'],['nav.integrations','Show Integrations'],['nav.sourcing_settings','Show Sourcing settings'],['nav.engagement_settings','Show Engagement configuration'],['nav.backups','Show Backups & exports']
+];
+export function initialNavigationPermissions(permissions:string[]){
+ const has=(...keys:string[])=>keys.some(k=>permissions.includes(k));const out:string[]=[];
+ if(has('search.view'))out.push('nav.work','nav.search');
+ if(has('candidates.view'))out.push('nav.candidates');if(has('companies.view'))out.push('nav.companies');
+ if(has('planning.view'))out.push('nav.plan','nav.monitor');if(has('reports.view'))out.push('nav.performance');
+ if(has('engagement.view'))out.push('nav.engagement','nav.interviews');
+ if(has('planning.view','users.view'))out.push('nav.access');
+ if(has('integrations.manage'))out.push('nav.integrations','nav.sourcing_settings');
+ if(has('engagement.config'))out.push('nav.engagement_settings');if(has('data.backup','data.export'))out.push('nav.backups');
+ if(out.some(p=>['nav.search','nav.plan','nav.monitor','nav.performance'].includes(p)))out.push('nav.sourcing');
+ if(out.some(p=>['nav.access','nav.integrations','nav.sourcing_settings','nav.engagement_settings','nav.backups'].includes(p)))out.push('nav.admin');
+ return out;
+}
 // Legacy lists support unenriched migration/internal actors; signed-in actors always carry saved permissions.
 export const permissionGroups=[
+ ...navigationVisibility.map(([id,label])=>define(id,'Navigation visibility',label,'Show this module or page. Its data and action permissions are still required.')),
  define('search.view','Search setup','View search repository','View searches, JD, criteria, targets, guidance and pitch.'),
  define('search.create','Search setup','Create searches','Create a new search.',['admin','planner']),
  define('search.edit','Search setup','Edit search details','Update search name, client and status.',['admin','planner']),
@@ -27,7 +46,7 @@ export const permissionGroups=[
  define('reviews.team','Reviews','Team review and send to partner','Review candidates in your sourcing team or assigned search.',['admin','researcher','partner']),
  define('reviews.partner','Reviews','Complete partner review','Approve or return candidates as the assigned search partner.',['admin','partner']),
  define('reviews.manage','Reviews','Manage reviews','Reassign reviews or reopen decided mappings with a reason.',['admin','planner','partner']),
- define('planning.view','Planning & allocation','View weekly plan and monitor','Read decisions, allocations and sourcing progress.'),
+ define('planning.view','Planning & allocation','Read planning and sourcing activity','Read decisions, allocations and sourcing activity data. Page visibility is configured separately.'),
  define('planning.decisions','Planning & allocation','Make sourcing decisions','Set weekly Start, Continue, Pause and other decisions.',['admin','planner']),
  define('planning.allocate','Planning & allocation','Allocate sourcing teams','Assign, move and copy sourcing allocations and tasks.',['admin','planner']),
  define('planning.monitor','Planning & allocation','Manage sourcing monitor activities','Manage operational assignments and routing from the monitor.',['admin','planner']),
@@ -42,7 +61,7 @@ export const permissionGroups=[
  define('pto.self','PTO & reporting','Record own PTO','Create and update your own PTO.'),
  define('pto.all','PTO & reporting','Enter PTO for others','Create PTO for any active colleague.',['admin']),
  define('pto.edit','PTO & reporting','Edit or clear others’ PTO','Change or remove existing PTO for colleagues.',['admin']),
- define('reports.view','PTO & reporting','View sourcing performance','View delivery and performance reports.'),
+ define('reports.view','PTO & reporting','Read sourcing performance metrics','Read delivery and performance data. Sourcing Performance visibility is configured separately.'),
  define('data.export','PTO & reporting','Export workspace data','Download business workbooks and attachments.',[]),
  define('data.backup','PTO & reporting','Manage business backups','Run and download private business backups. Reset remains Super Admin only.',[]),
  define('users.view','People & administration','View people directory','View accepted accounts and profile details.',['admin']),
@@ -73,7 +92,7 @@ export const roleTemplates:RoleDefinition[]=[
  make('partner','Partner',[...shared,...engage,...lead,'search.create','search.edit','search.partner','search.fit','candidates.delete','reviews.partner','reviews.team','reviews.manage','engagement.assign','engagement.config','pto.all','data.export','data.backup','users.view','users.profile'],'Own searches, review candidates and oversee delivery'),
  make('admin','Admin',permissionIds,'Manage workspace operations, users and permissions'),
  make('data_quality','Data Quality',[...view,'candidates.create','candidates.edit','candidates.import','pto.self'],'Maintain and import candidate data'),
-];
+].map(r=>({...r,permissions:[...new Set([...r.permissions,...initialNavigationPermissions(r.permissions)])]}));
 export function effectivePermissions(assigned:string[],definitions:RoleDefinition[]):string[]{
  const granted=assigned.includes('super_admin')?[...permissionIds]:assigned.flatMap(id=>definitions.find(d=>d.id===id)?.permissions||[]);
  const out=new Set(granted);

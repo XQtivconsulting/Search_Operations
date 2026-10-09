@@ -35,3 +35,13 @@ test('retired roles are removed from the master even when historical assignments
  assert.equal(db.rows("SELECT COUNT(*) n FROM member_events WHERE tenant='tenant'")[0].n,1);
  roleDefinitions(db,'tenant');assert.equal(db.rows("SELECT COUNT(*) n FROM member_events WHERE tenant='tenant'")[0].n,1);sql.close();
 });
+
+test('navigation migration preserves existing visibility once and respects later revocation',()=>{
+ const sql=new DatabaseSync(':memory:');sql.exec(identitySchema);sql.exec(rolePolicySchema);const db={rows:(q:string,...p:any[])=>sql.prepare(q).all(...p) as any[]};
+ db.rows("INSERT INTO access_role_init VALUES('legacy')");
+ db.rows("INSERT INTO access_roles VALUES('legacy','custom','Custom','',?,4,'2026-01-01')",JSON.stringify(['planning.allocate','reports.view']));
+ const first=roleDefinitions(db,'legacy')[0];assert.equal(first.version,5);assert.ok(first.permissions.includes('nav.monitor'));assert.ok(first.permissions.includes('nav.performance'));assert.ok(first.permissions.includes('nav.sourcing'));assert.ok(!first.permissions.includes('nav.integrations'));assert.ok(!first.permissions.includes('integrations.manage'));
+ db.rows("UPDATE access_roles SET permissions=? WHERE tenant='legacy'",JSON.stringify(first.permissions.filter(p=>p!=='nav.monitor')));
+ assert.ok(!roleDefinitions(db,'legacy')[0].permissions.includes('nav.monitor'));assert.equal(db.rows("SELECT COUNT(*) n FROM member_events WHERE tenant='legacy'")[0].n,1);
+ assert.equal(db.rows("SELECT COUNT(*) n FROM access_roles WHERE tenant='other'")[0].n,0);sql.close();
+});

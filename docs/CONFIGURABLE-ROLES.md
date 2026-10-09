@@ -77,3 +77,11 @@ No authenticated production-browser walkthrough is claimed.
 
 ## Comparison view and retired templates
 The administration screen now shows permissions as grouped rows and active roles as columns, with effective allowed/not-allowed values and an Edit action per role. Planner and Founder are no longer offered as templates or assignable new roles. If either is assigned already, its access is preserved as a retired role until an administrator reassigns the member or resolves its pending invitation; this avoids silently replacing it with a more powerful role. Super Admin remains protected.
+
+## Navigation visibility — 9 October 2026
+
+Roles & permissions starts with Navigation visibility. Independent saved controls cover My Work, Candidates, Companies, the Sourcing module and each sourcing page (Search repository, Weekly plan, Sourcing Monitor, Sourcing Performance), Engagement, Interview tracker, the Admin module and each admin page (Access Management, Integrations, Sourcing settings, Engagement configuration, Backups & exports).
+
+A page requires its visibility grant, its parent module grant where applicable, and its existing data/action access. Visibility grants do not grant data, editing, import or administrative operations. Sidebar and page rendering share the same check, including browser history and internal links. Account settings remain available. Super Admin retains protected access. Navigation grants are never inferred from action permissions after migration, so administrators can explicitly hide a page while preserving actions used elsewhere.
+
+Existing tenant role policies receive a one-time, versioned/audited migration preserving prior page availability based on their effective permissions. No new editing/import authority is added. Later visibility revocations remain saved. New role templates include their corresponding visibility grants; a custom role starts empty. Tests cover independent monitor/performance access, parent module gates, feature permission requirements, unknown-page denial, migration idempotence, revocation and tenant isolation. Existing server authorization and category filtering remain in force.

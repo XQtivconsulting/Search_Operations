@@ -29,3 +29,20 @@ test('role combinations include necessary viewing but not adjacent editing power
  assert.ok(p.includes('planning.view'));assert.ok(p.includes('candidates.view'));assert.ok(p.includes('search.view'));
  assert.ok(!p.includes('planning.decisions'));assert.ok(!p.includes('search.fit'));assert.ok(!p.includes('users.access'));
 });
+
+test('navigation visibility separates monitor, performance, module gates and action permissions',async()=>{
+ const {canViewPage}=await import('../src/navigation-access');
+ const subject=(permissions:string[])=>({roles:['custom'],permissions});
+ assert.equal(canViewPage(subject(['planning.view','nav.sourcing','nav.plan']),'Weekly plan'),true);
+ assert.equal(canViewPage(subject(['planning.view','nav.sourcing','nav.plan']),'Delivery Monitor'),false);
+ assert.equal(canViewPage(subject(['reports.view','nav.sourcing','nav.performance']),'Performance'),true);
+ assert.equal(canViewPage(subject(['reports.view','nav.performance']),'Performance'),false);
+ assert.equal(canViewPage(subject(['nav.admin','nav.integrations']),'Integrations'),false);
+ assert.equal(canViewPage(subject(['nav.admin','nav.integrations','integrations.manage']),'Integrations'),true);
+ assert.equal(canViewPage(subject(['nav.integrations','integrations.manage']),'Integrations'),false);
+ assert.equal(canViewPage(subject([]),'Account settings'),true);
+ assert.equal(canViewPage(subject([]),'Unknown page'),false);
+ assert.equal(canViewPage({roles:['super_admin'],permissions:[]},'Integrations'),true);
+ const p=effectivePermissions(['custom'],[{id:'custom',name:'Custom',description:'',version:1,permissions:['planning.allocate']}]);
+ assert.ok(p.includes('planning.view'));assert.ok(!p.includes('nav.monitor'));assert.equal(canViewPage(subject(p),'Delivery Monitor'),false);
+});
