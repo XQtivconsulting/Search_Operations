@@ -10,7 +10,7 @@
 
 .sheet-table small { display:block; }
 .sheet-table input:not([type=checkbox]) { width:100%; min-width:105px; border:1px solid #8d99af; border-radius:3px; padding:7px; background:white; color:#001b50; }
-.sheet-table td:last-child input { min-width:230px; }
+.sheet-table td:last-child input:not([type="checkbox"]):not([type="radio"]) { min-width:230px; }
 .sheet-table input:disabled { background:#edf2f5; color:#52627d; cursor:not-allowed; }
 .sheet-table input[type=checkbox] { width:18px; height:18px; }
 .sheet-changed td { background:#fff8da; }
