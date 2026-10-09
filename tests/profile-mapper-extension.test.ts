@@ -22,7 +22,7 @@ test('extension has only the XRP host grant and no cookie, clipboard or broad si
 
 function popupHarness(search=""){
  const elements=new Map<string,any>(),timers=new Map<number,{fn:()=>void,ms:number}>();let timer=0;
- const element=(id='')=>({id,value:'',textContent:'',disabled:false,hidden:false,options:[] as any[],append(){},addEventListener(){},replaceChildren(){this.options=[];},add(o:any){this.options.push(o);}});
+ const element=(id='')=>({id,value:'',textContent:'',disabled:false,hidden:false,parentElement:{hidden:false},options:[] as any[],children:[] as any[],append(child:any){this.children.push(child);},setAttribute(){},addEventListener(){},replaceChildren(){this.options=[];this.children=[];},add(o:any){this.options.push(o);}});
  const get=(id:string)=>{if(!elements.has(id))elements.set(id,element(id));return elements.get(id);};
  let injected:any,reply:any={actor:{id:'member',name:'Member'},workspace:'xqtiv',searches:[]};let hang=true;
  const context=vm.createContext({location:{search},URLSearchParams,document:{body:{classList:{add(){}}},getElementById:get,createElement:()=>element(),querySelectorAll:()=>[...elements.values()]},Option:function(label:string,id:string){return {label,value:id};},Date,Error,AbortController,
@@ -83,7 +83,7 @@ test('detached Capture targets the original browser window and requires optional
  const h=popupHarness('?detached=1&sourceWindow=42');let query:any,captures=0,allowed=false;
  h.context.chrome.permissions={request:async()=>allowed};
  h.context.chrome.tabs.query=async(q:any)=>{query=q;return [{id:55,url:'https://www.linkedin.com/in/synthetic/'}];};
- h.context.chrome.scripting.executeScript=async()=>{captures++;return [];};
+ h.context.chrome.scripting.executeScript=async(spec:any)=>{if(spec.files){captures++;return [];}return [{result:{data:spec.args[0]==='context'?{actor:{id:'test',name:'Test'},workspace:'test',searches:[]}:{matches:[],companies:[],exactCompanyId:''}}}];};
  h.context.chrome.tabs.sendMessage=async()=>({name:'Synthetic Person',company:'Example',currentTitle:'Director'});
  h.context.chrome.storage.local.set=async()=>{};
  await h.get('capture').onclick();assert.equal(captures,0);assert.match(h.get('status').textContent,/Allow LinkedIn/);
@@ -95,7 +95,7 @@ test('detach creates a resizable popup and carries destination without credentia
  h.context.chrome.runtime={getURL:()=> 'chrome-extension://test/popup.html'};
  h.context.chrome.windows={create:async(args:any)=>{created=args;}};h.context.window={close:()=>{closed=true;}};
  h.get('destinationMode').value='search';h.get('search').value='s1';await h.get('detach').onclick();
- assert.equal(created.type,'popup');assert.equal(created.height,760);assert.match(created.url,/sourceWindow=42/);assert.match(created.url,/search=s1/);assert.equal(closed,true);
+ assert.equal(created.type,'popup');assert.equal(created.height,640);assert.match(created.url,/sourceWindow=42/);assert.match(created.url,/search=s1/);assert.equal(closed,true);
 });
 
 test('visible Experience fallback reads current jobs without relying on DOM classes',()=>{
@@ -104,4 +104,18 @@ test('visible Experience fallback reads current jobs without relying on DOM clas
  r=parse('Experience\nExample Systems\nFull-time · 6 yrs\nSales Director\nJan 2024 – Present\nSales Manager\nJan 2020 - Jan 2024');assert.equal(r.company,'Example Systems');assert.equal(r.currentTitle,'Sales Director');
  r=parse('Experience\nEngineer\nExample Labs\nJan 2024 - Present');assert.equal(r.company,'Example Labs');assert.equal(r.currentTitle,'Engineer');
  r=parse('Experience\nEngineer\nOld Company\nJan 2020 - Dec 2023\nEducation\nNew University\nJan 2024 - Present');assert.equal(r.company,'');assert.equal(r.currentTitle,'');
+});
+
+test('search typing displays clickable matches and selecting a result pins the import destination',()=>{
+ const h=popupHarness();vm.runInContext("context={searches:[{id:'s16',search_number:16,client:'Example',title:'Sales Leader'},{id:'s116',search_number:116,client:'Example',title:'AI Leader'}]}",h.context);
+ h.get('destinationMode').value='search';h.get('searchQuery').value=' 16 ';h.get('searchQuery').oninput();assert.equal(h.get('searchResults').children.length,2);
+ h.get('searchResults').children[0].onclick();assert.equal(h.get('search').value,'s16');assert.match(h.get('destinationSummary').textContent,/16.*Sales Leader/);
+ h.get('searchQuery').value='nothing matches';h.get('searchQuery').oninput();assert.equal(h.get('search').value,'');assert.match(h.get('searchResults').textContent,/No matching/);
+});
+test('capturing automatically previews duplicates without committing candidate data',async()=>{
+ const h=popupHarness();const actions:string[]=[];
+ h.context.chrome.tabs.query=async()=>[{id:1,url:'https://www.linkedin.com/in/example/'}];h.context.chrome.storage.local.set=async()=>{};
+ h.context.chrome.tabs.sendMessage=async()=>({name:'Example Person',linkedinUrl:'https://www.linkedin.com/in/example/',company:'Example',currentTitle:'Director'});
+ h.context.chrome.scripting.executeScript=async(spec:any)=>{if(spec.files)return [];actions.push(spec.args[0]);return [{result:{data:spec.args[0]==='context'?{actor:{id:'test',name:'Test'},workspace:'test',searches:[]}:{matches:[],companies:[],exactCompanyId:''}}}];};
+ await h.get('capture').onclick();assert.deepEqual(actions,['context','preview']);assert.equal(h.get('matchInfo').textContent,'No matching candidate found.');assert.equal(h.get('review').hidden,false);assert.equal(h.get('profile').hidden,false);
 });

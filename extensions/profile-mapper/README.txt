@@ -1,25 +1,21 @@
-XRP Profile Mapper 2.0.2
+XRP Profile Mapper 2.0.3
 
-Install in Chrome or Edge:
-1. Unzip this package into a folder.
-2. Open chrome://extensions (Edge: edge://extensions).
-3. Turn on Developer mode, choose Load unpacked, select that folder.
-4. Sign in to https://xqtiv-search-operations.xqtiv.workers.dev and keep that tab open.
-5. Open a LinkedIn profile, open the extension and click Connect to XRP.
-6. Capture the profile, review/edit details, choose an assigned open search (or directory only), Review import, resolve possible matches, Import into XRP.
+Install/update in Chrome or Edge:
+Unzip into a folder. Open chrome://extensions or edge://extensions, enable Developer mode and Load unpacked. For updates replace the files in the same folder, click Reload, and refresh LinkedIn and XRP.
 
-The extension uses your current XRP session. No API key, password or cookie is stored or read by the extension. Signing out or revoking permissions prevents further imports. The connected account is displayed. After switching account/workspace, reconnect before importing.
+Use:
+1. Keep XRP signed in in a browser tab.
+2. Open a LinkedIn profile and open the mapper. Connect to XRP.
+3. Choose Into a search (default), type its name/client/XQtiv ID and CLICK a matching result. Or explicitly choose Candidate directory only.
+4. Capture LinkedIn profile. Existing candidates and companies are checked automatically. Edit captured details if needed; edits refresh the check.
+5. Exact matches are reused. Similar matches require your selection or explicit new-record confirmation. Click Import to save.
 
-Only the exact XRP host receives import requests. Capture reads the current LinkedIn profile when you click Capture; this is not a bulk crawler. Extraction can be incomplete or inaccurate. Review all fields, especially names, concurrent jobs and location. No full work history is imported. Contact details can be entered manually.
+New mappings are Draft, attributed to the signed-in member. Existing search mappings retain their status. Existing candidate profiles are not overwritten. New companies are added to the master; existing matches are reused. No business record is saved until Import is clicked.
 
-Existing candidates are reused without overwriting their profiles. New mappings are Draft and retain the authenticated mapper identity. Repeated imports reuse the candidate and existing mapping. Similar candidates/companies require review before creating a new record. Captured location is unverified text; confirm in XRP when needed.
+The arrow at the top opens a separate movable/resizable window. Keep browsing profiles in the originating browser window. Detached capture requests optional LinkedIn access. Reconnect to XRP in the separate window. Contact fields expand under Contact details.
 
-The current candidate draft is stored locally for up to 24 hours and can be removed with Clear profile. No credentials are stored. Uninstalling removes the extension's local data. Leave the popup open until an import finishes; reopening and repeating the same profile/search safely reuses existing records.
+The extension uses the current XRP session without reading/storing cookies, passwords or API keys. Every API request checks membership, permissions and workspace. Reconnect after switching accounts/workspaces. Only authorized open searches are available.
 
-To update: replace this folder's files and click Reload on the extension card. This internal package is not a Chrome Web Store release.
+Extraction is best-effort. Company capture remains unresolved on some reported layouts. Enter missing values manually until resolved. No full work history is imported. Location is unverified text. The current profile draft is stored locally for up to 24 hours and can be cleared. No bulk crawler or telemetry is included.
 
-Connection recovery: if XRP is sleeping, open or refresh its tab before reconnecting. Connection status/errors appear at the top. Requests time out rather than leaving the controls disabled.
-
-Import destination defaults to Into a search. Choose the search before Review import. Candidate directory only is a separate explicit option. The destination is shown above the fields and in the final review.
-
-Open in separate window lets you drag or resize the mapper outside the main browser window. Keep browsing LinkedIn in the original browser window. On first detached capture, allow the optional LinkedIn access prompt; capture still runs only when clicked. Connect to XRP again in the new window.
+If a connection times out, open/refresh XRP and reconnect. If an import response times out, retry the same candidate/search; duplicate safeguards reuse existing records. This is an internal unpacked extension, not a Web Store release.

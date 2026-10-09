@@ -4,12 +4,12 @@ const windowParams=new URLSearchParams(location.search),sourceWindow=Number(wind
 const detached=windowParams.get('detached')==='1';let initialSearch=windowParams.get('search')||'';
 if(detached){document.body.classList.add('detached');$('detach').hidden=true;if(windowParams.get('mode')==='directory')$('destinationMode').value='directory';}
 const fields={firstName:'First name',lastName:'Last name',linkedinUrl:'LinkedIn URL',currentTitle:'Current title',company:'Company',location:'Location',email:'Email',phone:'Phone'};
-let context=null,tabId=null,preview=null,busy=false;
+let context=null,tabId=null,preview=null,busy=false,previewTimer=null,revision=0;
 async function bounded(promise,ms,message){let timer;try{return await Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error(message)),ms);})]);}finally{clearTimeout(timer);}}
-for(const [id,label] of Object.entries(fields)){const l=document.createElement('label'),input=document.createElement('input');l.textContent=label;input.id=id;input.maxLength=id==='linkedinUrl'?1000:300;input.required=['firstName','lastName','linkedinUrl'].includes(id);if(id==='email')input.type='email';l.append(input);$('fields').append(l);input.addEventListener('input',()=>{invalidate();persist();});}
+for(const [id,label] of Object.entries(fields)){const l=document.createElement('label'),input=document.createElement('input');l.textContent=label;input.id=id;input.maxLength=id==='linkedinUrl'?1000:300;input.required=['firstName','lastName','linkedinUrl'].includes(id);if(id==='email')input.type='email';l.append(input);$(id==='email'||id==='phone'?'contacts':'fields').append(l);input.addEventListener('input',()=>{invalidate();persist();schedulePreview();});}
 const values=()=>Object.fromEntries(Object.keys(fields).map(k=>[k,$(k).value.trim()]));
 const report=t=>$('status').textContent=t;
-const invalidate=()=>{preview=null;$('review').hidden=true;$('open').hidden=true;};
+const invalidate=()=>{revision++;preview=null;$('review').hidden=true;$('open').hidden=true;};
 async function persist(){await chrome.storage.local.set({profileDraft:{candidate:values(),savedAt:Date.now()}});}
 async function run(fn){if(busy)return;busy=true;const controls=[...document.querySelectorAll('button,input,select')];controls.forEach(e=>e.disabled=true);try{await fn();}catch(e){report(e.message);}finally{busy=false;controls.forEach(e=>e.disabled=false);}}
 async function api(action,body){
@@ -31,7 +31,18 @@ async function api(action,body){
  if(result?.result?.error)throw Error(result.result.error);if(!result?.result?.data)throw Error('XRP did not respond. Reconnect.');return result.result.data;
 }
 function options(select,list,empty){select.replaceChildren();if(empty!==null)select.add(new Option(empty,''));for(const item of list)select.add(new Option(item.label,item.id));}
-function searches(){const old=$('search').value||initialSearch,q=$('searchQuery').value.toLowerCase();options($('search'),(context?.searches||[]).filter(s=>[s.search_number,s.client,s.title].join(' ').toLowerCase().includes(q)).map(s=>({id:s.id,label:[s.search_number,s.client,s.title].filter(Boolean).join(' · ')})),'Choose a search…');if([...$('search').options].some(o=>o.value===old))$('search').value=old;else $('search').value='';initialSearch='';destinationChanged();}
+function searchLabel(s){return [s.search_number,s.client,s.title].filter(Boolean).join(' · ');}
+function searches(){
+ const old=$('search').value||initialSearch,q=$('searchQuery').value.trim().toLowerCase();
+ const all=context?.searches||[],tokens=q.split(/\s+/).filter(Boolean);
+ const matches=all.filter(s=>tokens.every(t=>searchLabel(s).toLowerCase().includes(t)));
+ options($('search'),all.map(s=>({id:s.id,label:searchLabel(s)})),'Choose a search…');
+ $('search').value=all.some(s=>s.id===old)?old:'';initialSearch='';
+ destinationChanged();$('searchResults').replaceChildren();
+ if(!context){$('searchResults').textContent='Connect to XRP to load searches.';return;}
+ if(!matches.length){$('searchResults').textContent=all.length?'No matching open searches. Try the name or clear the filter.':'No authorized open searches available.';return;}
+ for(const s of matches){const button=document.createElement('button');button.type='button';button.className='search-result';button.textContent=searchLabel(s);button.title=button.textContent;button.setAttribute('aria-pressed',String(s.id===$('search').value));button.onclick=()=>{$('search').value=s.id;$('searchQuery').value=searchLabel(s);destinationChanged();$('searchResults').replaceChildren();report('');schedulePreview();};$('searchResults').append(button);}
+}
 function destination(){
  if($('destinationMode').value==='directory')return {searchId:'',label:'Candidate directory only'};
  const search=context?.searches.find(s=>s.id===$('search').value);
@@ -49,27 +60,37 @@ async function connect(open=true){
  if(!tab){if(open)await chrome.tabs.create({url:ORIGIN});throw Error('Sign in to XRP, then return here and click Connect to XRP.');}
  tabId=tab.id;const data=await api('context');context=data;$('account').textContent='Connected as '+data.actor.name+' · '+data.workspace;searches();report('Connected.');
 }
-$('connect').onclick=()=>run(()=>connect());
-$('searchQuery').oninput=searches;$('search').onchange=destinationChanged;$('destinationMode').onchange=destinationChanged;
+$('connect').onclick=()=>run(async()=>{await connect();await checkMatches();});
+$('searchQuery').oninput=()=>{$('search').value='';searches();};$('searchQuery').onfocus=searches;$('search').onchange=destinationChanged;$('destinationMode').onchange=()=>{destinationChanged();schedulePreview();};
 $('detach').onclick=()=>run(async()=>{
  const [source]=await chrome.tabs.query({active:true,currentWindow:true});await persist();
  const params=new URLSearchParams({detached:'1',sourceWindow:String(source.windowId),mode:$('destinationMode').value,search:$('search').value});
- await chrome.windows.create({url:chrome.runtime.getURL('popup.html')+'?'+params,type:'popup',width:460,height:760});window.close();
+ await chrome.windows.create({url:chrome.runtime.getURL('popup.html')+'?'+params,type:'popup',width:540,height:640});window.close();
 });
 $('capture').onclick=()=>run(async()=>{
  if(detached){const granted=await chrome.permissions.request({origins:['https://www.linkedin.com/*','https://linkedin.com/*']});if(!granted)throw Error('Allow LinkedIn access to capture from this window, or use the toolbar popup.');}
  const [tab]=await chrome.tabs.query(detached&&Number.isInteger(sourceWindow)&&sourceWindow>0?{active:true,windowId:sourceWindow}:{active:true,currentWindow:true});if(!/^https:\/\/(www\.)?linkedin\.com\/in\//i.test(tab?.url||''))throw Error('Open an individual LinkedIn profile first.');
  report('Reading profile…');await chrome.scripting.executeScript({target:{tabId:tab.id},files:['content.js']});const p=await chrome.tabs.sendMessage(tab.id,{type:'EXTRACT_PROFILE_V128'});if(!p||p.error)throw Error(p?.error||'Could not read this profile.');
  const parts=(p.name||'').trim().split(/\s+/),candidate={...p,firstName:parts.shift()||'',lastName:parts.join(' '),email:'',phone:''};
- for(const k of Object.keys(fields))$(k).value=candidate[k]||'';invalidate();await persist();const missing=['currentTitle','company'].filter(k=>!candidate[k]).map(k=>fields[k]);report(missing.length?missing.join(' and ')+' not found. Expand Experience and capture again, or enter manually.':'Review captured details before importing.');
+ for(const k of Object.keys(fields))$(k).value=candidate[k]||'';invalidate();await persist();const missing=['currentTitle','company'].filter(k=>!candidate[k]).map(k=>fields[k]);report(missing.length?missing.join(' and ')+' not found. Expand Experience and capture again, or enter manually.':'');await checkMatches();
 });
-$('profile').onsubmit=e=>{e.preventDefault();run(async()=>{
- if(!context)await connect();const target=destination(),payload={candidate:values(),searchId:target.searchId};const result=await api('preview',payload);preview={...result,payload,target};$('reviewDestination').textContent=target.searchId?'Import into search: '+target.label:target.label;$('import').textContent=target.searchId?'Import into selected search':'Import into candidate directory';
+function schedulePreview(){clearTimeout(previewTimer);previewTimer=setTimeout(()=>run(checkMatches),450);}
+async function checkMatches(){
+ const candidate=values();if(!candidate.firstName||!candidate.lastName||!candidate.linkedinUrl)return;
+ if(!context)await connect();
+ let target;try{target=destination();}catch{target={searchId:'',label:'Choose a search to import'};}
+ const currentRevision=revision,payload={candidate,searchId:target.searchId};
+ $('matchInfo').textContent='Checking existing candidates…';$('review').hidden=false;$('import').hidden=true;
+ let result;try{result=await api('preview',payload);}catch(e){if(currentRevision===revision)$('review').hidden=true;throw e;}if(currentRevision!==revision)return;
+ preview={...result,payload,target};$('reviewDestination').textContent=target.searchId?'Search: '+target.label:target.label;$('import').textContent=target.searchId?'Import into selected search':'Import';$('import').hidden=false;
  const exact=result.matches.find(m=>m.exact);options($('candidateMatch'),result.matches.map(m=>({id:m.candidate.id,label:m.candidate.name+' · '+(m.candidate.company||'')+' — '+m.reason})),exact?null:'Create new candidate');if(exact)$('candidateMatch').value=exact.candidate.id;
  options($('companyMatch'),result.companies.map(c=>({id:c.id,label:c.name})),'Create company if needed');$('companyMatch').value=result.exactCompanyId;
- $('newCandidate').checked=false;$('newCompany').checked=false;$('review').hidden=false;
- $('matchInfo').textContent=exact?'Existing candidate will be reused. Saved profile details will not be overwritten.':result.matches.length?'Review possible duplicates.':'No matching candidate found.';report('Review the matches, then import.');
- });};
+ $('newCandidate').checked=false;$('newCompany').checked=false;
+ $('candidateMatch').parentElement.hidden=!result.matches.length||!!exact;$('newCandidate').parentElement.hidden=!result.matches.length||!!exact;
+ $('companyMatch').parentElement.hidden=!!exact||!result.companies.length;$('newCompany').parentElement.hidden=!!exact||!result.companies.length||!!result.exactCompanyId;
+ $('matchInfo').textContent=exact?'Already in XRP: '+exact.candidate.name+'. Existing profile will be reused.':result.matches.length?'Possible duplicates—choose an existing candidate or confirm a new one.':'No matching candidate found.';
+}
+$('profile').onsubmit=e=>e.preventDefault();
 $('import').onclick=()=>run(async()=>{
  if(!preview)throw Error('Review the import first.');
  if(destination().searchId!==preview.payload.searchId)throw Error('Destination changed. Review the import again.');

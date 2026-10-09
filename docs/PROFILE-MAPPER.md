@@ -40,3 +40,8 @@ Destination appears above the profile fields and defaults to Into a search with 
 Open in separate window creates a movable/resizable extension window, carrying the current draft and destination choice (search is revalidated on connection). Capture reads the active profile in the originating browser window. Detached capture requests optional access only to LinkedIn; declining leaves the toolbar capture available. No automatic crawling or import is added. Native Edge window movement still needs a user acceptance check.
 
 Capture also parses visible Experience text when stable DOM selectors fail, including ordinary and grouped employer layouts. It requires a current dated entry and ignores other profile sections and past-only roles. This is covered with synthetic text fixtures; the specific reported LinkedIn profile remains unverified.
+
+## 2.0.3 compact picker
+Search results are clickable immediately under the query; matching uses trimmed case-insensitive tokens. Editing the query clears the previous selection. No-match, disconnected and no-authorized-search states are explicit. Permissions and open-search eligibility are unchanged. Profile fields use two columns, contact details collapse, and match results appear below the form automatically.
+
+Capture triggers a read-only duplicate/company preview automatically, including when no search has been chosen yet. Field edits debounce a refreshed preview; destination selection refreshes its scope. Final Import still requires a valid explicit destination and duplicate confirmations. No business write occurs during automatic preview.
