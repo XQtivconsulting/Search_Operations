@@ -812,3 +812,26 @@ test('extension import requires duplicate/company review and only links chosen m
  const chosen:any=await invoke({action:'commit',candidate:differentPerson,companyId:preview.companies[0].id});assert.equal((await f.rec(chosen.candidateId)).company,'Example Systems');
  }finally{f.db.close();}
 });
+
+
+test('never-submitted draft removal preserves candidate, other searches and audit, and permits a fresh mapping',async()=>{
+ const f=fixture(),t=await setup(f),id=await mapping(f,t),t2=await setup(f,'r2');const other=await mapping(f,t2,'r2'),before=await f.rec(id);
+ await assert.rejects(f.run(peer,{...before,action:'mapping-remove'}),/Only the mapper/);
+ await assert.rejects(f.run(mapper,{...before,version:0,action:'mapping-remove'}),/changed/);
+ await f.run(mapper,{...before,action:'mapping-remove'});
+ const state=await f.state();assert.ok(state.research.records.some(r=>r.id===before.candidate_id));assert.ok(state.research.records.some(r=>r.id===other));assert.ok(!state.research.records.some(r=>r.id===id));
+ const retained=f.db.prepare('SELECT * FROM research_records WHERE id=?').get(id)!;assert.equal(retained.kind,'mapping-removed');assert.equal(JSON.parse(retained.data as string).removed_by,'mapper');
+ assert.equal(f.db.prepare("SELECT actor FROM audit WHERE action='mapping-remove'").get()!.actor,'mapper');
+ const logged=f.db.prepare("SELECT * FROM change_events WHERE table_name='research_records' AND after_json LIKE '%mapping-removed%'").all();assert.equal(logged.length,1,JSON.stringify(f.db.prepare("SELECT action,actor,table_name FROM change_events ORDER BY rowid DESC LIMIT 8").all()));assert.equal(logged[0].actor,'mapper');
+ const fresh=await mapping(f,t);assert.notEqual(fresh,id);assert.equal((await f.rec(fresh)).candidate_id,before.candidate_id);f.db.close();
+});
+test('assigned partner can remove drafts but review history permanently prevents removal',async()=>{
+ const f=fixture(),t=await setup(f),id=await mapping(f,t);await f.run(partner,{...await f.rec(id),action:'mapping-remove'});
+ const fresh=await mapping(f,t);await f.run(mapper,{...await f.rec(fresh),action:'mapping-submit'});
+ await assert.rejects(f.run(partner,{...await f.rec(fresh),action:'mapping-remove'}),/never-submitted/);
+ await f.run(peer,{...await f.rec(fresh),action:'mapping-review',decision:'Needs information',notes:'More evidence'});
+ await assert.rejects(f.run(mapper,{...await f.rec(fresh),action:'mapping-remove'}),/never-submitted/);
+ // Even a legacy record with a reset Draft status cannot bypass immutable submission history.
+ f.db.prepare("UPDATE research_records SET data=json_set(json_remove(data,'$.submitted_at','$.cycle','$.peer_decision','$.peer_reviewed_at'),'$.status','Draft') WHERE id=?").run(fresh);
+ await assert.rejects(f.run(mapper,{...await f.rec(fresh),action:'mapping-remove'}),/already entered review/);f.db.close();
+});

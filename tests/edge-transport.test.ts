@@ -50,10 +50,10 @@ test('candidate token cryptography and role email options work inside workerd',a
 });
 
 test('mapping preview and import cross the real Worker/SQLite RPC boundary with normalized locations',async()=>{
- const bundle=await build({bundle:true,write:false,format:'esm',platform:'browser',external:['cloudflare:workers','node:crypto'],stdin:{resolveDir:process.cwd(),sourcefile:'mapping-rpc-probe.ts',loader:'ts',contents:`
+ const bundle=await build({bundle:true,write:false,format:'esm',platform:'browser',external:['cloudflare:workers','node:crypto','node:async_hooks'],stdin:{resolveDir:process.cwd(),sourcefile:'mapping-rpc-probe.ts',loader:'ts',contents:`
  import worker from './src/worker';
  import {Workspace} from './src/workspace';
- export class ImportWorkspace extends Workspace {async seed(){this.rows("INSERT INTO searches(id,client,title,search_number) VALUES('r','Synthetic','Leader',107)");this.rows("INSERT INTO staff VALUES('s','Synthetic Researcher')");}}
+ export class ImportWorkspace extends Workspace {async journal(){return this.rows("SELECT actor,action,table_name FROM change_events WHERE table_name='research_records'");}async seed(){this.rows("INSERT INTO searches(id,client,title,search_number) VALUES('r','Synthetic','Leader',107)");this.rows("INSERT INTO staff VALUES('s','Synthetic Researcher')");}}
  export default {async fetch(req,env){
   const w=env.WORKSPACE.getByName('test');await w.seed();
   const actor={id:'admin',role:'admin',tenant:'test',name:'Admin'},members=[{...actor,status:'active'}];
@@ -62,8 +62,8 @@ test('mapping preview and import cross the real Worker/SQLite RPC boundary with 
   const send=body=>worker.fetch(new Request('https://app.example.com/api/research',{method:'POST',headers:{Origin:'https://app.example.com'},body:JSON.stringify({action:'historical-mapping-import',rows,...body})}),runtime);
   const preview=await send({preview:true});const plan=await preview.json();if(preview.status!==200)return Response.json({step:'preview',status:preview.status,plan});
   const applied=await send({signature:plan.signature});const result=await applied.json();
-  const again=await send({preview:true});return Response.json({previewStatus:preview.status,location:plan.plan[0].data.location,first:plan.plan[0].data.first_name,last:plan.plan[0].data.last_name,staff:plan.plan[0].data.staff_id,applyStatus:applied.status,result,repeat:await again.json()});
+  const again=await send({preview:true});return Response.json({previewStatus:preview.status,location:plan.plan[0].data.location,first:plan.plan[0].data.first_name,last:plan.plan[0].data.last_name,staff:plan.plan[0].data.staff_id,applyStatus:applied.status,result,journal:await w.journal(),repeat:await again.json()});
  }};`}});
  const mf=new Miniflare(convertV4MiniflareOptions({modules:true,compatibilityDate:'2026-09-25',compatibilityFlags:['nodejs_compat'],script:bundle.outputFiles[0].text,durableObjects:{WORKSPACE:{className:'ImportWorkspace',useSQLite:true}}}));
- try{const response=await mf.dispatchFetch('http://localhost');const result=await response.json() as any;assert.equal(result.previewStatus,200,JSON.stringify(result));assert.equal(result.applyStatus,200,JSON.stringify(result));assert.equal(result.location,'Dallas, Texas, United States');assert.equal(result.first,'Example');assert.equal(result.last,'Person');assert.equal(result.staff,'s');assert.equal(result.result.mapped,1);assert.equal(result.result.created,1);assert.match(result.repeat.plan[0].result,/Existing mapping/);}finally{await mf.dispose();}
+ try{const response=await mf.dispatchFetch('http://localhost');const result=await response.json() as any;assert.equal(result.previewStatus,200,JSON.stringify(result));assert.equal(result.applyStatus,200,JSON.stringify(result));assert.equal(result.location,'Dallas, Texas, United States');assert.equal(result.first,'Example');assert.equal(result.last,'Person');assert.equal(result.staff,'s');assert.equal(result.result.mapped,1);assert.equal(result.result.created,1);assert.ok(result.journal.length>0);assert.ok(result.journal.every((e:any)=>e.actor==='admin'));assert.match(result.repeat.plan[0].result,/Existing mapping/);}finally{await mf.dispose();}
 });

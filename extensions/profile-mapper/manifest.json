@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "XRP Profile Mapper",
-  "version": "2.0.4",
+  "version": "2.0.5",
   "description": "Review LinkedIn candidate details and import into your authorized XRP searches.",
   "permissions": [
     "activeTab",

@@ -1,3 +1,4 @@
+import {withAudit,installChangeAudit,setAuditContext,initializeAuditContext} from './change-audit';
 import { DurableObject } from "cloudflare:workers";
 import {rolePolicySchema,roleDefinitions,validateAssignedRoles,roleUsage,mutateRolePolicy} from './role-policy-store';
 import {effectiveAccessRoles,effectivePermissions,hasPermission,retiredRoleIds} from './access-policy';
@@ -17,12 +18,17 @@ export const token = () => crypto.randomUUID() + crypto.randomUUID();
 export class Identity extends DurableObject {
   constructor(ctx: DurableObjectState, env: any) {
     super(ctx, env);
+    initializeAuditContext((q,...p)=>ctx.storage.sql.exec(q,...p).toArray());
     ctx.storage.sql.exec(identitySchema);
     ctx.storage.sql.exec(rolePolicySchema);
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS email_changes(user_id TEXT PRIMARY KEY,email TEXT NOT NULL,old_email TEXT NOT NULL,session_hash TEXT NOT NULL,code_hash TEXT NOT NULL,expires INTEGER NOT NULL,created INTEGER NOT NULL)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS account_events(id TEXT PRIMARY KEY,user_id TEXT NOT NULL,action TEXT NOT NULL,created_at TEXT NOT NULL)');
+
+    installChangeAudit((q,...p)=>this.ctx.storage.sql.exec(q,...p).toArray());this.auditReady=true;
   }
+  private auditReady=false;
   rows(q: string, ...p: (string | number | null)[]): any[] {
+    if(this.auditReady&&/^\s*(INSERT|UPDATE|DELETE|REPLACE)\b/i.test(q))setAuditContext((sql,...args)=>this.ctx.storage.sql.exec(sql,...args).toArray());
     return this.ctx.storage.sql.exec(q, ...p).toArray();
   }
   // Preserve the original workspace administrator as owner without merging accounts.
@@ -46,13 +52,13 @@ export class Identity extends DurableObject {
     if(!m.staff_id&&(permissions.includes('pto.self')||permissions.includes('candidates.add'))){m={...m,staff_id:'person:'+m.id};this.rows('UPDATE memberships SET staff_id=? WHERE tenant=? AND user_id=?',m.staff_id,m.tenant,m.id);}
     return {...m,name:p?.name||m.name,roles:assigned,permissions,accessRoles:effectiveAccessRoles(assigned,definitions),version:p?.version||0};
   }
-  async roleCatalog(a:Actor){
+  async roleCatalog(a:Actor){return withAudit(a,"roleCatalog",async ()=>{
     const current=(await this.members(a.tenant)).find(m=>m.id===a.id);
     requireThat(current?.status==='active'&&(hasPermission(current,'roles.manage')||hasPermission(current,'users.view')),'Administrator permission required.',403);
     return {roles:roleDefinitions(this,a.tenant).map(r=>({...r,...roleUsage(this,a.tenant,r.id)})),superAdminUsers:roleUsage(this,a.tenant,'super_admin').users};
-  }
+  });}
   async validRoles(tenant:string,ids:unknown){validateAssignedRoles(this,tenant,ids);return true;}
-  async rolePolicy(a:Actor,b:any):Promise<any>{
+  async rolePolicy(a:Actor,b:any):Promise<any>{return withAudit(a,"rolePolicy",async ()=>{
     this.ensureOwners();
     return this.ctx.storage.transactionSync(()=>{
       const row=this.rows('SELECT u.id,m.* FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.tenant=? AND m.user_id=?',a.tenant,a.id)[0];
@@ -64,11 +70,11 @@ export class Identity extends DurableObject {
       }
       return mutateRolePolicy(this,a.tenant,a.id,b);
     });
-  }
+  });}
   async sessionUser(raw:string) {
     return this.rows('SELECT u.id,u.email FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires>?',await digest(raw),Date.now())[0]||null;
   }
-  async updateMember(a:Actor,b:any) {
+  async updateMember(a:Actor,b:any) {return withAudit(a,"updateMember",async ()=>{
     this.ensureOwners();
     return this.ctx.storage.transactionSync(()=>{
       const actorRow=this.rows('SELECT u.id,u.name,m.* FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.tenant=? AND m.user_id=?',a.tenant,a.id)[0];
@@ -103,8 +109,8 @@ export class Identity extends DurableObject {
       this.rows('INSERT INTO member_events VALUES(?,?,?,?,?,?,?)',crypto.randomUUID(),a.tenant,a.id,b.id,JSON.stringify(old),JSON.stringify({name,roles:nextRoles,staff_id:staffId,status,version:old.version+1}),new Date().toISOString());
       return {ok:true};
     });
-  }
-  async updateProfile(a:Actor,b:any){
+  });}
+  async updateProfile(a:Actor,b:any){return withAudit(a,"updateProfile",async ()=>{
     return this.ctx.storage.transactionSync(()=>{
       const actor=this.rows('SELECT u.id,u.name,m.* FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.tenant=? AND m.user_id=?',a.tenant,a.id)[0];
       requireThat(actor?.status==='active'&&hasPermission(this.details(actor),'users.profile'),'Profile editing permission required.',403);
@@ -115,8 +121,8 @@ export class Identity extends DurableObject {
       this.rows('INSERT INTO member_profiles VALUES(?,?,?,?,?) ON CONFLICT(user_id,tenant) DO UPDATE SET name=excluded.name,version=excluded.version',b.id,a.tenant,JSON.stringify(old.roles),name,old.version+1);
       this.rows('INSERT INTO member_events VALUES(?,?,?,?,?,?,?)',crypto.randomUUID(),a.tenant,a.id,b.id,JSON.stringify({name:old.name}),JSON.stringify({name}),new Date().toISOString());return {ok:true};
     });
-  }
-  async resetTestPeople(a:Actor,b:any) {
+  });}
+  async resetTestPeople(a:Actor,b:any) {return withAudit(a,"resetTestPeople",async ()=>{
     this.ensureOwners();
     return this.ctx.storage.transactionSync(()=>{
       const members=this.rows('SELECT u.id,u.email,u.name,m.* FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.tenant=?',a.tenant).map(m=>this.details(m));
@@ -133,8 +139,8 @@ export class Identity extends DurableObject {
       this.rows('INSERT INTO member_events VALUES(?,?,?,?,?,?,?)',crypto.randomUUID(),a.tenant,a.id,owner,'null',JSON.stringify({test_people_reset:true,removed:remove.length,cancelled:pending.length}),new Date().toISOString());
       return {removed:remove.length,cancelled:pending.length};
     });
-  }
-  async cancelInvitation(a:Actor,id:string) {
+  });}
+  async cancelInvitation(a:Actor,id:string) {return withAudit(a,"cancelInvitation",async ()=>{
     const members=await this.members(a.tenant),actor=members.find(m=>m.id===a.id);
     requireThat(actor?.status==='active'&&hasPermission(actor,'users.invite'),'Administrator permission required.',403);
     const invitation=this.rows('SELECT * FROM invites WHERE tenant=? AND token=? AND used=0',a.tenant,id)[0];
@@ -145,7 +151,7 @@ export class Identity extends DurableObject {
       this.rows('UPDATE invites SET used=1 WHERE token=?',id);
       this.rows('INSERT INTO member_events VALUES(?,?,?,?,?,?,?)',crypto.randomUUID(),a.tenant,a.id,'invitation',JSON.stringify({email:invitation.email}),JSON.stringify({cancelled:true}),new Date().toISOString());
     });return {ok:true};
-  }
+  });}
   limit(key: string, max = 15) {
     const now = Date.now(),
       old = this.rows("SELECT * FROM limits WHERE key=?", key)[0];
@@ -173,7 +179,8 @@ export class Identity extends DurableObject {
     staffId: string | null,
     firstAdmin = false,
     assignedRoles?: AccessRole[],
-  ) {
+    auditActor?:Actor,
+  ) {return withAudit(auditActor||{id:firstAdmin?'system:setup':'system:maintenance',tenant},'invitation:create',async()=>{
     const assigned=assignedRoles||[role];
     validateAssignedRoles(this,tenant,assigned);validateAssignedRoles(this,tenant,[role]);requireThat(assigned.every(r=>!retiredRoleIds.includes(r)),'Retired roles cannot be assigned to new invitations.');
     requireThat(
@@ -208,7 +215,7 @@ export class Identity extends DurableObject {
     this.rows('INSERT INTO invitation_roles VALUES(?,?)',hash,JSON.stringify(assigned));
     });
     return raw;
-  }
+  });}
   async authenticate(raw: string, tenant: string): Promise<Actor | null> {
     this.ensureOwners();
     const hash = await digest(raw);
@@ -219,7 +226,7 @@ export class Identity extends DurableObject {
       tenant,
       "active",
     )[0];
-    const resolved=u?this.details(u):null;
+    const resolved=u?withAudit({id:u.id,tenant},'account:resolve',()=>this.details(u)):null;
     return u
       ? {
           id: u.id,
@@ -248,7 +255,7 @@ export class Identity extends DurableObject {
     );
     return this.session(u.id);
   }
-  async session(id: string) {
+  async session(id: string) {return withAudit({id},'session:create',async()=>{
     const raw = token();
     this.rows(
       "INSERT INTO sessions VALUES(?,?,?)",
@@ -263,7 +270,7 @@ export class Identity extends DurableObject {
       "active",
     );
     return { token: raw, memberships };
-  }
+  });}
   async invitationInfo(raw: string, ip: string) {
     this.limit('invite-info:' + ip, 60);
     const i = this.rows('SELECT email,name,tenant,used,expires FROM invites WHERE token=?', await digest(raw))[0];
@@ -303,7 +310,7 @@ export class Identity extends DurableObject {
       );
     const id = u?.id ?? crypto.randomUUID();
     const hashPassword = u?.password ?? passwordHash(password);
-    this.ctx.storage.transactionSync(() => {
+    withAudit({id,tenant:invite.tenant},'invitation:accept',()=>this.ctx.storage.transactionSync(() => {
       const current = this.rows(
         "SELECT used FROM invites WHERE token=?",
         hash,
@@ -333,10 +340,10 @@ export class Identity extends DurableObject {
       const assigned=this.rows('SELECT roles FROM invitation_roles WHERE token=?',hash)[0];
       if(assigned)this.rows('INSERT INTO member_profiles VALUES(?,?,?,?,1)',id,invite.tenant,assigned.roles,invite.name);
       this.rows("UPDATE invites SET used=1 WHERE token=?", hash);
-    });
+    }));
     return this.session(id);
   }
-  async changePassword(raw: string, body: any) {
+  async changePassword(raw: string, body: any) {const auditUser=await this.sessionUser(raw);return withAudit(auditUser,'account:password',async()=>{
     const hash = await digest(raw);
     const nextToken = token(), nextHash = await digest(nextToken);
     return this.ctx.storage.transactionSync(() => {
@@ -354,7 +361,7 @@ export class Identity extends DurableObject {
       this.rows('INSERT INTO sessions VALUES(?,?,?)', nextHash, u.id, Date.now()+7*86400e3);
       return {token:nextToken};
     });
-  }
+  });}
   async changePasswordAttempt(raw: string, body: any, ip: string) {
     this.limit('password-ip:'+ip, 10);
     const session = this.rows('SELECT user_id FROM sessions WHERE token=? AND expires>?', await digest(raw), Date.now())[0];
@@ -365,7 +372,7 @@ export class Identity extends DurableObject {
   async pendingInvitations(tenant:string) {
     return this.rows('SELECT token id,email,name,role,staff_id,expires FROM invites WHERE tenant=? AND used=0 AND expires>?',tenant,Date.now()).map(i=>({...i,roles:JSON.parse(this.rows('SELECT roles FROM invitation_roles WHERE token=?',i.id)[0]?.roles||JSON.stringify([i.role]))}));
   }
-  async requestEmailChange(raw:string,body:any,ip:string) {
+  async requestEmailChange(raw:string,body:any,ip:string) {const auditUser=await this.sessionUser(raw);return withAudit(auditUser,'account:request-email',async()=>{
     this.limit('email-change-ip:'+ip,10);
     const sessionHash=await digest(raw);
     const u=this.rows('SELECT u.* FROM users u JOIN sessions s ON s.user_id=u.id WHERE s.token=? AND s.expires>?',sessionHash,Date.now())[0];
@@ -387,8 +394,8 @@ export class Identity extends DurableObject {
       this.rows('INSERT INTO account_events VALUES(?,?,?,?)',crypto.randomUUID(),u.id,'email-change-requested',new Date().toISOString());
     });
     return {email,code,id:crypto.randomUUID()};
-  }
-  async confirmEmailChange(raw:string,body:any,ip:string) {
+  });}
+  async confirmEmailChange(raw:string,body:any,ip:string) {const auditUser=await this.sessionUser(raw);return withAudit(auditUser,'account:confirm-email',async()=>{
     this.limit('email-confirm-ip:'+ip,15);
     const sessionHash=await digest(raw);
     const session=this.rows('SELECT user_id FROM sessions WHERE token=? AND expires>?',sessionHash,Date.now())[0];
@@ -410,10 +417,10 @@ export class Identity extends DurableObject {
       this.rows('INSERT INTO account_events VALUES(?,?,?,?)',crypto.randomUUID(),u.id,'email-changed',new Date().toISOString());
       return {token:rawToken,email:pending.email,oldEmail:u.email,id:crypto.randomUUID()};
     });
-  }
-  async logout(raw: string) {
+  });}
+  async logout(raw: string) {const auditUser=await this.sessionUser(raw);return withAudit(auditUser||{id:'anonymous'},'session:logout',async()=>{
     this.rows("DELETE FROM sessions WHERE token=?", await digest(raw));
-  }
+  });}
   async members(tenant: string) {
     this.ensureOwners();
     const definitions=roleDefinitions(this,tenant);

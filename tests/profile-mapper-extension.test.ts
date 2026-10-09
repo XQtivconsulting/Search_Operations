@@ -119,3 +119,11 @@ test('capturing automatically previews duplicates without committing candidate d
  h.context.chrome.scripting.executeScript=async(spec:any)=>{if(spec.files)return [];actions.push(spec.args[0]);return [{result:{data:spec.args[0]==='context'?{actor:{id:'test',name:'Test'},workspace:'test',searches:[]}:{matches:[],companies:[],exactCompanyId:''}}}];};
  await h.get('capture').onclick();assert.deepEqual(actions,['context','preview']);assert.equal(h.get('matchInfo').textContent,'No matching candidate found.');assert.equal(h.get('review').hidden,false);assert.equal(h.get('profile').hidden,false);
 });
+
+test('partial experience fields can use matching header evidence without mixing jobs',()=>{
+ const c=parser();const resolve=(current:any,fallback:any)=>{c.current=current;c.fallback=fallback;return JSON.parse(JSON.stringify(vm.runInContext('completeCurrentJob(current,fallback)',c)));};
+ assert.deepEqual(resolve({company:'Example Systems',currentTitle:''},{company:'example systems',currentTitle:'Sales Director'}),{company:'Example Systems',currentTitle:'Sales Director'});
+ assert.deepEqual(resolve({company:'',currentTitle:'Sales Director'},{company:'Example Systems',currentTitle:'Sales Director'}),{company:'Example Systems',currentTitle:'Sales Director'});
+ assert.deepEqual(resolve({company:'Old Employer',currentTitle:''},{company:'New Employer',currentTitle:'Sales Director'}),{company:'Old Employer',currentTitle:''});
+ assert.deepEqual(resolve({company:'',currentTitle:'Advisor'},{company:'New Employer',currentTitle:'Sales Director'}),{company:'',currentTitle:'Advisor'});
+});

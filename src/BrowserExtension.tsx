@@ -3,8 +3,8 @@ import {DownloadSimple} from '@phosphor-icons/react';
 import './browser-extension.css';
 
 export function BrowserExtension(){return <section className="panel browser-extension">
-  <div className="section-head"><h2>XRP Profile Mapper</h2><a className="primary extension-download" href="/downloads/xrp-profile-mapper.zip?v=2.0.4" download><DownloadSimple size={18}/> Download extension</a></div>
-  <p className="muted">Chrome &amp; Microsoft Edge · Version 2.0.4</p>
+  <div className="section-head"><h2>XRP Profile Mapper</h2><a className="primary extension-download" href="/downloads/xrp-profile-mapper.zip?v=2.0.5" download><DownloadSimple size={18}/> Download extension</a></div>
+  <p className="muted">Chrome &amp; Microsoft Edge · Version 2.0.5</p>
   <h3>Install</h3>
   <ol><li>Download the ZIP and extract it into a folder you will keep.</li><li>Open <code>chrome://extensions</code> in Chrome or <code>edge://extensions</code> in Edge.</li><li>Turn on <strong>Developer mode</strong>, select <strong>Load unpacked</strong>, and choose the extracted folder containing <code>manifest.json</code>.</li><li>Pin <strong>XRP Profile Mapper</strong> from your browser’s Extensions menu.</li></ol>
   <h3>Import a profile</h3>

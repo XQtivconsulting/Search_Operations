@@ -1,3 +1,4 @@
+import {withAudit,installChangeAudit,setAuditContext,initializeAuditContext} from './change-audit';
 import {profileImport} from './profile-import';
 import {reconcileCompanyMaster,mergeCompanyMaster} from './company-master-integrity';
 import {mappingBatch,mappingBatchSchema} from './mapping-batch';
@@ -52,6 +53,7 @@ const now = () => new Date().toISOString();
 export class Workspace extends DurableObject {
   constructor(ctx: DurableObjectState, env: any) {
     super(ctx, env);
+    initializeAuditContext((q,...p)=>ctx.storage.sql.exec(q,...p).toArray());
     ctx.storage.sql.exec(workspaceSchema);
     ctx.storage.sql.exec(mappingBatchSchema);
     initializeSearchNumbers(this);
@@ -98,11 +100,15 @@ export class Workspace extends DurableObject {
         this.rows("INSERT INTO settings(key,value) VALUES('planning_v2','1')");
       });
     }
+
+    installChangeAudit((q,...p)=>this.ctx.storage.sql.exec(q,...p).toArray());this.auditReady=true;
   }
+  private auditReady=false;
   rows(q: string, ...p: any[]): any[] {
+    if(this.auditReady&&/^\s*(INSERT|UPDATE|DELETE|REPLACE)\b/i.test(q))setAuditContext((sql,...args)=>this.ctx.storage.sql.exec(sql,...args).toArray());
     return this.ctx.storage.sql.exec(q, ...p).toArray();
   }
-  audit(a: Actor, action: string, id: string, before: any, after: any) {
+  audit(a: Actor, action: string, id: string, before: any, after: any) {return withAudit(a,"audit",()=>{
     this.rows(
       "INSERT INTO audit VALUES(?,?,?,?,?,?,?)",
       uuid(),
@@ -113,7 +119,7 @@ export class Workspace extends DurableObject {
       JSON.stringify(after),
       now(),
     );
-  }
+  });}
   async ensureBackupSchedule(tenant:string) {
     if(!(this.env as any).BACKUPS)return;
     const old=this.rows("SELECT value FROM settings WHERE key='backup_tenant'")[0];
@@ -121,23 +127,23 @@ export class Workspace extends DurableObject {
     this.rows("INSERT OR IGNORE INTO settings VALUES('backup_tenant',?)",tenant);
     if(!await this.ctx.storage.getAlarm())await this.ctx.storage.setAlarm(nextWeeklyBackup());
   }
-  async backupStatus(a:Actor){
+  async backupStatus(a:Actor){return withAudit(a,"backupStatus",async ()=>{
     requireThat(hasPermission(a,'data.backup')||hasPermission(a,'data.export'),'Workspace owner permission required.',403);
     await this.ensureBackupSchedule(a.tenant);
     return {configured:!!(this.env as any).BACKUPS,next_at:await this.ctx.storage.getAlarm(),runs:this.rows('SELECT * FROM backup_runs ORDER BY created_at DESC LIMIT 20').map(r=>({...r,details:JSON.parse(r.details)}))};
-  }
-  async exportBusiness(a:Actor,people:any[]){
+  });}
+  async exportBusiness(a:Actor,people:any[]){return withAudit(a,"exportBusiness",async ()=>{
     requireThat(hasPermission(a,'data.export'),'Workspace owner permission required.',403);
     const snapshot=this.ctx.storage.transactionSync(()=>snapshotBusiness(this,a.tenant,people));
     const bytes=buildBusinessArchive(snapshot);
     this.audit(a,'business-export',a.tenant,null,{sha256:snapshot.sha256});return bytes;
-  }
-  async backupNow(a:Actor,people:any[]){
+  });}
+  async backupNow(a:Actor,people:any[]){return withAudit(a,"backupNow",async ()=>{
     requireThat(hasPermission(a,'data.backup'),'Workspace owner permission required.',403);
     await this.ensureBackupSchedule(a.tenant);
     return storeBusinessBackup(this,this.ctx.storage,(this.env as any).BACKUPS,a.tenant,people);
-  }
-  async alarm(){
+  });}
+  async alarm(){return withAudit({id:'system:alarm'},'alarm',async()=>{
     const tenant=this.rows("SELECT value FROM settings WHERE key='backup_tenant'")[0]?.value;
     if(!tenant||!(this.env as any).BACKUPS)return;
     try {
@@ -149,20 +155,20 @@ export class Workspace extends DurableObject {
       await this.ctx.storage.setAlarm(Date.now()+3600000);
       console.error('Scheduled business backup failed');
     }
-  }
-  async saveCleanBaseline(a:Actor,people:any) {return this.ctx.storage.transactionSync(()=>saveCleanBaseline(this,a,people));}
-  async previewReset(a:Actor) {const {signature,counts}=resetSnapshot(this,a);return {signature,counts};}
-  async resetWorkspace(a:Actor,b:any,people:any) {return this.ctx.storage.transactionSync(()=>clearWorkspace(this,a,b.signature,people));}
-  async resetBackups(a:Actor) {requireThat(hasRole(a,'super_admin'),'Workspace owner permission required.',403);return this.rows("SELECT id,created_at,json_extract(data,'$.label') label,json_extract(data,'$.kind') kind FROM reset_backups WHERE actor=? ORDER BY created_at DESC",a.id);}
-  async resetBackup(a:Actor,id:string) {
+  });}
+  async saveCleanBaseline(a:Actor,people:any) {return withAudit(a,"saveCleanBaseline",async ()=>{return this.ctx.storage.transactionSync(()=>saveCleanBaseline(this,a,people));});}
+  async previewReset(a:Actor) {return withAudit(a,"previewReset",async ()=>{const {signature,counts}=resetSnapshot(this,a);return {signature,counts};});}
+  async resetWorkspace(a:Actor,b:any,people:any) {return withAudit(a,"resetWorkspace",async ()=>{return this.ctx.storage.transactionSync(()=>clearWorkspace(this,a,b.signature,people));});}
+  async resetBackups(a:Actor) {return withAudit(a,"resetBackups",async ()=>{requireThat(hasRole(a,'super_admin'),'Workspace owner permission required.',403);return this.rows("SELECT id,created_at,json_extract(data,'$.label') label,json_extract(data,'$.kind') kind FROM reset_backups WHERE actor=? ORDER BY created_at DESC",a.id);});}
+  async resetBackup(a:Actor,id:string) {return withAudit(a,"resetBackup",async ()=>{
     requireThat(hasRole(a,'super_admin'),'Workspace owner permission required.',403);
     const row=this.rows('SELECT data FROM reset_backups WHERE id=? AND actor=?',id,a.id)[0];
     requireThat(row,'Backup not found.',404);
     const backup=JSON.parse(row.data);backup.tables={};
     for(const r of this.rows('SELECT * FROM reset_backup_rows WHERE backup_id=? ORDER BY table_name,row_no',id))(backup.tables[r.table_name]??=[]).push(JSON.parse(r.data));
     return backup;
-  }
-  async research(a: Actor,b:any,members:Member[]):Promise<any> {a=authorizeResearch(this,a,b);await this.syncPeople(members);
+  });}
+  async research(a: Actor,b:any,members:Member[]):Promise<any> {return withAudit(a,'research:'+String(b.action),async ()=>{a=authorizeResearch(this,a,b);await this.syncPeople(members);
     let generated:any;
     if(b.action==='candidate-summary-draft'){
       requireThat(canSummarize(a),'Candidate editing permission required.',403);
@@ -298,20 +304,20 @@ export class Workspace extends DurableObject {
         return {saved:b.items.map((item:any)=>researchMutation(this,a,{id:item.id,version:item.version,action:b.operation,decision:b.decision,reason:b.reason,notes:b.notes},members))};
       }
       return researchMutation(this,a,b,members);
-    });}
-  async profileImport(a:Actor,b:any,members:Member[]):Promise<any>{await this.syncPeople(members);return this.ctx.storage.transactionSync(()=>profileImport(this,a,b,members));}
+    });});}
+  async profileImport(a:Actor,b:any,members:Member[]):Promise<any>{return withAudit(a,"profileImport",async ()=>{await this.syncPeople(members);return this.ctx.storage.transactionSync(()=>profileImport(this,a,b,members));});}
   // Legacy anonymous links no longer grant role access.
   async publicBrief(_token:string) {return null;}
-  async candidateInvite(a:Actor,b:any){return this.ctx.storage.transactionSync(()=>createCandidateInvite(this,a,b));}
-  async candidateInvites(a:Actor,role:string){return listCandidateInvites(this,a,role);}
-  async candidateRevoke(a:Actor,id:string){return this.ctx.storage.transactionSync(()=>revokeCandidateInvite(this,a,id));}
-  async candidateCode(b:any,ip:string){return requestCandidateCode(this,b,ip);}
-  async candidateVerify(b:any,ip:string){return verifyCandidateCode(this,b,ip);}
+  async candidateInvite(a:Actor,b:any){return withAudit(a,"candidateInvite",async ()=>{return this.ctx.storage.transactionSync(()=>createCandidateInvite(this,a,b));});}
+  async candidateInvites(a:Actor,role:string){return withAudit(a,"candidateInvites",async ()=>{return listCandidateInvites(this,a,role);});}
+  async candidateRevoke(a:Actor,id:string){return withAudit(a,"candidateRevoke",async ()=>{return this.ctx.storage.transactionSync(()=>revokeCandidateInvite(this,a,id));});}
+  async candidateCode(b:any,ip:string){return withAudit({id:'external:unauthenticated'},'candidate:request-code',()=>requestCandidateCode(this,b,ip));}
+  async candidateVerify(b:any,ip:string){return withAudit({id:'external:unauthenticated'},'candidate:verify-code',()=>verifyCandidateCode(this,b,ip));}
   async candidatePage(session:string,token?:string){return candidatePage(this,session,token);}
   assignmentHasWork(a:any) {
     return !!(this.rows('SELECT 1 FROM effort_records WHERE search_id=? AND team_id=? AND work_date=? AND days>0',a.search_id,a.team_id,a.work_date).length||this.rows("SELECT id FROM research_records WHERE kind='mapping' AND role_id=? AND json_extract(data,'$.team_id')=? AND json_extract(data,'$.work_date')=?",a.search_id,a.team_id,a.work_date).length||this.rows("SELECT id FROM entries WHERE assignment_id=? AND (mapped IS NOT NULL OR peer IS NOT NULL OR partner IS NOT NULL OR notes<>'' OR flag IS NOT NULL OR source<>'manual')",a.id).length||this.rows('SELECT r.id FROM reviews r JOIN entries e ON e.id=r.entry_id WHERE e.assignment_id=?',a.id).length);
   }
-  async state(a: Actor,members?:Member[]) {
+  async state(a: Actor,members?:Member[]) {return withAudit(a,"state",async ()=>{
     if(members)await this.syncPeople(members);
     const research=researchState(this);
     const result = {
@@ -373,28 +379,28 @@ export class Workspace extends DurableObject {
       if(!hasPermission(a,'roles.manage')){result.issues=[];result.audit=[];}
     }
     return result;
-  }
-  async crmCandidateImports(a:Actor){requireThat(hasPermission(a,'integrations.manage'),'Administrator permission required.',403);return this.rows('SELECT id,search_id,status,created_at FROM crm_candidate_batches ORDER BY created_at DESC LIMIT 30');}
-  async crmCandidateStart(a:Actor,searchId:string,token:string){
+  });}
+  async crmCandidateImports(a:Actor){return withAudit(a,"crmCandidateImports",async ()=>{requireThat(hasPermission(a,'integrations.manage'),'Administrator permission required.',403);return this.rows('SELECT id,search_id,status,created_at FROM crm_candidate_batches ORDER BY created_at DESC LIMIT 30');});}
+  async crmCandidateStart(a:Actor,searchId:string,token:string){return withAudit(a,"crmCandidateStart",async ()=>{
     requireThat(hasPermission(a,'integrations.manage'),'Administrator permission required.',403);
     const search=this.rows('SELECT * FROM searches WHERE id=?',searchId)[0];requireThat(search?.external_id,'Choose a CRM-linked search already in the repository.');
     const job=this.rows('SELECT * FROM crm_jobs WHERE external_id=?',search.external_id)[0];const slug=crmSlug(job?.job_slug);
     const assignments=await crmAssignments(token,slug);
     let authors:Record<string,string>={},authorWarning='';try{const users=await crmList(token,'users/search');authors=Object.fromEntries(users.map(u=>[String(u.id),[u.first_name,u.last_name].filter(Boolean).join(' ')]));}catch{authorWarning='Source user names could not be fetched; original CRM author IDs are preserved.';}
     return this.ctx.storage.transactionSync(()=>{requireThat(this.rows('SELECT external_id FROM searches WHERE id=?',searchId)[0]?.external_id===search.external_id,'Search changed. Start a new preview.',409);const id=startConversion(this,a,searchId,slug,assignments,authors,authorWarning);return conversionPreview(this,a,id);});
-  }
-  async crmCandidatePreview(a:Actor,id:string){return conversionPreview(this,a,id);}
-  async crmCandidateFetchNext(a:Actor,id:string,token:string){
+  });}
+  async crmCandidatePreview(a:Actor,id:string){return withAudit(a,"crmCandidatePreview",async ()=>{return conversionPreview(this,a,id);});}
+  async crmCandidateFetchNext(a:Actor,id:string,token:string){return withAudit(a,"crmCandidateFetchNext",async ()=>{
     const {batch,item}=nextConversionItem(this,a,id);if(!item)return conversionPreview(this,a,id);
     const details=await crmCandidateDetails(token,batch.job_slug,item.slug);
     return this.ctx.storage.transactionSync(()=>{saveConversionDetails(this,a,id,item.slug,details);return conversionPreview(this,a,id);});
-  }
-  async crmCandidateApply(a:Actor,id:string,stages:Record<string,string>){return this.ctx.storage.transactionSync(()=>{const result=applyConversionItem(this,a,id,stages);reconcileCompanyMaster(this,a);return result;});}
-  async crmState(a: Actor) {
+  });}
+  async crmCandidateApply(a:Actor,id:string,stages:Record<string,string>){return withAudit(a,"crmCandidateApply",async ()=>{return this.ctx.storage.transactionSync(()=>{const result=applyConversionItem(this,a,id,stages);reconcileCompanyMaster(this,a);return result;});});}
+  async crmState(a: Actor) {return withAudit(a,"crmState",async ()=>{
     requireThat(hasPermission(a,'integrations.manage'), 'Administrator permission required.',403);
     return {next_search_number:nextSearchNumber(this),jobs:this.rows('SELECT j.*,p.partner_id AS saved_partner_id,p.partner AS saved_partner,COALESCE(p.version,0) AS partner_version FROM crm_jobs j LEFT JOIN crm_partners p ON p.external_id=j.external_id ORDER BY j.title'), runs:this.rows('SELECT * FROM integration_runs ORDER BY created_at DESC LIMIT 20')};
-  }
-  async stageCRM(a: Actor, jobs: CRMJob[]) {
+  });}
+  async stageCRM(a: Actor, jobs: CRMJob[]) {return withAudit(a,"stageCRM",async ()=>{
     requireThat(hasPermission(a,'integrations.manage'), 'Administrator permission required.',403);
     return this.ctx.storage.transactionSync(() => {
       // Refresh CRM-owned fields on existing searches; never activate new jobs.
@@ -414,8 +420,8 @@ export class Workspace extends DurableObject {
       this.audit(a,'crm-stage','recruitcrm',null,{count:jobs.length});
       return {count:jobs.length,updated};
     });
-  }
-  async applyCRM(a: Actor, jobs: any[]) {
+  });}
+  async applyCRM(a: Actor, jobs: any[]) {return withAudit(a,"applyCRM",async ()=>{
     requireThat(hasPermission(a,'integrations.manage'),'Administrator permission required.',403);
     requireThat(Array.isArray(jobs) && jobs.length > 0 && jobs.length <= 200,'Select 1–200 jobs.');
     requireThat(new Set(jobs.map(j=>j.external_id)).size === jobs.length,'Duplicate job selection.');
@@ -447,8 +453,8 @@ export class Workspace extends DurableObject {
       this.rows('INSERT INTO integration_runs VALUES(?,?,?,?,?)',uuid(),a.id,'applied',jobs.length,now());
       return {count:jobs.length};
     });
-  }
-  async syncPeople(members:Member[]) {
+  });}
+  async syncPeople(members:Member[],auditActor?:Actor) {return withAudit(auditActor,"people:sync",async()=>{
     return this.ctx.storage.transactionSync(()=>{
       this.rows('CREATE TABLE IF NOT EXISTS account_researchers(staff_id TEXT PRIMARY KEY,user_id TEXT NOT NULL)');
       this.rows('DELETE FROM account_researchers');
@@ -465,9 +471,9 @@ export class Workspace extends DurableObject {
       for(const team of new Set(removed.map(r=>r.team_id))){this.audit({id:'account-sync'} as Actor,'account-roster-prune',team,removed.filter(r=>r.team_id===team),{reason:'Account no longer eligible for research assignments'});this.rows('DELETE FROM team_members WHERE team_id=? AND staff_id NOT IN (SELECT staff_id FROM account_researchers)',team);this.rows('INSERT INTO team_rosters VALUES(?,1) ON CONFLICT(team_id) DO UPDATE SET version=version+1',team);}
       this.rows("INSERT OR REPLACE INTO settings VALUES('accounts_only','1')");
     });
-  }
+  });}
   assignableStaff(id:string){return !this.rows("SELECT value FROM settings WHERE key='accounts_only'").length||!!this.rows('SELECT staff_id FROM account_researchers WHERE staff_id=?',id).length;}
-  async ensureResearcher(a:Actor,b:any) {
+  async ensureResearcher(a:Actor,b:any) {return withAudit(a,"ensureResearcher",async ()=>{
     requireThat(hasRole(a,'admin'),'Administrator permission required.',403);
     return this.ctx.storage.transactionSync(()=>{
       if(b.staff_id) {
@@ -479,14 +485,14 @@ export class Workspace extends DurableObject {
       requireThat(!this.rows('SELECT id FROM staff WHERE lower(trim(name))=lower(?)',name).length,'A researcher with this name already exists. Select the existing record instead.',409);
       this.rows('INSERT INTO staff(id,name) VALUES(?,?)',id,name);this.audit(a,'staff',id,null,{name});return {id};
     });
-  }
+  });}
   sourcingDecision(role:string,date:string){return this.rows('SELECT * FROM weekly_priorities WHERE search_id=? AND week<=? ORDER BY week DESC LIMIT 1',role,weekStart(date))[0];}
   requireSourcing(role:string,date:string){requireThat(isWorkingDecision(this.sourcingDecision(role,date)),'Choose Start, Continue or Recalibrate in Sourcing Decisions before allocating work. Pause and Stop do not allow new assignments.',409);}
-  async mutate(a: Actor, kind: string, b: any,members?:Member[]) {
+  async mutate(a: Actor, kind: string, b: any,members?:Member[]) {return withAudit(a,'mutate:'+kind,async ()=>{
     if(members)await this.syncPeople(members);
     return this.ctx.storage.transactionSync(() => this.applyMutation(a, kind, b,members));
-  }
-  async bulk(a: Actor, changes: any[]) {
+  });}
+  async bulk(a: Actor, changes: any[]) {return withAudit(a,"bulk",async ()=>{
     requireThat(Array.isArray(changes) && changes.length > 0 && changes.length <= 200,
       "Save between 1 and 200 rows at a time.");
     const keys = changes.map(b => `${b.kind}:${b.id}`);
@@ -501,8 +507,8 @@ export class Workspace extends DurableObject {
         }
       });
     });
-  }
-  private applyMutation(a: Actor, kind: string, b: any,members:Member[]=[]): any {
+  });}
+  private applyMutation(a: Actor, kind: string, b: any,members:Member[]=[]): any {return withAudit(a,"applyMutation",()=>{
       a=authorizeMutation(this,a,kind,b);
       if(kind==='sourcing-settings'){
         requireThat(hasPermission(a,'integrations.manage'),'Administrator settings permission required.',403);
@@ -978,8 +984,8 @@ export class Workspace extends DurableObject {
         return {id};
       }
       throw Object.assign(new Error("Unknown operation."), { status: 404 });
-  }
-  async importWorkbook(data: any) {
+  });}
+  async importWorkbook(data: any) {return withAudit({id:'system:importWorkbook'},'importWorkbook',async()=>{
     return this.ctx.storage.transactionSync(() => {
       requireThat(
         !this.rows("SELECT hash FROM imports WHERE hash=?", data.source_sha256)
@@ -1158,6 +1164,6 @@ export class Workspace extends DurableObject {
         sessions: data.sessions.length,
       };
     });
-  }
+  });}
 }
 

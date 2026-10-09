@@ -5,7 +5,7 @@ import {requireThat} from './domain';
 type R=Record<string,any>;
 // Business recovery intentionally excludes credentials and short-lived access capabilities.
 const excluded=['candidate_sessions','candidate_codes','candidate_invites','candidate_limits','brief_shares'];
-export const backupTables=[...resetTables.filter(t=>!excluded.includes(t)),'audit','research_events','settings'];
+export const backupTables=[...resetTables.filter(t=>!excluded.includes(t)),'audit','research_events','change_events','settings'];
 export type BusinessSnapshot={format:'search-erp-business-v1';tenant:string;created_at:string;tables:Record<string,R[]>;people:R[];excluded:string[];sha256:string};
 const hash=(v:unknown)=>createHash('sha256').update(JSON.stringify(v)).digest('hex');
 export function snapshotBusiness(db:{rows:(q:string,...p:any[])=>R[]},tenant:string,people:R[]):BusinessSnapshot{

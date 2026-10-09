@@ -1,3 +1,4 @@
+import {canRemoveDraft} from './mapping-removal';
 import {hasPermission} from './access-policy';
 import {authorizeResearch} from './operation-permissions';
 import {allocationKey} from './performance-index';
@@ -23,7 +24,7 @@ export {linkedin} from './candidate-identity';
 const iso=()=>new Date().toISOString();
 const get=(db:DB,id:string)=>{const r=db.rows('SELECT * FROM research_records WHERE id=?',id)[0];requireThat(r,'Record not found.',404);return {...JSON.parse(r.data),id:r.id,kind:r.kind,role_id:r.role_id,version:r.version};};
 export function researchRecords(db:DB){return db.rows('SELECT * FROM research_records').map(r=>({...JSON.parse(r.data),id:r.id,kind:r.kind,role_id:r.role_id,version:r.version}));}
-export function researchState(db:DB) {return {records:researchRecords(db),events:db.rows('SELECT * FROM research_events ORDER BY created_at DESC').map(r=>({...r,data:JSON.parse(r.data)}))};}
+export function researchState(db:DB) {return {records:researchRecords(db).filter(r=>r.kind!=='mapping-removed'),events:db.rows('SELECT * FROM research_events ORDER BY created_at DESC').map(r=>({...r,data:JSON.parse(r.data)}))};}
 
 export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
  a=authorizeResearch(db,a,b);
@@ -46,6 +47,17 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
   const rid=existing?.id||crypto.randomUUID();
   db.rows('INSERT INTO research_records(id,kind,role_id,record_key,data,version) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET record_key=excluded.record_key,data=excluded.data,version=excluded.version',rid,k,r,rk,JSON.stringify(d),(existing?.version||0)+1);return rid;
  };
+ if(b.action==='mapping-remove'){
+  requireThat(canRemoveDraft(a,old,search),'Only the mapper or assigned partner can remove a never-submitted draft mapping.',403);
+  const history=db.rows('SELECT action,data FROM research_events WHERE record_id=?',old.id);
+  requireThat(!history.some(e=>['mapping-submit','mapping-review','mapping-approve-draft','mapping-reopen','historical-review','historical-mapping-import'].includes(e.action)||JSON.parse(e.data||'{}').before?.submitted_at),'This mapping has already entered review and cannot be removed.',409);
+  requireThat(!researchRecords(db).some(r=>r.kind==='engagement'&&r.mapping_id===old.id),'This mapping already has engagement history.',409);
+  const removed={...old,status:'Removed',removed_by:a.id,removed_at:iso()};
+  db.rows("UPDATE research_records SET kind='mapping-removed',record_key=?,data=?,version=version+1 WHERE id=?",old.id,JSON.stringify(removed),old.id);
+  db.rows('INSERT INTO research_events VALUES(?,?,?,?,?,?)',crypto.randomUUID(),old.id,a.id,b.action,JSON.stringify({before:old,after:removed}),iso());
+  db.audit(a,b.action,old.id,old,removed);
+  return {id:old.id,removed:true};
+ }
  if(b.action==='pitch-save') {
   requireThat(active.some(m=>m.id===a.id),'Active workspace membership required.',403);
   requireThat(search,'Choose a search.');

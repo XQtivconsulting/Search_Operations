@@ -71,7 +71,7 @@ $('detach').onclick=()=>run(async()=>{
 $('capture').onclick=()=>run(async()=>{
  if(detached){const granted=await chrome.permissions.request({origins:['https://www.linkedin.com/*','https://linkedin.com/*']});if(!granted)throw Error('Allow LinkedIn access to capture from this window, or use the toolbar popup.');}
  const [tab]=await chrome.tabs.query(detached&&Number.isInteger(sourceWindow)&&sourceWindow>0?{active:true,windowId:sourceWindow}:{active:true,currentWindow:true});if(!/^https:\/\/(www\.)?linkedin\.com\/in\//i.test(tab?.url||''))throw Error('Open an individual LinkedIn profile first.');
- report('Reading profile…');await chrome.scripting.executeScript({target:{tabId:tab.id},files:['content.js']});const p=await chrome.tabs.sendMessage(tab.id,{type:'EXTRACT_PROFILE_V128'});if(!p||p.error)throw Error(p?.error||'Could not read this profile.');
+ report('Reading profile…');await chrome.scripting.executeScript({target:{tabId:tab.id},files:['content.js']});const p=await chrome.tabs.sendMessage(tab.id,{type:'EXTRACT_PROFILE_V205'});if(!p||p.error)throw Error(p?.error||'Could not read this profile.');
  const parts=(p.name||'').trim().split(/\s+/),candidate={...p,firstName:parts.shift()||'',lastName:parts.join(' '),email:'',phone:''};
  for(const k of Object.keys(fields))$(k).value=candidate[k]||'';updateProfileSummary();$('profileDetails').open=false;invalidate();await persist();const missing=['currentTitle','company'].filter(k=>!candidate[k]).map(k=>fields[k]);report(missing.length?missing.join(' and ')+' not captured. Edit Profile details or expand LinkedIn Experience and capture again.':'');await checkMatches();
 });

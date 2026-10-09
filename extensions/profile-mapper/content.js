@@ -1,4 +1,4 @@
-var MAPPER_PROTOCOL = "EXTRACT_PROFILE_V128";
+var MAPPER_PROTOCOL = "EXTRACT_PROFILE_V205";
 globalThis.__xqtivMapperProtocols ||= new Set();
 if (!globalThis.__xqtivMapperProtocols.has(MAPPER_PROTOCOL)) {
   globalThis.__xqtivMapperProtocols.add(MAPPER_PROTOCOL);
@@ -20,7 +20,12 @@ async function extractProfile() {
   let company = item ? extractCompanyFromExperienceItem(item) : headerJob.company;
   const lines = item ? [...item.querySelectorAll("p, span[aria-hidden='true'], time")].map(n=>clean(n.textContent)).filter(Boolean) : [];
   let currentTitle = item ? extractTitleFromExperienceLines(lines.length ? lines : cleanLines(item.innerText), company) : headerJob.currentTitle;
-  if(!company || !currentTitle){const visible=extractVisibleExperience(main.innerText || '');if(visible.company&&visible.currentTitle){company=visible.company;currentTitle=visible.currentTitle;}}
+  if(!company || !currentTitle){
+    const visible=extractVisibleExperience(main.innerText || '');
+    const fallback=visible.company&&visible.currentTitle?visible:extractHeaderJob(main,structured);
+    const resolved=completeCurrentJob({company,currentTitle},fallback);
+    company=resolved.company;currentTitle=resolved.currentTitle;
+  }
   return {
     name,
     company,
@@ -28,6 +33,15 @@ async function extractProfile() {
     location,
     linkedinUrl: canonicalUrl(locationHref())
   };
+}
+
+// Fill missing fields only when the sources identify the same job; never mix employers.
+function completeCurrentJob(current,fallback){
+  const same=(a,b)=>clean(a).toLowerCase()===clean(b).toLowerCase();
+  if(!current.company&&!current.currentTitle)return fallback;
+  if(!current.company&&fallback.company&&current.currentTitle&&same(current.currentTitle,fallback.currentTitle))return {...current,company:fallback.company};
+  if(!current.currentTitle&&fallback.currentTitle&&current.company&&same(current.company,fallback.company))return {...current,currentTitle:fallback.currentTitle};
+  return current;
 }
 
 // Rendered text fallback for layouts without stable section/list selectors.

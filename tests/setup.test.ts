@@ -320,3 +320,13 @@ test('extension API requires same-origin authenticated current membership and de
  db.prepare("UPDATE memberships SET status='revoked' WHERE user_id='reader'").run();assert.equal((await send(session.token,'https://app.example.com')).status,401);assert.equal(writes,1);
  }finally{db.close();}
 });
+
+test('identity journal attributes invitations and sessions while redacting credentials',async()=>{
+ const {db,identity}=fixture();
+ await identity.invite('synthetic@example.com','Synthetic','test','researcher',null,false,undefined,{id:'owner',tenant:'test'} as any);
+ const invite=db.prepare("SELECT * FROM change_events WHERE table_name='invites' AND operation='INSERT'").get()!;
+ assert.equal(invite.actor,'owner');assert.equal(invite.tenant,'test');assert.equal(JSON.parse(invite.after_json as string).token,'[redacted]');
+ db.exec("INSERT INTO users VALUES('synthetic','synthetic-user@example.com','Synthetic','unused-test-password')");
+ const session=await identity.session('synthetic');await identity.logout(session.token);
+ const events=db.prepare("SELECT * FROM change_events WHERE table_name='sessions'").all();assert.deepEqual(events.map(e=>e.actor),['synthetic','synthetic']);assert.ok(!JSON.stringify(events).includes(session.token));db.close();
+});

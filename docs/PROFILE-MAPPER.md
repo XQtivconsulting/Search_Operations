@@ -48,3 +48,6 @@ Capture triggers a read-only duplicate/company preview automatically, including 
 
 ## 2.0.4 focused import
 Captured fields are collapsed under Profile details by default. The candidate name remains visible; capture, destination, match status and Import form the main workflow. Missing required identity fields open the details automatically. No new save or permission behavior is introduced.
+
+## 2.0.5 partial extraction fallback
+When a current Experience entry supplies only one job field, the mapper now consults the visible/header evidence and fills the missing field only if the known company or title agrees. Conflicting employers/titles are not combined. The content-script protocol is versioned to avoid an older listener responding after an extension reload. Synthetic matching/conflict tests pass; affected live LinkedIn layouts still require user verification.

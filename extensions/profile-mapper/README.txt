@@ -1,4 +1,4 @@
-XRP Profile Mapper 2.0.4
+XRP Profile Mapper 2.0.5
 
 Install/update in Chrome or Edge:
 Unzip into a folder. Open chrome://extensions or edge://extensions, enable Developer mode and Load unpacked. For updates replace the files in the same folder, click Reload, and refresh LinkedIn and XRP.

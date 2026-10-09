@@ -38,6 +38,7 @@ function allow(a:Actor,p:string){requireThat(p&&hasPermission(a,p),'Permission r
 function scoped(a:Actor,roles:string[]):Actor{return {...a,accessRoles:[...new Set([...(a.accessRoles||[]),...roles])]};}
 export function authorizeResearch(db:DB,a:Actor,b:any):Actor{
  if(!Array.isArray(a.permissions))return a;
+ if(b.action==='mapping-remove'){requireThat(hasPermission(a,'candidates.add')||hasPermission(a,'reviews.partner'),'Mapping removal permission required.',403);return scoped(a,['researcher']);}
  if(b.action==='mapping-batch')return a; // Every item is reauthorized in researchMutation.
  const row=b.id?db.rows('SELECT kind,data FROM research_records WHERE id=?',text(b.id))[0]:null,old=row?JSON.parse(row.data):null;
  let p=researchPermissions[b.action];
