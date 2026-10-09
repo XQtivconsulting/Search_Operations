@@ -760,3 +760,17 @@ test('direct approval saves partner-entered rationale atomically and retains ori
  const event=(await f.state()).research.events.find(e=>e.action==='mapping-approve-draft')!;assert.equal(event.actor,partner.id);assert.equal(event.data.before.rationale,draft.rationale);assert.equal(event.data.after.rationale,saved.rationale);
  }finally{f.db.close();}
 });
+
+test('direct approval validates and saves the full edited criteria assessment atomically',async()=>{
+ const f=fixture();try{
+ const t=await setup(f),id=await mapping(f,t),draft=await f.rec(id);
+ const strategy=(await f.state()).research.records.find(r=>r.kind==='strategy'&&r.role_id==='r')!;
+ const criteria=[{id:'sales',label:'Sales leadership',requirement:'Enterprise accounts',weight:100}];
+ f.db.prepare('UPDATE research_records SET data=? WHERE id=?').run(JSON.stringify({...strategy,active_criteria:criteria}),strategy.id);
+ const direct={...partner,permissions:['reviews.direct']},body={id,version:draft.version,action:'mapping-approve-draft',rationale:'Confirmed fit',notes:'Partner verified evidence'};
+ await assert.rejects(f.run(direct,{...body,evidence:{sales:{rating:4,text:''}}}));
+ assert.equal((await f.rec(id)).status,'Draft');
+ await f.run(direct,{...body,evidence:{sales:{rating:4,text:'Led enterprise accounts and a national sales team'}}});
+ const saved=await f.rec(id);assert.equal(saved.evidence.sales.rating,4);assert.equal(saved.evidence.sales.text,'Led enterprise accounts and a national sales team');assert.deepEqual(saved.criteria_snapshot,criteria);assert.equal(saved.mapper_id,draft.mapper_id);assert.equal(saved.status,'Approved');
+ }finally{f.db.close();}
+});

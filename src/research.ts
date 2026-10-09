@@ -220,7 +220,7 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
    const strategyRef=find('strategy',role),strategy=strategyRef?get(db,strategyRef.id):null;
    const readiness=submissionReadiness(strategy);requireThat(!readiness,readiness);
    const criteria=strategy?.active_criteria||[];
-   next.evidence=cleanEvidence(old.evidence,criteria,true);next.criteria_snapshot=criteria;next.strategy_revision=strategy?.revision;
+   next.evidence=cleanEvidence(b.evidence===undefined?old.evidence:b.evidence,criteria,true);next.criteria_snapshot=criteria;next.strategy_revision=strategy?.revision;
    next.status='Approved';next.partner_decision='Approve';next.partner_reviewed_by=a.id;next.partner_reviewed_name=reviewer.name;next.partner_reviewed_at=iso();
    next.team_review_skipped=true;next.team_review_skip_reason=text(b.notes,5000);next.peer_decision=null;next.peer_reviewed_by=null;next.peer_reviewed_name=null;next.peer_reviewed_at=null;
    next.submitted_at=old.submitted_at||iso();next.stage_at=iso();next.work_date=old.work_date||new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'}).format(new Date());next.cycle=(old.cycle||0)+1;next.last_feedback=text(b.notes,5000);
