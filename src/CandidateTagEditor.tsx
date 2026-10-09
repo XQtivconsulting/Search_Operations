@@ -14,5 +14,5 @@ export function CandidateTagEditor({records,value,onChange,api}:{records:any[];v
    <input aria-label={'Find or add '+c.label} placeholder="Type to select or add…" value={q} onChange={e=>setQueries({...queries,[c.key]:e.target.value})}/>
    <div className="tag-value-options">{matches.filter(v=>!selected.some(s=>normTag(s)===normTag(v))).map(v=><button type="button" key={v} onClick={()=>add(v)}>{v}</button>)}{q.trim()&&!options.some(v=>normTag(v)===normTag(q))&&!selected.some(v=>normTag(v)===normTag(q))&&<button type="button" onClick={()=>add(q.trim())}>Add “{q.trim()}”</button>}</div>
   </fieldset>;
- })}<p className="fine">Search tags come from mappings. Compensation values specify currency and annual on-target earnings; leave unknown values unset.</p></div>;
+ })}</div>;
 }

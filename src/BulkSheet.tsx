@@ -82,7 +82,7 @@ export function BulkSheet({data, entries, assignments, api, reload, onDirty, onO
     } catch (e: any) { setError(e.message); } finally { setBusy(false); }
   }
   return <section className="panel bulk-sheet">
-    <div className="section-head"><div><h2>Spreadsheet workspace</h2><p className="fine">Candidate-tracked roles populate automatically. Historical rows remain separate; daily targets are editable.</p></div>
+    <div className="section-head"><div><h2>Spreadsheet workspace</h2></div>
       <button className="primary" disabled={!dirty || busy} onClick={save}>{busy ? "Saving…" : `Save ${dirty || ""} changed rows`}</button></div>
     <div className="sheet-toolbar">
       <label>Work area<select aria-label="Work area" value={mode} disabled={!!dirty || busy} onChange={e => {setMode(e.target.value); setSelected(new Set()); setUndo([]); setError(""); setNotice("");}}>
