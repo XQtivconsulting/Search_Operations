@@ -42,3 +42,7 @@
 .app .cumulative-monitor .sheet-table :is(th,td){overflow-wrap:anywhere;min-width:0}
 .app .cumulative-monitor .monitor-note{max-width:100%;box-sizing:border-box;overflow-wrap:anywhere}
 .app .cumulative-monitor .monitor-rate small{white-space:normal;overflow-wrap:normal}
+
+.monitor-detail-actions{margin-left:auto;align-self:end;flex-wrap:wrap}.app .modal.weekly-popup.monitor-detail-popup{width:min(1400px,96vw);max-width:1400px}.monitor-detail-popup .monitor-table-scroll{max-height:65vh;overflow:auto}.monitor-detail-popup .monitor-table-scroll thead{position:sticky;top:0;z-index:1;background:#fff}
+@media(min-width:760px) and (max-width:1100px){.cumulative-monitor .monitor-charts{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:759px){.monitor-detail-actions{margin-left:0;width:100%}.monitor-detail-actions button{flex:1}}

@@ -6,6 +6,6 @@ test('cumulative monitor opens a daily search drilldown without pipeline navigat
  const html=renderToStaticMarkup(React.createElement(DeliveryMonitor,{data,onOpen:()=>{},onCandidate:()=>{},onAllocate:()=>{}}));
  for(const text of ['Find search','Approval target to date','Effort hours','Days since first map','Throughput','Quality','Daily progress for Role'])assert.ok(html.includes(text),text);
  const detail=renderToStaticMarkup(React.createElement(DeliveryMonitor,{data,initialState:{searchId:'r',period:'all'},onOpen:()=>{},onCandidate:()=>{}}));
- for(const text of ['Cumulative approvals against plan','Daily mapping and approval results','Daily quality','Researchers · selected period','Share of approvals','Mapping date'])assert.ok(detail.includes(text),text);
+ for(const text of ['Cumulative approvals against plan','Daily mapping and approval results','Daily quality','Researchers (','Daily activity (','Metric definitions'])assert.ok(detail.includes(text),text);
  for(const text of ['Candidate reviews','All outstanding','Adjust allocation','delivery-summary','This week'])assert.ok(!html.includes(text),text);
 });

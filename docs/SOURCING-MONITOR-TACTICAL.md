@@ -13,3 +13,9 @@ Attention uses the proposed inspection thresholds: approval ratio below 40% (min
 Maps per person-day uses distinct dated researcher pairs with effort or mappings. Unattributed/undated mappings are excluded from the numerator. Shares and absolute counts retain unattributed historical profiles separately. Effort is split across all searches before team/search filtering and preserves PTO and recorded corrections.
 
 Verification: synthetic tests cover Eastern date boundaries, late approvals assigned to the mapping day, future targets, researcher reconciliation, contribution shares, planned days without output, missing dates, review-lag flags, filtering, PTO and effort corrections. Typecheck, complete tests and build run before release; deployment and visual verification are recorded separately.
+
+## Accessible detail tables — 9 October 2026
+
+The search detail keeps summary cards and three charts on the main screen. Researchers and Daily activity buttons sit beside the mapping-period filter and include row counts. Each opens a wide, internally scrollable dialog; no detail table is buried beneath another table. Chart dates and daily date buttons open the day's researchers directly. Researchers can switch back to the whole period or daily activity. Candidate-count drilldowns return to the underlying detail dialog when closed. Metric definitions are accessible from the top toolbar. Existing period calculations and review attribution are unchanged. Dialogs use the shared Escape/focus handling.
+
+Verification: updated existing render coverage for the new entry points; complete typecheck, tests and build required before deployment. No production data is modified by this interface change.
