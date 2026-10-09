@@ -97,3 +97,5 @@ Verification uses synthetic memberships and checks delegated-admin denial, forge
 ## Direct draft approval
 
 The explicit `reviews.direct` permission (Approve drafts and returned mappings directly) is opt-in for configured roles. Super Admin retains all permissions. Only the assigned search partner may use it, even with Super Admin access. The mapping action requires Draft or Needs information status, a ready strategy, valid fit evidence/rationale, a bypass reason, and the current version. It preserves mapping attribution/date, records the partner and team-review skip in the audit, and hands the approved candidate to engagement. It does not fabricate a team approval. The normal two-stage flow remains unchanged.
+
+Direct approval includes an editable, prefilled fit rationale. The partner can add or revise it in the approval popup; rationale and approval save atomically with the original researcher attribution retained and before/after rationale recorded in the audit.

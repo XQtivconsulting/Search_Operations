@@ -215,7 +215,8 @@ export function researchMutation(db:DB,a:Actor,b:any,members:Member[]) {
    const reviewer=member(a.id);
    requireThat(['Draft','Needs information'].includes(old.status),'Only draft or returned mappings can be approved directly.',409);
    requireThat(text(b.notes),'Explain why team review is being skipped.');
-   requireThat(text(old.rationale),'Add a fit rationale before approving.');
+   next.rationale=text(b.rationale===undefined?old.rationale:b.rationale,5000);
+   requireThat(next.rationale,'Add a fit rationale before approving.');
    const strategyRef=find('strategy',role),strategy=strategyRef?get(db,strategyRef.id):null;
    const readiness=submissionReadiness(strategy);requireThat(!readiness,readiness);
    const criteria=strategy?.active_criteria||[];

@@ -747,3 +747,16 @@ test('assigned partner can resolve a returned mapping with direct approval while
  assert.equal(state.research.records.filter(r=>r.kind==='engagement'&&r.mapping_id===id).length,1);
  }finally{f.db.close();}
 });
+
+
+test('direct approval saves partner-entered rationale atomically and retains original researcher attribution',async()=>{
+ const f=fixture();try{
+ const t=await setup(f),id=await mapping(f,t),draft=await f.rec(id),direct={...partner,permissions:['reviews.direct']};
+ const body={id,version:draft.version,action:'mapping-approve-draft',notes:'Partner assessed directly'};
+ await assert.rejects(f.run(direct,{...body,rationale:'   '}),/fit rationale/);
+ assert.equal((await f.rec(id)).status,'Draft');
+ await f.run(direct,{...body,rationale:'Verified enterprise sales leadership and relevant industry experience.'});
+ const saved=await f.rec(id);assert.equal(saved.rationale,'Verified enterprise sales leadership and relevant industry experience.');assert.equal(saved.mapper_id,draft.mapper_id);assert.equal(saved.status,'Approved');
+ const event=(await f.state()).research.events.find(e=>e.action==='mapping-approve-draft')!;assert.equal(event.actor,partner.id);assert.equal(event.data.before.rationale,draft.rationale);assert.equal(event.data.after.rationale,saved.rationale);
+ }finally{f.db.close();}
+});
