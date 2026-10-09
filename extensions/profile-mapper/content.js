@@ -1,4 +1,4 @@
-var MAPPER_PROTOCOL = "EXTRACT_PROFILE_V126";
+var MAPPER_PROTOCOL = "EXTRACT_PROFILE_V127";
 globalThis.__xqtivMapperProtocols ||= new Set();
 if (!globalThis.__xqtivMapperProtocols.has(MAPPER_PROTOCOL)) {
   globalThis.__xqtivMapperProtocols.add(MAPPER_PROTOCOL);
@@ -16,9 +16,10 @@ async function extractProfile() {
   const name = extractName(structured);
   const location = extractLocation(main, name, structured);
   const item = findCurrentExperienceItem(main);
-  const company = item ? extractCompanyFromExperienceItem(item) : '';
+  const headerJob = item ? {company:'',currentTitle:''} : extractHeaderJob(main, structured);
+  const company = item ? extractCompanyFromExperienceItem(item) : headerJob.company;
   const lines = item ? [...item.querySelectorAll("p, span[aria-hidden='true'], time")].map(n=>clean(n.textContent)).filter(Boolean) : [];
-  const currentTitle = item ? extractTitleFromExperienceLines(lines.length ? lines : cleanLines(item.innerText), company) : '';
+  const currentTitle = item ? extractTitleFromExperienceLines(lines.length ? lines : cleanLines(item.innerText), company) : headerJob.currentTitle;
   return {
     name,
     company,
@@ -26,6 +27,29 @@ async function extractProfile() {
     location,
     linkedinUrl: canonicalUrl(locationHref())
   };
+}
+
+// Only read the profile header, never unrelated company links elsewhere on the page.
+function extractHeaderJob(main, structured = {}) {
+  const h1 = main.querySelector('h1');
+  const header = findProfileHeader(h1, main);
+  let company = cleanCompany(structured.company || '');
+  let currentTitle = clean(structured.jobTitle || '');
+  if (!header) return {company, currentTitle};
+  const employer = header.querySelector("button[aria-label*='Current company' i], a[aria-label*='Current company' i]");
+  if (!company && employer) company = cleanCompany(clean(employer.getAttribute('aria-label')).replace(/^Current company\s*[:.]?\s*/i,'').replace(/\.\s*Click.*$/i,''));
+  if (!company) {
+    const link = header.querySelector("a[href*='/company/']");
+    if (link) company = extractCompanyFromCompanyLink(link);
+  }
+  const headline = clean(header.querySelector(".text-body-medium.break-words, [data-generated-suggestion-target='urn:li:fsu_profileActionDelegate:headline'], [data-field='headline']")?.textContent);
+  const pair = headline.match(/^(.{2,180}?)\s+(?:at|@)\s+(.{2,100})$/i);
+  if (!currentTitle && pair && !/[|•]/.test(headline) && isPlausibleCompany(pair[2])) {
+    const headlineCompany = cleanCompany(pair[2]);
+    if (!company || company.toLowerCase() === headlineCompany.toLowerCase()) {company = headlineCompany;currentTitle = clean(pair[1]);}
+  }
+  if (!currentTitle && headline && !/[|•]/.test(headline) && !/\s(?:at|@)\s/i.test(headline) && isPlausibleCurrentTitle(headline)) currentTitle = headline;
+  return {company:isPlausibleCompany(company)?company:'',currentTitle:isPlausibleCurrentTitle(currentTitle)?currentTitle:''};
 }
 
 function extractName(structured) {
@@ -109,7 +133,7 @@ function extractLocation(main, name, structured = {}) {
 }
 
 function extractStructuredProfile() {
-  const result = { name: "", locations: [] };
+  const result = { name: "", locations: [], company: "", jobTitle: "" };
   document.querySelectorAll("script[type='application/ld+json']").forEach((script) => {
     try {
       const parsed = JSON.parse(script.textContent || "null");
@@ -118,6 +142,8 @@ function extractStructuredProfile() {
         const type = Array.isArray(node["@type"]) ? node["@type"] : [node["@type"]];
         const isPerson = type.some((value) => /person/i.test(String(value || "")));
         if (!result.name && isPerson && node.name) result.name = clean(node.name);
+        if (isPerson && !result.jobTitle && typeof node.jobTitle === "string") result.jobTitle = clean(node.jobTitle);
+        if (isPerson && !result.company && node.worksFor && !Array.isArray(node.worksFor)) result.company = clean(typeof node.worksFor === "string" ? node.worksFor : node.worksFor.name);
         const address = isPerson ? (node.address || node.homeLocation?.address || node.location?.address) : null;
         if (address) {
           const parts = typeof address === "string" ? [address] : [address.addressLocality, address.addressRegion, address.addressCountry?.name || address.addressCountry];
@@ -426,10 +452,18 @@ function extractCurrentCompanyFromRoot(root) {
 }
 
 function findCurrentExperienceItem(root) {
-  const experienceHeading = [...root.querySelectorAll("h1,h2,h3,span")].find((node) => clean(node.textContent).toLowerCase() === "experience");
-  const section = experienceHeading?.closest("section") || root.querySelector("section[id*='experience']") || root;
-  const items = findExperienceItems(section);
-  return items.find((item) => /\bpresent\b|\bcurrent\b/i.test(clean(item.textContent))) || null;
+  const experienceHeading = [...root.querySelectorAll("h1,h2,h3,span,p")].find(node => clean(node.textContent).toLowerCase() === 'experience');
+  const section = experienceHeading?.closest('section') || root.querySelector("section[id*='experience']") || root.querySelector('#experience')?.closest('section');
+  if (!section) return null;
+  const item = findExperienceItems(section).find(item => /\bpresent\b|\bcurrent\b/i.test(clean(item.textContent)));
+  if (item) return item;
+  // New LinkedIn layouts use paragraphs/divs rather than list items.
+  for (const date of section.querySelectorAll("p, span[aria-hidden='true'], time")) {
+    if (!/\bpresent\b|\bcurrent\b/i.test(clean(date.textContent))) continue;
+    const container = findCurrentExperienceContainer(date, section);
+    if (container) return container;
+  }
+  return null;
 }
 
 async function fetchCompanyNameFromItem(item) {
@@ -504,6 +538,8 @@ function extractCompanyFromCompanyLink(link) {
   if (isPlausibleCompany(logoAlt) && !/^company$/i.test(logoAlt)) return cleanCompany(logoAlt);
 
   const ariaLines = [...link.querySelectorAll("span[aria-hidden='true']")].map((node) => clean(node.textContent)).filter(Boolean);
+  const plainName = cleanCompany(link.innerText || link.textContent);
+  if (plainName && !/[\n\r]/.test(link.innerText || link.textContent || "") && isPlausibleCompany(plainName) && !/^(view|visit|open)\b/i.test(plainName)) return plainName;
   const fromLines = extractCompanyFromExperienceLines(ariaLines) || extractCompanyFromExperienceLines(cleanLines(link.innerText || link.textContent || ""));
   if (fromLines) return fromLines;
 

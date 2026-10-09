@@ -28,3 +28,8 @@ The extension stores only the current profile draft locally, expires it on next 
 
 ## Verification
 Synthetic tests cover permission denial, revoked membership, unassigned searches, foreign IDs, canonical-URL reuse, repeat mapping reuse, no existing-profile overwrite, company matching and master/target creation, attribution, Draft status, same-origin enforcement and account switching. Full typecheck, tests and build are deployment gates. Browser installation and live LinkedIn extraction need a user-run acceptance check; no real profiles are written for testing.
+
+## 2.0.1 connection recovery
+Connect is explicit, single-flight, and reports progress/errors above the form. Discarded/frozen tabs prompt the user to open XRP. Injection does not wait for document idle; tab discovery, injection and network requests are bounded. Late injection after its deadline does not send a request. An import timeout reports an uncertain result and permits a duplicate-safe retry. Synthetic popup tests exercise hung injection, expired injection, fetch abort, successful retry and account pinning.
+
+Capture now recognizes paragraph-based current Experience entries and falls back to explicitly displayed profile-header employment details when Experience is absent. Plain company link text is supported for numeric LinkedIn company IDs. Capture reports missing job fields. Synthetic extraction cases cover both layouts; the reported live profile has not been retested in Edge.

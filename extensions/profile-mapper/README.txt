@@ -1,4 +1,4 @@
-XRP Profile Mapper 2.0
+XRP Profile Mapper 2.0.1
 
 Install in Chrome or Edge:
 1. Unzip this package into a folder.
@@ -17,3 +17,5 @@ Existing candidates are reused without overwriting their profiles. New mappings 
 The current candidate draft is stored locally for up to 24 hours and can be removed with Clear profile. No credentials are stored. Uninstalling removes the extension's local data. Leave the popup open until an import finishes; reopening and repeating the same profile/search safely reuses existing records.
 
 To update: replace this folder's files and click Reload on the extension card. This internal package is not a Chrome Web Store release.
+
+Connection recovery: if XRP is sleeping, open or refresh its tab before reconnecting. Connection status/errors appear at the top. Requests time out rather than leaving the controls disabled.
