@@ -163,7 +163,13 @@ export default {
           const a = await identity.authenticate(rawCookie, tenant);
           requireThat(a, "Please sign in to this workspace.", 401);
           const workspace: any = env.WORKSPACE.getByName(a.tenant);
-          if(url.pathname==='/api/roles'&&req.method==='GET')res=json(await identity.roleCatalog(a));
+          if(url.pathname.startsWith('/api/profile-import/')){
+            const action=url.pathname.slice('/api/profile-import/'.length);
+            requireThat((action==='context'&&req.method==='GET')||(['preview','commit'].includes(action)&&req.method==='POST'),'Unknown import endpoint.',404);
+            await identity.limit('profile-import:'+a.tenant+':'+a.id,120);
+            res=json(await workspace.profileImport(a,{...body,action},await identity.members(a.tenant)));
+          }
+          else if(url.pathname==='/api/roles'&&req.method==='GET')res=json(await identity.roleCatalog(a));
           else if(url.pathname==='/api/roles'&&req.method==='POST')res=json(await identity.rolePolicy(a,body));
           else if(url.pathname.startsWith('/api/backups/')) {
             requireThat((hasPermission(a,url.pathname==='/api/backups/export'?'data.export':'data.backup')||url.pathname==='/api/backups/status'&&hasPermission(a,'data.export')),'Backup or export permission required.',403);

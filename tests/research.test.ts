@@ -774,3 +774,41 @@ test('direct approval validates and saves the full edited criteria assessment at
  const saved=await f.rec(id);assert.equal(saved.evidence.sales.rating,4);assert.equal(saved.evidence.sales.text,'Led enterprise accounts and a national sales team');assert.deepEqual(saved.criteria_snapshot,criteria);assert.equal(saved.mapper_id,draft.mapper_id);assert.equal(saved.status,'Approved');
  }finally{f.db.close();}
 });
+
+const extensionProfile={firstName:'Synthetic',lastName:'Extension',linkedinUrl:'www.linkedin.com/in/synthetic-extension/?trk=abc',currentTitle:'Sales Director',company:'Example Systems',location:'Test City',email:'',phone:''};
+const extensionActor={...mapper,roles:['researcher'],permissions:['candidates.create','candidates.add','candidates.view']};
+test('extension import is attributed to the authenticated member, creates master/target and reuses normalized duplicates',async()=>{
+ const f=fixture();try{
+ await setup(f);const invoke=(b:any)=>f.w.profileImport(extensionActor,b,members);
+ const context:any=await invoke({action:'context'});assert.deepEqual(context.searches.map((s:any)=>s.id),['r']);
+ const body={action:'commit',candidate:extensionProfile,searchId:'r',mapper_id:'impostor',status:'Approved'};
+ const first:any=await invoke(body),second:any=await invoke({...body,candidate:{...extensionProfile,linkedinUrl:' https://www.linkedin.com/in/SYNTHETIC-EXTENSION '}});
+ assert.equal(first.candidateId,second.candidateId);assert.equal(first.mappingId,second.mappingId);assert.equal(second.mappingCreated,false);
+ const m=await f.rec(first.mappingId);assert.equal(m.mapper_id,mapper.id);assert.equal(m.status,'Draft');assert.equal((await f.rec(first.candidateId)).location,'Test City');
+ const state=await f.state();assert.ok(state.research.records.some(r=>r.kind==='company'&&r.name==='Example Systems'));assert.ok(state.research.records.some(r=>r.kind==='target'&&r.company_id===m.company_id));
+ const third:any=await invoke({...body,searchId:'',candidate:{...extensionProfile,currentTitle:'Do not overwrite'}});assert.equal(third.candidateCreated,false);assert.equal((await f.rec(first.candidateId)).title,'Sales Director');
+ }finally{f.db.close();}
+});
+test('extension import rejects missing permissions, revoked members, unassigned searches and foreign candidate IDs without partial writes',async()=>{
+ const f=fixture();try{
+ await setup(f);const body={action:'commit',candidate:extensionProfile,searchId:'r'};
+ for(const permissions of [[],['candidates.view'],['candidates.create','candidates.view'],['candidates.add','candidates.view']])await assert.rejects(f.w.profileImport({...extensionActor,permissions},body,members));
+ await assert.rejects(f.w.profileImport(extensionActor,body,members.map(m=>m.id===mapper.id?{...m,status:'revoked'}:m)),/Active/);
+ await assert.rejects(f.w.profileImport(extensionActor,{...body,searchId:'r2'},members),/not assigned/);
+ await assert.rejects(f.w.profileImport(extensionActor,{...body,candidateId:'foreign'},members),/current matches/);
+ assert.equal((await f.state()).research.records.filter(r=>r.kind==='candidate').length,0);
+ }finally{f.db.close();}
+});
+test('extension import requires duplicate/company review and only links chosen matching candidates',async()=>{
+ const f=fixture();try{
+ await setup(f);const invoke=(b:any)=>f.w.profileImport(extensionActor,b,members);
+ const first:any=await invoke({action:'commit',candidate:extensionProfile});
+ const different={...extensionProfile,linkedinUrl:'linkedin.com/in/another-profile'};
+ await assert.rejects(invoke({action:'commit',candidate:different}),/similar candidates/);
+ const reused:any=await invoke({action:'commit',candidate:different,candidateId:first.candidateId,searchId:'r'});assert.equal(reused.candidateId,first.candidateId);assert.equal(reused.mappingCreated,true);
+ const differentPerson={...different,firstName:'Another',lastName:'Person',company:'ExampleSystems'};
+ const preview:any=await invoke({action:'preview',candidate:differentPerson});assert.equal(preview.companies[0].name,'Example Systems');
+ await assert.rejects(invoke({action:'commit',candidate:differentPerson}),/similar companies/);
+ const chosen:any=await invoke({action:'commit',candidate:differentPerson,companyId:preview.companies[0].id});assert.equal((await f.rec(chosen.candidateId)).company,'Example Systems');
+ }finally{f.db.close();}
+});

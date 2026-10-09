@@ -13,3 +13,5 @@ coverage/
 .wrangler-backups.json
 
 public/geography/
+
+public/downloads/xrp-profile-mapper.zip

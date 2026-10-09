@@ -129,6 +129,13 @@ function App() {
   const navigation=useNavigationHistory(data?workspace+':'+data.actor.id:'',
     {page,candidateId,selected,repoTab,repoState,viewStates,deliveryStart,allocationStart,engagementStart,interviewRole,mappingStart,companySearch},
     v=>{v=normalizeEngagementVisit(v);setViewStates(v.viewStates||{});setRepoRestore(n=>n+1);setSheetDirty(false);setPage(v.page);setCandidateId(v.candidateId);setSelected(v.selected);setRepoTab(v.repoTab);setRepoState(v.repoState||{});setDeliveryStart(v.deliveryStart);setAllocationStart(v.allocationStart);setEngagementStart(v.engagementStart);setInterviewRole(v.interviewRole);setMappingStart(v.mappingStart);setCompanySearch(v.companySearch||'');},sheetDirty);
+  useEffect(()=>{
+    if(!data)return;
+    const url=new URL(location.href),id=url.searchParams.get('candidate');
+    if(!id)return;
+    if(canViewPage(data.actor,'Candidates')&&data.research?.records.some((r:Row)=>r.kind==='candidate'&&r.id===id)){setPage('Candidates');setCandidateId(id);}
+    url.searchParams.delete('candidate');history.replaceState(history.state,'',url);
+  },[data]);
   useEffect(()=>{const warn=(e:BeforeUnloadEvent)=>{if(sheetDirty){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[sheetDirty]);
   const invite = location.pathname.startsWith('/join/') ? location.pathname.split('/')[2] : new URLSearchParams(location.hash.slice(1)).get("invite");
   const [invitation,setInvitation] = useState<Row|null>(null);

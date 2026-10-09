@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "build": "node --import tsx scripts/build-geography.mjs && vite build",
+    "build": "node scripts/build-profile-mapper.mjs && node --import tsx scripts/build-geography.mjs && vite build",
     "dev": "wrangler dev",
     "deploy": "npm run build && wrangler deploy",
     "test": "node --import tsx --test tests/*.test.ts",

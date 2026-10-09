@@ -1,3 +1,4 @@
+import {profileImport} from './profile-import';
 import {reconcileCompanyMaster,mergeCompanyMaster} from './company-master-integrity';
 import {mappingBatch,mappingBatchSchema} from './mapping-batch';
 import {importInterviews} from './interview-import';
@@ -298,6 +299,7 @@ export class Workspace extends DurableObject {
       }
       return researchMutation(this,a,b,members);
     });}
+  async profileImport(a:Actor,b:any,members:Member[]):Promise<any>{await this.syncPeople(members);return this.ctx.storage.transactionSync(()=>profileImport(this,a,b,members));}
   // Legacy anonymous links no longer grant role access.
   async publicBrief(_token:string) {return null;}
   async candidateInvite(a:Actor,b:any){return this.ctx.storage.transactionSync(()=>createCandidateInvite(this,a,b));}

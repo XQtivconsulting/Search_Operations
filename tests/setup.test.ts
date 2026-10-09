@@ -308,3 +308,15 @@ test('permission grid saves atomically, rejects delegated admins and stale rows'
   await assert.rejects(identity.rolePolicy(admin as any,{action:'batch',roles:changes}),/Super Admin permission/);
  }finally{db.close();}
 });
+
+test('extension API requires same-origin authenticated current membership and detects account switching',async()=>{
+ const {db,identity}=peopleFixture();let writes=0;try{
+ const session=await identity.session('reader');await identity.members('test');
+ const env:any={IDENTITY:{getByName:()=>identity},WORKSPACE:{getByName:()=>({profileImport:async(a:any)=>{writes++;return {actor:a.id};}})}};
+ const send=(cookie:string,origin:string,expected='reader')=>worker.fetch(new Request('https://app.example.com/api/profile-import/commit',{method:'POST',headers:{Origin:origin,Cookie:'search_session='+cookie,'X-Workspace':'test','X-Expected-User':expected},body:'{}'}),env);
+ assert.equal((await send(session.token,'https://evil.example')).status,403);assert.equal((await send(session.token,'https://app.example.com','someone-else')).status,409);
+ assert.equal((await send('invalid','https://app.example.com')).status,409);assert.equal(writes,0);
+ assert.equal((await send(session.token,'https://app.example.com')).status,200);
+ db.prepare("UPDATE memberships SET status='revoked' WHERE user_id='reader'").run();assert.equal((await send(session.token,'https://app.example.com')).status,401);assert.equal(writes,1);
+ }finally{db.close();}
+});
